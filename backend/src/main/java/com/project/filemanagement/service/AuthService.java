@@ -1,6 +1,7 @@
 package com.project.filemanagement.service;
 
 import com.project.filemanagement.dto.LoginRequest;
+import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.UserRepository;
@@ -50,20 +51,20 @@ public class AuthService {
         return "User registered successfully";
     }
 
-    public String loginUser(LoginRequest request) {
+    public LoginResponse loginUser(LoginRequest request) {
 
         if (request.getEmail() == null || request.getEmail().isBlank()) {
-            return "Email is required";
+            return new LoginResponse("Email is required", null, null, null);
         }
 
         if (request.getPassword() == null || request.getPassword().isBlank()) {
-            return "Password is required";
+            return new LoginResponse("Password is required", null, null, null);
         }
 
         Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
 
         if (userOptional.isEmpty()) {
-            return "Invalid email or password";
+            return new LoginResponse("Invalid email or password", null, null, null);
         }
 
         User user = userOptional.get();
@@ -73,10 +74,15 @@ public class AuthService {
                 user.getPasswordHash()
         );
 
-        if (passwordMatched) {
-            return "Login successful";
+        if (!passwordMatched) {
+            return new LoginResponse("Invalid email or password", null, null, null);
         }
 
-        return "Invalid email or password";
+        return new LoginResponse(
+                "Login successful",
+                user.getId(),
+                user.getFullName(),
+                user.getEmail()
+        );
     }
 }
