@@ -33,3 +33,6 @@ backend/slot5-valid.txt
 backend/slot5-empty.txt
 backend/slot5-invalid.pdf
 backend/slot5-valid.txt
+
+# Slot 6 byte-array test files
+backend/slot6-test.doc
