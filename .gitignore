@@ -23,3 +23,8 @@ Thumbs.db
 Day_2_API_Test_Output.txt
 slot3_api_test_output.txt
 backend/Day_2_API_Test_Output.txt
+
+# Slot 5 upload test files
+backend/slot5-empty.txt
+backend/slot5-invalid.pdf
+backend/slot5-valid.txt
