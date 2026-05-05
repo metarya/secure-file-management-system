@@ -18,3 +18,8 @@ backend/target/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Day 2 local test outputs
+Day_2_API_Test_Output.txt
+slot3_api_test_output.txt
+backend/Day_2_API_Test_Output.txt
