@@ -63,7 +63,7 @@ public class FileService {
         String originalFileName = file.getOriginalFilename();
 
         if (originalFileName == null || originalFileName.isBlank()) {
-            throw new RuntimeException("File name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File name is required");
         }
 
         // 4. Extract file extension.
@@ -71,7 +71,7 @@ public class FileService {
 
         // 5. Allow only .txt extension.
         if (!isAllowedFileType(fileType)) {
-            throw new RuntimeException("Only .txt files are allowed");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only .txt files are allowed");
         }
 
         // 6. Read actual uploaded bytes once.
@@ -97,7 +97,7 @@ public class FileService {
         String textContent = new String(originalBytes, StandardCharsets.UTF_8);
 
         if (containsSuspiciousContent(textContent)) {
-            throw new RuntimeException("Suspicious file content detected. Upload rejected");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suspicious file content detected. Upload rejected");
         }
 
 
@@ -105,7 +105,7 @@ public class FileService {
         String fileHash = generateSha256Hash(originalBytes);
 
         if (fileRepository.existsByOwnerAndFileHash(owner, fileHash)) {
-            throw new RuntimeException("Duplicate file detected. This file was already uploaded by the same user");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate file detected. This file was already uploaded by the same user");
         }
 
         // Compress original file bytes before storing in MySQL.
@@ -308,7 +308,7 @@ public class FileService {
         int dotIndex = fileName.lastIndexOf('.');
 
         if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
-            throw new RuntimeException("File extension is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File extension is required");
         }
 
         return fileName.substring(dotIndex + 1).toLowerCase();
