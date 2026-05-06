@@ -1,5 +1,6 @@
 package com.project.filemanagement.controller;
 
+import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.service.FileService;
@@ -33,5 +34,18 @@ public class FileController {
             @RequestParam("ownerId") Long ownerId) {
 
         return ResponseEntity.ok(fileService.uploadMultipleFiles(files, ownerId));
+    }
+
+    @GetMapping("/my-files")
+    public ResponseEntity<List<FileListResponse>> getMyFiles(@RequestParam Long ownerId) {
+        return ResponseEntity.ok(fileService.getMyFiles(ownerId));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<FileListResponse>> searchMyFiles(
+            @RequestParam Long ownerId,
+            @RequestParam String name) {
+
+        return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
 }

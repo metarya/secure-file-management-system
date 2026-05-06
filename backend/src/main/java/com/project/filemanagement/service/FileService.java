@@ -1,6 +1,7 @@
 package com.project.filemanagement.service;
 
 import com.project.filemanagement.dto.FileUploadResponse;
+import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
@@ -183,6 +184,56 @@ public class FileService {
     }
 
 
+
+
+    public List<FileListResponse> getMyFiles(Long ownerId) {
+
+        if (ownerId == null) {
+            throw new RuntimeException("Owner ID is required");
+        }
+
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new RuntimeException("Owner user not found"));
+
+        return fileRepository.findByOwner(owner)
+                .stream()
+                .map(this::mapToFileListResponse)
+                .toList();
+    }
+
+    public List<FileListResponse> searchMyFiles(Long ownerId, String name) {
+
+        if (ownerId == null) {
+            throw new RuntimeException("Owner ID is required");
+        }
+
+        if (name == null || name.isBlank()) {
+            throw new RuntimeException("Search keyword is required");
+        }
+
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new RuntimeException("Owner user not found"));
+
+        return fileRepository.findByOwnerAndFileNameContainingIgnoreCase(owner, name)
+                .stream()
+                .map(this::mapToFileListResponse)
+                .toList();
+    }
+
+    private FileListResponse mapToFileListResponse(FileEntity file) {
+
+        return new FileListResponse(
+                file.getId(),
+                file.getFileName(),
+                file.getFileType(),
+                file.getFileSize(),
+                file.getOriginalFileSize(),
+                file.getCompressedFileSize(),
+                file.getCompressed(),
+                file.getVisibility(),
+                file.getUploadedAt()
+        );
+    }
 
     private String getFileExtension(String fileName) {
 
