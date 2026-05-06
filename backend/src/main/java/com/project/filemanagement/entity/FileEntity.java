@@ -25,6 +25,9 @@ public class FileEntity {
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
 
+    @Column(name = "file_hash", length = 64)
+    private String fileHash;
+
     @Column(nullable = false, length = 20)
     private String visibility = "PRIVATE";
 
@@ -111,4 +114,13 @@ public class FileEntity {
     public void setUploadedAt(LocalDateTime uploadedAt) {
         this.uploadedAt = uploadedAt;
     }
+
+    public String getFileHash() {
+        return fileHash;
+    }
+
+    public void setFileHash(String fileHash) {
+        this.fileHash = fileHash;
+    }
+
 }

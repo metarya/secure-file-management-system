@@ -65,6 +65,13 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
+    
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>3.3.0</version>
+        </dependency>
+
     </dependencies>
 
 	<build>

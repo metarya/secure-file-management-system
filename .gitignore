@@ -36,3 +36,4 @@ backend/slot5-valid.txt
 
 # Slot 6 byte-array test files
 backend/slot6-test.doc
+backend/.env
