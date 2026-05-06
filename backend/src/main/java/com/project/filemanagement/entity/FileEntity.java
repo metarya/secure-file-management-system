@@ -28,6 +28,15 @@ public class FileEntity {
     @Column(name = "file_hash", length = 64)
     private String fileHash;
 
+    @Column(name = "original_file_size")
+    private Long originalFileSize;
+
+    @Column(name = "compressed_file_size")
+    private Long compressedFileSize;
+
+    @Column(name = "is_compressed")
+    private Boolean compressed;
+
     @Column(nullable = false, length = 20)
     private String visibility = "PRIVATE";
 
@@ -121,6 +130,31 @@ public class FileEntity {
 
     public void setFileHash(String fileHash) {
         this.fileHash = fileHash;
+    }
+
+
+    public Long getOriginalFileSize() {
+        return originalFileSize;
+    }
+
+    public void setOriginalFileSize(Long originalFileSize) {
+        this.originalFileSize = originalFileSize;
+    }
+
+    public Long getCompressedFileSize() {
+        return compressedFileSize;
+    }
+
+    public void setCompressedFileSize(Long compressedFileSize) {
+        this.compressedFileSize = compressedFileSize;
+    }
+
+    public Boolean getCompressed() {
+        return compressed;
+    }
+
+    public void setCompressed(Boolean compressed) {
+        this.compressed = compressed;
     }
 
 }
