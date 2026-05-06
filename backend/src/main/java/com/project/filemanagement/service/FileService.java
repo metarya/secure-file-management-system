@@ -1,6 +1,7 @@
 package com.project.filemanagement.service;
 
 import com.project.filemanagement.dto.FileUploadResponse;
+import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
@@ -8,6 +9,15 @@ import com.project.filemanagement.repository.UserRepository;
 import org.apache.tika.Tika;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.ArrayList;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -91,6 +101,11 @@ public class FileService {
             throw new RuntimeException("Duplicate file detected. This file was already uploaded by the same user");
         }
 
+        // Compress original file bytes before storing in MySQL.
+        byte[] compressedBytes = compressBytes(originalBytes);
+        Long originalFileSize = (long) originalBytes.length;
+        Long compressedFileSize = (long) compressedBytes.length;
+
         // 8. Create FileEntity and store metadata + file bytes.
         FileEntity fileEntity = new FileEntity();
         fileEntity.setOwner(owner);
@@ -98,8 +113,11 @@ public class FileService {
         fileEntity.setFileType(fileType);
         fileEntity.setFileSize(file.getSize());
         fileEntity.setFileHash(fileHash);
+        fileEntity.setOriginalFileSize(originalFileSize);
+        fileEntity.setCompressedFileSize(compressedFileSize);
+        fileEntity.setCompressed(true);
         fileEntity.setVisibility("PRIVATE");
-        fileEntity.setFileData(originalBytes);
+        fileEntity.setFileData(compressedBytes);
 
         // 9. Save to MySQL through repository.
         FileEntity savedFile = fileRepository.save(fileEntity);
@@ -113,6 +131,58 @@ public class FileService {
                 savedFile.getFileSize()
         );
     }
+
+
+
+    public List<FileUploadResultResponse> uploadMultipleFiles(MultipartFile[] files, Long ownerId) {
+
+        if (ownerId == null) {
+            throw new RuntimeException("Owner ID is required");
+        }
+
+        if (files == null || files.length == 0) {
+            throw new RuntimeException("At least one file is required");
+        }
+
+        List<FileUploadResultResponse> results = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+
+            String originalFileName = "unknown";
+
+            try {
+                if (file != null && file.getOriginalFilename() != null) {
+                    originalFileName = file.getOriginalFilename();
+                }
+
+                FileUploadResponse uploadedFile = uploadFile(file, ownerId);
+
+                results.add(new FileUploadResultResponse(
+                        true,
+                        uploadedFile.getMessage(),
+                        uploadedFile.getFileId(),
+                        uploadedFile.getFileName(),
+                        uploadedFile.getFileType(),
+                        uploadedFile.getFileSize()
+                ));
+
+            } catch (Exception e) {
+
+                results.add(new FileUploadResultResponse(
+                        false,
+                        "Upload failed for " + originalFileName + ": " + e.getMessage(),
+                        null,
+                        originalFileName,
+                        null,
+                        null
+                ));
+            }
+        }
+
+        return results;
+    }
+
+
 
     private String getFileExtension(String fileName) {
 
@@ -184,6 +254,42 @@ public class FileService {
 
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
+    }
+
+
+    private byte[] compressBytes(byte[] originalBytes) {
+
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+
+            gzipOutputStream.write(originalBytes);
+            gzipOutputStream.finish();
+
+            return byteArrayOutputStream.toByteArray();
+
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to compress uploaded file", e);
+        }
+    }
+
+    private byte[] decompressBytes(byte[] compressedBytes) {
+
+        try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(compressedBytes);
+             GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream);
+             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+
+            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
+                byteArrayOutputStream.write(buffer, 0, bytesRead);
+            }
+
+            return byteArrayOutputStream.toByteArray();
+
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to decompress stored file", e);
         }
     }
 
