@@ -48,4 +48,21 @@ public class FileController {
 
         return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
+
+    @GetMapping("/download/{fileId}")
+    public ResponseEntity<byte[]> downloadFile(
+            @PathVariable Long fileId,
+            @RequestParam Long userId) {
+
+        return fileService.downloadFile(fileId, userId);
+    }
+
+    @DeleteMapping("/{fileId}")
+    public ResponseEntity<String> deleteFile(
+            @PathVariable Long fileId,
+            @RequestParam Long userId) {
+
+        return ResponseEntity.ok(fileService.deleteFile(fileId, userId));
+    }
+
 }

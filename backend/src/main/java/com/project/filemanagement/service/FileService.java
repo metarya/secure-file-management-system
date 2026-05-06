@@ -8,10 +8,16 @@ import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
 import org.apache.tika.Tika;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.ArrayList;
 
 import java.io.ByteArrayInputStream;
@@ -233,6 +239,68 @@ public class FileService {
                 file.getVisibility(),
                 file.getUploadedAt()
         );
+    }
+
+
+    public ResponseEntity<byte[]> downloadFile(Long fileId, Long userId) {
+
+        if (fileId == null) {
+            throw new RuntimeException("File ID is required");
+        }
+
+        if (userId == null) {
+            throw new RuntimeException("User ID is required");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        FileEntity file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found"));
+
+        if (!file.getOwner().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to download this file");
+        }
+
+        byte[] storedBytes = file.getFileData();
+        byte[] outputBytes;
+
+        if (Boolean.TRUE.equals(file.getCompressed())) {
+            outputBytes = decompressBytes(storedBytes);
+        } else {
+            outputBytes = storedBytes;
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + file.getFileName() + "\"")
+                .contentType(Objects.requireNonNull(MediaType.TEXT_PLAIN))
+                .body(outputBytes);
+    }
+
+    public String deleteFile(Long fileId, Long userId) {
+
+        if (fileId == null) {
+            throw new RuntimeException("File ID is required");
+        }
+
+        if (userId == null) {
+            throw new RuntimeException("User ID is required");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        FileEntity file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found"));
+
+        if (!file.getOwner().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to delete this file");
+        }
+
+        fileRepository.delete(file);
+
+        return "File deleted successfully";
     }
 
     private String getFileExtension(String fileName) {
