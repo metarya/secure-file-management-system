@@ -15,4 +15,6 @@ public interface FilePermissionRepository extends JpaRepository<FilePermission, 
     Optional<FilePermission> findByFileAndSharedWithUser(FileEntity file, User user);
 
     boolean existsByFileAndSharedWithUser(FileEntity file, User user);
+
+    List<FilePermission> findByFile(FileEntity file);
 }

@@ -26,8 +26,10 @@ public class FilePermission {
     @JoinColumn(name = "shared_with_user_id", nullable = false)
     private User sharedWithUser;
 
-    @Column(name = "permission_type", length = 50)
-    private String permissionType = "VIEW_DOWNLOAD";
+    // Permission type is now linked to permission_types.code
+    @ManyToOne
+    @JoinColumn(name = "permission_type", referencedColumnName = "code", nullable = false)
+    private PermissionType permissionType;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -35,7 +37,7 @@ public class FilePermission {
     public FilePermission() {
     }
 
-    public FilePermission(FileEntity file, User sharedWithUser, String permissionType) {
+    public FilePermission(FileEntity file, User sharedWithUser, PermissionType permissionType) {
         this.file = file;
         this.sharedWithUser = sharedWithUser;
         this.permissionType = permissionType;
@@ -54,7 +56,7 @@ public class FilePermission {
         return sharedWithUser;
     }
 
-    public String getPermissionType() {
+    public PermissionType getPermissionType() {
         return permissionType;
     }
 
@@ -74,7 +76,7 @@ public class FilePermission {
         this.sharedWithUser = sharedWithUser;
     }
 
-    public void setPermissionType(String permissionType) {
+    public void setPermissionType(PermissionType permissionType) {
         this.permissionType = permissionType;
     }
 

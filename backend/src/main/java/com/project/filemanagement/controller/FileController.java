@@ -3,8 +3,11 @@ package com.project.filemanagement.controller;
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.FileUploadResultResponse;
+import com.project.filemanagement.dto.ShareFileRequest;
+import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.service.FileService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -63,6 +66,17 @@ public class FileController {
             @RequestParam Long userId) {
 
         return ResponseEntity.ok(fileService.deleteFile(fileId, userId));
+    }
+
+
+    @PostMapping("/share")
+    public ResponseEntity<ShareFileResponse> shareFile(
+            @RequestBody ShareFileRequest request,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                fileService.shareFile(request, authentication.getName())
+        );
     }
 
 }

@@ -5,6 +5,7 @@ import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.security.JwtUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -14,11 +15,13 @@ import java.util.Optional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
+        this.jwtUtil = jwtUtil;
     }
 
     public String registerUser(RegisterRequest request) {
@@ -78,11 +81,14 @@ public class AuthService {
             return new LoginResponse("Invalid email or password", null, null, null);
         }
 
+        String token = jwtUtil.generateToken(user.getEmail(), user.getFullName());
+
         return new LoginResponse(
                 "Login successful",
                 user.getId(),
                 user.getFullName(),
-                user.getEmail()
+                user.getEmail(),
+                token
         );
     }
 }

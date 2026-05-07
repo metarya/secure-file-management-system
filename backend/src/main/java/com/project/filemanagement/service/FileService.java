@@ -3,10 +3,16 @@ package com.project.filemanagement.service;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResultResponse;
+import com.project.filemanagement.dto.ShareFileRequest;
+import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.entity.FileEntity;
+import com.project.filemanagement.entity.FilePermission;
+import com.project.filemanagement.entity.PermissionType;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
+import com.project.filemanagement.repository.FilePermissionRepository;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.repository.PermissionTypeRepository;
 import org.apache.tika.Tika;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -36,11 +42,20 @@ public class FileService {
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
+    private final FilePermissionRepository filePermissionRepository;
+    private final PermissionTypeRepository permissionTypeRepository;
     private final Tika tika;
 
-    public FileService(FileRepository fileRepository, UserRepository userRepository) {
+    public FileService(
+            FileRepository fileRepository,
+            UserRepository userRepository,
+            FilePermissionRepository filePermissionRepository,
+            PermissionTypeRepository permissionTypeRepository
+    ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
+        this.filePermissionRepository = filePermissionRepository;
+        this.permissionTypeRepository = permissionTypeRepository;
         this.tika = new Tika();
     }
 
@@ -140,6 +155,68 @@ public class FileService {
     }
 
 
+
+
+    public ShareFileResponse shareFile(ShareFileRequest request, String ownerEmail) {
+
+        if (ownerEmail == null || ownerEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Share request is required");
+        }
+
+        if (request.getFileId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
+        }
+
+        if (request.getTargetUserEmail() == null || request.getTargetUserEmail().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target user email is required");
+        }
+
+        if (request.getPermissionType() == null || request.getPermissionType().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Permission type is required");
+        }
+
+        User owner = userRepository.findByEmail(ownerEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated owner user not found"));
+
+        FileEntity file = fileRepository.findById(request.getFileId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        if (!file.getOwner().getId().equals(owner.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the file owner can share this file");
+        }
+
+        User targetUser = userRepository.findByEmail(request.getTargetUserEmail().trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found"));
+
+        if (owner.getId().equals(targetUser.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner cannot share file with themselves");
+        }
+
+        String requestedPermissionCode = request.getPermissionType().trim().toUpperCase();
+
+        PermissionType permissionType = permissionTypeRepository
+                .findByCodeAndActiveTrue(requestedPermissionCode)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or inactive permission type"));
+
+        boolean alreadyShared = filePermissionRepository.existsByFileAndSharedWithUser(file, targetUser);
+
+        if (alreadyShared) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "File is already shared with this user");
+        }
+
+        FilePermission permission = new FilePermission();
+        permission.setFile(file);
+        permission.setSharedWithUser(targetUser);
+        permission.setPermissionType(permissionType);
+
+        FilePermission savedPermission = filePermissionRepository.save(permission);
+
+        return new ShareFileResponse("File shared successfully", savedPermission.getId());
+    }
 
     public List<FileUploadResultResponse> uploadMultipleFiles(MultipartFile[] files, Long ownerId) {
 
