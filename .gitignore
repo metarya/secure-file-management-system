@@ -38,3 +38,6 @@ backend/slot5-valid.txt
 backend/slot6-test.doc
 backend/.env
 backend/downloaded*.txt
+frontend/patch-*.cjs
+
+backend/.env

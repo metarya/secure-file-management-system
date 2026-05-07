@@ -2,6 +2,10 @@ import { useState } from "react";
 
 const API_BASE_URL = "http://localhost:8080/api";
 
+function authHeaders(user) {
+  return user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+}
+
 export default function App() {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("sfmsUser");
@@ -182,10 +186,16 @@ function Dashboard({ user, logout }) {
   const [searchName, setSearchName] = useState("");
   const [singleMessage, setSingleMessage] = useState("");
   const [multiMessage, setMultiMessage] = useState("");
+  const [shareFileId, setShareFileId] = useState("");
+  const [targetUserEmail, setTargetUserEmail] = useState("");
+  const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
+  const [shareMessage, setShareMessage] = useState("");
 
   async function loadMyFiles() {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/my-files?ownerId=${user.userId}`);
+      const response = await fetch(`${API_BASE_URL}/files/my-files?ownerId=${user.userId}`, {
+        headers: authHeaders(user)
+      });
       const data = await response.json();
       setFiles(data);
     } catch (error) {
@@ -201,7 +211,10 @@ function Dashboard({ user, logout }) {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/files/search?ownerId=${user.userId}&name=${encodeURIComponent(searchName)}`
+        `${API_BASE_URL}/files/search?ownerId=${user.userId}&name=${encodeURIComponent(searchName)}`,
+        {
+          headers: authHeaders(user)
+        }
       );
 
       const data = await response.json();
@@ -224,6 +237,7 @@ function Dashboard({ user, logout }) {
     try {
       const response = await fetch(`${API_BASE_URL}/files/upload`, {
         method: "POST",
+        headers: authHeaders(user),
         body: formData
       });
 
@@ -255,6 +269,7 @@ function Dashboard({ user, logout }) {
     try {
       const response = await fetch(`${API_BASE_URL}/files/upload-multiple`, {
         method: "POST",
+        headers: authHeaders(user),
         body: formData
       });
 
@@ -275,6 +290,46 @@ function Dashboard({ user, logout }) {
     }
   }
 
+  async function shareFileAccess() {
+    if (!shareFileId.trim()) {
+      setShareMessage("Please enter a file ID.");
+      return;
+    }
+
+    if (!targetUserEmail.trim()) {
+      setShareMessage("Please enter target user email.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/share`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(user)
+        },
+        body: JSON.stringify({
+          fileId: Number(shareFileId),
+          targetUserEmail: targetUserEmail.trim(),
+          permissionType
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok) {
+        setShareMessage(data?.message || "File shared successfully");
+        setShareFileId("");
+        setTargetUserEmail("");
+        loadMyFiles();
+      } else {
+        setShareMessage(data?.message || "Share failed");
+      }
+    } catch (error) {
+      setShareMessage("Share failed: " + error.message);
+    }
+  }
+
   function downloadFile(fileId) {
     window.location.href = `${API_BASE_URL}/files/download/${fileId}?userId=${user.userId}`;
   }
@@ -284,9 +339,13 @@ function Dashboard({ user, logout }) {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
-        method: "DELETE"
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/files/${fileId}?userId=${user.userId}`,
+        {
+          method: "DELETE",
+          headers: authHeaders(user)
+        }
+      );
 
       const text = await response.text();
 
@@ -349,6 +408,43 @@ function Dashboard({ user, logout }) {
           </button>
 
           {multiMessage && <div className="message pre">{multiMessage}</div>}
+        </section>
+
+        <section className="card">
+          <h3>Share File Access</h3>
+          <p className="muted">
+            Share one of your files with another registered user.
+          </p>
+
+          <label>File ID</label>
+          <input
+            type="number"
+            placeholder="Enter file ID"
+            value={shareFileId}
+            onChange={(e) => setShareFileId(e.target.value)}
+          />
+
+          <label>Target User Email</label>
+          <input
+            type="email"
+            placeholder="Enter target user email"
+            value={targetUserEmail}
+            onChange={(e) => setTargetUserEmail(e.target.value)}
+          />
+
+          <label>Permission Type</label>
+          <select
+            value={permissionType}
+            onChange={(e) => setPermissionType(e.target.value)}
+          >
+            <option value="VIEW_DOWNLOAD">VIEW_DOWNLOAD</option>
+          </select>
+
+          <button className="btn primary" onClick={shareFileAccess}>
+            Share File
+          </button>
+
+          {shareMessage && <div className="message">{shareMessage}</div>}
         </section>
 
         <section className="card wide-card">
