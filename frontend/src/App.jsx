@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -200,6 +200,11 @@ function Dashboard({ user, logout }) {
   const [targetUserEmail, setTargetUserEmail] = useState("");
   const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
   const [shareMessage, setShareMessage] = useState("");
+
+  useEffect(() => {
+    loadMyFiles();
+    loadSharedWithMe();
+  }, []);
 
   async function loadMyFiles() {
     try {
@@ -634,7 +639,11 @@ function FileTable({ files, downloadFile, deleteFile, toggleVisibility }) {
               <td>{file.originalFileSize ?? file.fileSize ?? "-"}</td>
               <td>{file.compressedFileSize ?? "-"}</td>
               <td>{file.compressed ? "Yes" : "No"}</td>
-              <td>{file.visibility}</td>
+              <td>
+                <span className={`status-badge ${file.visibility === "PUBLIC" ? "public" : "private"}`}>
+                  {file.visibility}
+                </span>
+              </td>
               <td>{file.uploadedAt || "-"}</td>
               <td>
                 <button
@@ -695,7 +704,11 @@ function SharedFileTable({ files, downloadFile }) {
               <td>{file.fileName}</td>
               <td>{file.ownerName} ({file.ownerEmail})</td>
               <td>{file.permissionType}</td>
-              <td>{file.visibility}</td>
+              <td>
+                <span className={`status-badge ${file.visibility === "PUBLIC" ? "public" : "private"}`}>
+                  {file.visibility}
+                </span>
+              </td>
               <td>{file.sharedAt || "-"}</td>
               <td>
                 <button
