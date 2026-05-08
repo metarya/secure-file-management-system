@@ -183,6 +183,8 @@ function Dashboard({ user, logout }) {
   const [singleFile, setSingleFile] = useState(null);
   const [multipleFiles, setMultipleFiles] = useState([]);
   const [files, setFiles] = useState([]);
+  const [sharedFiles, setSharedFiles] = useState([]);
+  const [sharedMessage, setSharedMessage] = useState("");
   const [searchName, setSearchName] = useState("");
   const [singleMessage, setSingleMessage] = useState("");
   const [multiMessage, setMultiMessage] = useState("");
@@ -203,6 +205,24 @@ function Dashboard({ user, logout }) {
     }
   }
 
+  async function loadSharedWithMe() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/shared-with-me`, {
+        headers: authHeaders(user)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSharedFiles(data);
+        setSharedMessage(data.length === 0 ? "No files have been shared with you yet." : "");
+      } else {
+        setSharedMessage(data?.message || "Failed to load shared files.");
+      }
+    } catch (error) {
+      setSharedMessage("Failed to load shared files: " + error.message);
+    }
+  }
   async function searchFiles() {
     if (!searchName.trim()) {
       loadMyFiles();
@@ -330,8 +350,43 @@ function Dashboard({ user, logout }) {
     }
   }
 
-  function downloadFile(fileId) {
-    window.location.href = `${API_BASE_URL}/files/download/${fileId}?userId=${user.userId}`;
+  async function downloadFile(fileId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/download/${fileId}`, {
+        headers: authHeaders(user)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        alert("Download failed: " + errorText);
+        return;
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition");
+
+      let fileName = `file-${fileId}.txt`;
+
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          fileName = match[1];
+        }
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      alert("Download failed: " + error.message);
+    }
   }
 
   async function deleteFile(fileId) {
@@ -360,6 +415,30 @@ function Dashboard({ user, logout }) {
     }
   }
 
+  async function toggleVisibility(file) {
+    const nextVisibility = file.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC";
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/files/${file.fileId}/visibility?visibility=${nextVisibility}`,
+        {
+          method: "PATCH",
+          headers: authHeaders(user)
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok) {
+        alert(`Visibility changed to ${data?.visibility || nextVisibility}`);
+        loadMyFiles();
+      } else {
+        alert("Visibility update failed: " + (data?.message || "Unknown error"));
+      }
+    } catch (error) {
+      alert("Visibility update failed: " + error.message);
+    }
+  }
   return (
     <div>
       <header className="topbar">
@@ -483,6 +562,28 @@ function Dashboard({ user, logout }) {
             files={files}
             downloadFile={downloadFile}
             deleteFile={deleteFile}
+            toggleVisibility={toggleVisibility}
+          />
+        </section>
+
+        <section className="card wide-card">
+          <div className="section-header">
+            <div>
+              <h3>Shared With Me</h3>
+              <p className="muted">
+                Files shared with your account by other registered users.
+              </p>
+            </div>
+            <button className="btn secondary" onClick={loadSharedWithMe}>
+              Refresh Shared
+            </button>
+          </div>
+
+          {sharedMessage && <div className="message">{sharedMessage}</div>}
+
+          <SharedFileTable
+            files={sharedFiles}
+            downloadFile={downloadFile}
           />
         </section>
       </main>
@@ -490,7 +591,7 @@ function Dashboard({ user, logout }) {
   );
 }
 
-function FileTable({ files, downloadFile, deleteFile }) {
+function FileTable({ files, downloadFile, deleteFile, toggleVisibility }) {
   if (!files || files.length === 0) {
     return (
       <div className="empty-state">
@@ -535,10 +636,65 @@ function FileTable({ files, downloadFile, deleteFile }) {
                   Download
                 </button>
                 <button
+                  className="btn secondary action-btn"
+                  onClick={() => toggleVisibility(file)}
+                >
+                  Make {file.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC"}
+                </button>
+                <button
                   className="btn danger action-btn"
                   onClick={() => deleteFile(file.fileId)}
                 >
                   Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SharedFileTable({ files, downloadFile }) {
+  if (!files || files.length === 0) {
+    return (
+      <div className="empty-state">
+        No shared files loaded. Click Refresh Shared.
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>File ID</th>
+            <th>File Name</th>
+            <th>Owner</th>
+            <th>Permission</th>
+            <th>Visibility</th>
+            <th>Shared At</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {files.map((file) => (
+            <tr key={file.permissionId}>
+              <td>{file.fileId}</td>
+              <td>{file.fileName}</td>
+              <td>{file.ownerName} ({file.ownerEmail})</td>
+              <td>{file.permissionType}</td>
+              <td>{file.visibility}</td>
+              <td>{file.sharedAt || "-"}</td>
+              <td>
+                <button
+                  className="btn secondary action-btn"
+                  onClick={() => downloadFile(file.fileId)}
+                >
+                  Download
                 </button>
               </td>
             </tr>
