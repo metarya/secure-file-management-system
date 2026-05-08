@@ -1,18 +1,17 @@
 package com.project.filemanagement.service;
 
-import com.project.filemanagement.dto.FileUploadResponse;
-import com.project.filemanagement.dto.FileListResponse;
-import com.project.filemanagement.dto.FileUploadResultResponse;
-import com.project.filemanagement.dto.ShareFileRequest;
-import com.project.filemanagement.dto.ShareFileResponse;
-import com.project.filemanagement.entity.FileEntity;
-import com.project.filemanagement.entity.FilePermission;
-import com.project.filemanagement.entity.PermissionType;
-import com.project.filemanagement.entity.User;
-import com.project.filemanagement.repository.FileRepository;
-import com.project.filemanagement.repository.FilePermissionRepository;
-import com.project.filemanagement.repository.UserRepository;
-import com.project.filemanagement.repository.PermissionTypeRepository;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
 import org.apache.tika.Tika;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,22 +21,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.ArrayList;
+import com.project.filemanagement.dto.FileListResponse;
+import com.project.filemanagement.dto.FileUploadResponse;
+import com.project.filemanagement.dto.FileUploadResultResponse;
+import com.project.filemanagement.dto.ShareFileRequest;
+import com.project.filemanagement.dto.ShareFileResponse;
+import com.project.filemanagement.dto.SharedWithMeFileResponse;
+import com.project.filemanagement.entity.FileEntity;
+import com.project.filemanagement.entity.FilePermission;
+import com.project.filemanagement.entity.PermissionType;
+import com.project.filemanagement.entity.User;
+import com.project.filemanagement.repository.FilePermissionRepository;
+import com.project.filemanagement.repository.FileRepository;
+import com.project.filemanagement.repository.PermissionTypeRepository;
+import com.project.filemanagement.repository.UserRepository;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
-import java.nio.charset.StandardCharsets;
-import java.util.regex.Pattern;
 @Service
+@SuppressWarnings("null")
 public class FileService {
 
     private final FileRepository fileRepository;
@@ -61,17 +61,17 @@ public class FileService {
 
     public FileUploadResponse uploadFile(MultipartFile file, Long ownerId) {
 
-        // 1. Verify that ownerId is provided and the owner user exists.
+        // 1. Verify that ownerId is provided and owner user exists.
         if (ownerId == null) {
-            throw new RuntimeException("Owner ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
 
         User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new RuntimeException("Owner user not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
         // 2. Reject null or empty files.
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("File is empty");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty");
         }
 
         // 3. Read original file name.
@@ -94,7 +94,7 @@ public class FileService {
 
         try {
             originalBytes = file.getBytes();
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Unable to read uploaded file content", e);
         }
 
@@ -102,9 +102,9 @@ public class FileService {
         String detectedMimeType = tika.detect(originalBytes, originalFileName);
 
         if (!isAllowedDetectedMimeType(detectedMimeType)) {
-            throw new RuntimeException(
-                    "Invalid file content. Only real plain text files are allowed. Detected type: "
-                            + detectedMimeType
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid file content. Only real plain text files are allowed. Detected type: " + detectedMimeType
             );
         }
 
@@ -112,23 +112,29 @@ public class FileService {
         String textContent = new String(originalBytes, StandardCharsets.UTF_8);
 
         if (containsSuspiciousContent(textContent)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suspicious file content detected. Upload rejected");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Suspicious file content detected. Upload rejected"
+            );
         }
 
-
-        // Generate SHA-256 hash from original file bytes for duplicate detection.
+        // 9. Generate SHA-256 hash from original file bytes for duplicate detection.
         String fileHash = generateSha256Hash(originalBytes);
 
         if (fileRepository.existsByOwnerAndFileHash(owner, fileHash)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate file detected. This file was already uploaded by the same user");
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Duplicate file detected. This file was already uploaded by the same user"
+            );
         }
 
-        // Compress original file bytes before storing in MySQL.
+        // 10. Compress original file bytes before storing in MySQL.
         byte[] compressedBytes = compressBytes(originalBytes);
+
         Long originalFileSize = (long) originalBytes.length;
         Long compressedFileSize = (long) compressedBytes.length;
 
-        // 8. Create FileEntity and store metadata + file bytes.
+        // 11. Create FileEntity and store metadata + compressed file bytes.
         FileEntity fileEntity = new FileEntity();
         fileEntity.setOwner(owner);
         fileEntity.setFileName(originalFileName);
@@ -141,10 +147,10 @@ public class FileService {
         fileEntity.setVisibility("PRIVATE");
         fileEntity.setFileData(compressedBytes);
 
-        // 9. Save to MySQL through repository.
+        // 12. Save to MySQL through repository.
         FileEntity savedFile = fileRepository.save(fileEntity);
 
-        // 10. Return structured upload response.
+        // 13. Return structured upload response.
         return new FileUploadResponse(
                 "File uploaded successfully",
                 savedFile.getId(),
@@ -153,9 +159,6 @@ public class FileService {
                 savedFile.getFileSize()
         );
     }
-
-
-
 
     public ShareFileResponse shareFile(ShareFileRequest request, String ownerEmail) {
 
@@ -167,9 +170,13 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Share request is required");
         }
 
-        if (request.getFileId() == null) {
+        Long requestFileId = request.getFileId();
+
+        if (requestFileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
+
+        long fileId = requestFileId;
 
         if (request.getTargetUserEmail() == null || request.getTargetUserEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target user email is required");
@@ -180,9 +187,12 @@ public class FileService {
         }
 
         User owner = userRepository.findByEmail(ownerEmail.trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated owner user not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Authenticated owner user not found"
+                ));
 
-        FileEntity file = fileRepository.findById(request.getFileId())
+        FileEntity file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
         if (!file.getOwner().getId().equals(owner.getId())) {
@@ -200,7 +210,10 @@ public class FileService {
 
         PermissionType permissionType = permissionTypeRepository
                 .findByCodeAndActiveTrue(requestedPermissionCode)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or inactive permission type"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Invalid or inactive permission type"
+                ));
 
         boolean alreadyShared = filePermissionRepository.existsByFileAndSharedWithUser(file, targetUser);
 
@@ -221,11 +234,11 @@ public class FileService {
     public List<FileUploadResultResponse> uploadMultipleFiles(MultipartFile[] files, Long ownerId) {
 
         if (ownerId == null) {
-            throw new RuntimeException("Owner ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
 
         if (files == null || files.length == 0) {
-            throw new RuntimeException("At least one file is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one file is required");
         }
 
         List<FileUploadResultResponse> results = new ArrayList<>();
@@ -250,7 +263,7 @@ public class FileService {
                         uploadedFile.getFileSize()
                 ));
 
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
 
                 results.add(new FileUploadResultResponse(
                         false,
@@ -266,17 +279,14 @@ public class FileService {
         return results;
     }
 
-
-
-
     public List<FileListResponse> getMyFiles(Long ownerId) {
 
         if (ownerId == null) {
-            throw new RuntimeException("Owner ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
 
         User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new RuntimeException("Owner user not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
         return fileRepository.findByOwner(owner)
                 .stream()
@@ -287,15 +297,15 @@ public class FileService {
     public List<FileListResponse> searchMyFiles(Long ownerId, String name) {
 
         if (ownerId == null) {
-            throw new RuntimeException("Owner ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
 
         if (name == null || name.isBlank()) {
-            throw new RuntimeException("Search keyword is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Search keyword is required");
         }
 
         User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new RuntimeException("Owner user not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
         return fileRepository.findByOwnerAndFileNameContainingIgnoreCase(owner, name)
                 .stream()
@@ -317,26 +327,35 @@ public class FileService {
                 file.getUploadedAt()
         );
     }
+    public ResponseEntity<byte[]> downloadFile(Long fileId, String userEmail) {
 
+        Long requestFileId = fileId;
 
-    public ResponseEntity<byte[]> downloadFile(Long fileId, Long userId) {
-
-        if (fileId == null) {
-            throw new RuntimeException("File ID is required");
+        if (requestFileId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
 
-        if (userId == null) {
-            throw new RuntimeException("User ID is required");
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        long safeFileId = requestFileId;
 
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+        User user = userRepository.findByEmail(userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
 
-        if (!file.getOwner().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to download this file");
+        FileEntity file = fileRepository.findById(safeFileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        boolean isOwner = file.getOwner().getId().equals(user.getId());
+        boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
+        boolean isSharedWithUser = filePermissionRepository.existsByFileAndSharedWithUser(file, user);
+
+        if (!isOwner && !isPublic && !isSharedWithUser) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to download this file"
+            );
         }
 
         byte[] storedBytes = file.getFileData();
@@ -349,27 +368,26 @@ public class FileService {
         }
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + file.getFileName() + "\"")
-                .contentType(Objects.requireNonNull(MediaType.TEXT_PLAIN))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
+                .contentType(java.util.Objects.requireNonNull(MediaType.TEXT_PLAIN))
                 .body(outputBytes);
     }
 
     public String deleteFile(Long fileId, Long userId) {
 
         if (fileId == null) {
-            throw new RuntimeException("File ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
 
         if (userId == null) {
-            throw new RuntimeException("User ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required");
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
         if (!file.getOwner().getId().equals(user.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to delete this file");
@@ -378,6 +396,83 @@ public class FileService {
         fileRepository.delete(file);
 
         return "File deleted successfully";
+    }
+
+    public List<SharedWithMeFileResponse> getSharedWithMeFiles(String userEmail) {
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        User sharedUser = userRepository.findByEmail(userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
+
+        return filePermissionRepository.findBySharedWithUser(sharedUser)
+                .stream()
+                .map(permission -> {
+                    FileEntity file = permission.getFile();
+                    User owner = file.getOwner();
+
+                    return new SharedWithMeFileResponse(
+                            file.getId(),
+                            file.getFileName(),
+                            file.getFileType(),
+                            file.getFileSize(),
+                            file.getOriginalFileSize(),
+                            file.getCompressedFileSize(),
+                            file.getCompressed(),
+                            file.getVisibility(),
+                            file.getUploadedAt(),
+                            owner.getId(),
+                            owner.getFullName(),
+                            owner.getEmail(),
+                            permission.getId(),
+                            permission.getPermissionType().getCode(),
+                            permission.getCreatedAt()
+                    );
+                })
+                .toList();
+    }
+
+    public FileListResponse updateFileVisibility(Long fileId, String visibility, String ownerEmail) {
+
+        if (ownerEmail == null || ownerEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        Long requestFileId = fileId;
+
+        if (requestFileId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
+        }
+
+        if (visibility == null || visibility.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Visibility is required");
+        }
+
+        String normalizedVisibility = visibility.trim().toUpperCase();
+
+        if (!normalizedVisibility.equals("PUBLIC") && !normalizedVisibility.equals("PRIVATE")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Visibility must be PUBLIC or PRIVATE");
+        }
+
+        long safeFileId = requestFileId;
+
+        User owner = userRepository.findByEmail(ownerEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated owner user not found"));
+
+        FileEntity file = fileRepository.findById(safeFileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        if (!file.getOwner().getId().equals(owner.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the file owner can change visibility");
+        }
+
+        file.setVisibility(normalizedVisibility);
+
+        FileEntity savedFile = fileRepository.save(file);
+
+        return mapToFileListResponse(savedFile);
     }
 
     private String getFileExtension(String fileName) {
@@ -392,7 +487,7 @@ public class FileService {
     }
 
     private boolean isAllowedFileType(String fileType) {
-        return fileType.equals("txt");
+        return "txt".equals(fileType);
     }
 
     private boolean isAllowedDetectedMimeType(String detectedMimeType) {
@@ -433,7 +528,6 @@ public class FileService {
         return false;
     }
 
-
     private String generateSha256Hash(byte[] fileBytes) {
 
         try {
@@ -452,7 +546,6 @@ public class FileService {
             throw new RuntimeException("SHA-256 algorithm not available", e);
         }
     }
-
 
     private byte[] compressBytes(byte[] originalBytes) {
 
@@ -488,5 +581,4 @@ public class FileService {
             throw new RuntimeException("Unable to decompress stored file", e);
         }
     }
-
 }

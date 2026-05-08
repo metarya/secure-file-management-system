@@ -1,17 +1,27 @@
 package com.project.filemanagement.controller;
 
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
+import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.service.FileService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/files")
@@ -51,13 +61,14 @@ public class FileController {
 
         return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
-
     @GetMapping("/download/{fileId}")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable Long fileId,
-            @RequestParam Long userId) {
+            Authentication authentication
+    ) {
+        String userEmail = authentication.getName();
 
-        return fileService.downloadFile(fileId, userId);
+        return fileService.downloadFile(fileId, userEmail);
     }
 
     @DeleteMapping("/{fileId}")
@@ -79,4 +90,23 @@ public class FileController {
         );
     }
 
+
+    @GetMapping("/shared-with-me")
+    public List<SharedWithMeFileResponse> getSharedWithMeFiles(Authentication authentication) {
+
+        String userEmail = authentication.getName();
+
+        return fileService.getSharedWithMeFiles(userEmail);
+    }
+
+    @PatchMapping("/{fileId}/visibility")
+    public FileListResponse updateFileVisibility(
+            @PathVariable Long fileId,
+            @RequestParam String visibility,
+            Authentication authentication
+    ) {
+        String ownerEmail = authentication.getName();
+
+        return fileService.updateFileVisibility(fileId, visibility, ownerEmail);
+    }
 }

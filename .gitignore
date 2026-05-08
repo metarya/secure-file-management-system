@@ -41,3 +41,7 @@ backend/downloaded*.txt
 frontend/patch-*.cjs
 
 backend/.env
+# Local API test artifacts
+backend/owner-download-headers.txt
+backend/owner-downloaded.txt
+backend/slot10-test.txt
