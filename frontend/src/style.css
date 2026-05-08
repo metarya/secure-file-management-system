@@ -434,3 +434,29 @@ tr:hover td {
   background: #fee2e2;
   border: 1px solid #fecaca;
 }
+
+/* Slot 11 dashboard feedback notice */
+.dashboard-notice {
+  max-width: 1280px;
+  margin: 20px auto 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+/* Slot 11 dashboard feedback notice */
+.dashboard-notice {
+  max-width: 1280px;
+  margin: 20px auto 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}

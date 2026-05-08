@@ -200,6 +200,7 @@ function Dashboard({ user, logout }) {
   const [targetUserEmail, setTargetUserEmail] = useState("");
   const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
   const [shareMessage, setShareMessage] = useState("");
+  const [dashboardMessage, setDashboardMessage] = useState("");
 
   useEffect(() => {
     loadMyFiles();
@@ -212,9 +213,15 @@ function Dashboard({ user, logout }) {
         headers: authHeaders(user)
       });
       const data = await response.json();
-      setFiles(data);
+
+      if (response.ok) {
+        setFiles(data);
+        setDashboardMessage(data.length === 0 ? "No owned files found." : "My Files refreshed successfully.");
+      } else {
+        setDashboardMessage(data?.message || "Failed to load my files.");
+      }
     } catch (error) {
-      alert("Failed to load files: " + error.message);
+      setDashboardMessage("Failed to load files: " + error.message);
     }
   }
 
@@ -251,9 +258,15 @@ function Dashboard({ user, logout }) {
       );
 
       const data = await response.json();
-      setFiles(data);
+
+      if (response.ok) {
+        setFiles(data);
+        setDashboardMessage(data.length === 0 ? "No owned files found." : "My Files refreshed successfully.");
+      } else {
+        setDashboardMessage(data?.message || "Failed to load my files.");
+      }
     } catch (error) {
-      alert("Search failed: " + error.message);
+      setDashboardMessage("Search failed: " + error.message);
     }
   }
 
@@ -275,7 +288,7 @@ function Dashboard({ user, logout }) {
       });
 
       const text = await response.text();
-      setSingleMessage(text);
+      setSingleMessage(response.ok ? "File uploaded successfully." : text);
       setSingleFile(null);
 
       if (response.ok) {
@@ -313,6 +326,7 @@ function Dashboard({ user, logout }) {
       }).join("\n");
 
       setMultiMessage(resultText);
+      setDashboardMessage(response.ok ? "Multiple upload completed." : "Multiple upload completed with errors.");
       setMultipleFiles([]);
 
       if (response.ok) {
@@ -352,6 +366,7 @@ function Dashboard({ user, logout }) {
 
       if (response.ok) {
         setShareMessage(data?.message || "File shared successfully");
+        setDashboardMessage("Sharing permission updated successfully.");
         setShareFileId("");
         setTargetUserEmail("");
         loadMyFiles();
@@ -443,13 +458,13 @@ function Dashboard({ user, logout }) {
       const data = await response.json().catch(() => null);
 
       if (response.ok) {
-        alert(`Visibility changed to ${data?.visibility || nextVisibility}`);
+        setDashboardMessage(`Visibility changed to ${data?.visibility || nextVisibility}.`);
         loadMyFiles();
       } else {
-        alert("Visibility update failed: " + (data?.message || "Unknown error"));
+        setDashboardMessage("Visibility update failed: " + (data?.message || "Unknown error"));
       }
     } catch (error) {
-      alert("Visibility update failed: " + error.message);
+      setDashboardMessage("Visibility update failed: " + error.message);
     }
   }
   return (
@@ -463,6 +478,12 @@ function Dashboard({ user, logout }) {
         </div>
         <button className="btn danger" onClick={logout}>Logout</button>
       </header>
+
+      {dashboardMessage && (
+        <div className="dashboard-notice">
+          {dashboardMessage}
+        </div>
+      )}
 
       <main className="dashboard">
         <section className="card">
