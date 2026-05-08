@@ -45,3 +45,6 @@ backend/.env
 backend/owner-download-headers.txt
 backend/owner-downloaded.txt
 backend/slot10-test.txt
+
+# Local Netlify folder
+.netlify

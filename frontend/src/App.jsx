@@ -1,9 +1,17 @@
 import { useState } from "react";
 
-const API_BASE_URL = "http://localhost:8080/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 function authHeaders(user) {
-  return user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+  const headers = {
+    "ngrok-skip-browser-warning": "true"
+  };
+
+  if (user?.token) {
+    headers.Authorization = `Bearer ${user.token}`;
+  }
+
+  return headers;
 }
 
 export default function App() {
