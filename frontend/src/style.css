@@ -460,3 +460,124 @@ tr:hover td {
   font-weight: 600;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
+
+
+/* Day 6 floating toast messages START */
+body :where(
+  [class*="message" i],
+  [class*="feedback" i],
+  [class*="notice" i],
+  [class*="alert" i]
+) {
+  position: fixed !important;
+  top: 22px !important;
+  right: 22px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: min(420px, calc(100vw - 44px)) !important;
+  max-width: 420px !important;
+  min-height: auto !important;
+  z-index: 99999 !important;
+  margin: 0 !important;
+  padding: 14px 18px !important;
+  border-radius: 14px !important;
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  animation:
+    sfmsToastSlideIn 220ms ease-out,
+    sfmsToastFadeOut 280ms ease-in 3.2s forwards !important;
+}
+
+body :where(
+  [class*="success" i],
+  [class*="uploaded" i],
+  [class*="refreshed" i]
+)[class*="message" i],
+body :where(
+  [class*="success" i],
+  [class*="uploaded" i],
+  [class*="refreshed" i]
+)[class*="feedback" i] {
+  background: #15803d !important;
+}
+
+body :where(
+  [class*="error" i],
+  [class*="failed" i],
+  [class*="danger" i]
+)[class*="message" i],
+body :where(
+  [class*="error" i],
+  [class*="failed" i],
+  [class*="danger" i]
+)[class*="feedback" i],
+body :where(
+  [class*="error" i],
+  [class*="failed" i],
+  [class*="danger" i]
+)[class*="alert" i] {
+  background: #dc2626 !important;
+}
+
+@keyframes sfmsToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sfmsToastFadeOut {
+  to {
+    opacity: 0;
+    transform: translateX(28px);
+    pointer-events: none;
+  }
+}
+/* Day 6 floating toast messages END */
+
+
+/* Day 6 safe dashboard UI fix START */
+.dashboard-title {
+  color: #ffffff !important;
+  font-size: 2.35rem !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  margin: 0 0 1.4rem 0 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Hide any remaining logged-in identity text if it still exists somewhere */
+p:has(+ button),
+.dashboard-user,
+.user-info,
+.logged-user,
+.logged-in-text {
+  display: none !important;
+}
+
+/* Hide only the multiple-upload card safely using the multiple file input */
+[class*="card" i]:has(input[type="file"][multiple]),
+[class*="upload" i]:has(input[type="file"][multiple]) {
+  display: none !important;
+}
+
+/* Make the remaining upload section one clean box */
+[class*="grid" i]:has(input[type="file"]) {
+  grid-template-columns: 1fr !important;
+}
+
+[class*="card" i]:has(input[type="file"]:not([multiple])),
+[class*="upload" i]:has(input[type="file"]:not([multiple])) {
+  max-width: 760px !important;
+}
+/* Day 6 safe dashboard UI fix END */

@@ -2,7 +2,6 @@ package com.project.filemanagement.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -11,27 +10,18 @@ public class CorsConfig {
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {
-
         return new WebMvcConfigurer() {
-
             @Override
-            public void addCorsMappings(@NonNull CorsRegistry registry) {
-
+            public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
                         .allowedOriginPatterns(
                                 "http://localhost:5173",
-                                "http://127.0.0.1:5173",
-                                "https://secure-file-management-system.netlify.app",
-                                "https://*.netlify.app"
+                                "http://localhost:5174",
+                                "http://localhost:3000",
+                                "https://secure-file-management-system-gilt.vercel.app",
+                                "https://*.vercel.app"
                         )
-                        .allowedMethods(
-                                "GET",
-                                "POST",
-                                "PUT",
-                                "PATCH",
-                                "DELETE",
-                                "OPTIONS"
-                        )
+                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders(
                                 "Authorization",
                                 "Content-Type",
@@ -40,11 +30,8 @@ public class CorsConfig {
                                 "X-Requested-With",
                                 "ngrok-skip-browser-warning"
                         )
-                        .exposedHeaders(
-                                "Content-Disposition"
-                        )
-                        .allowCredentials(true)
-                        .maxAge(3600);
+                        .exposedHeaders("Content-Disposition")
+                        .allowCredentials(true);
             }
         };
     }
