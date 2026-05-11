@@ -62,16 +62,6 @@ public class FileController {
 
         return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
-    @GetMapping("/preview/{fileId}")
-    public ResponseEntity<byte[]> previewFile(
-            @PathVariable Long fileId,
-            Authentication authentication
-    ) {
-        String userEmail = authentication.getName();
-
-        return fileService.previewFile(fileId, userEmail);
-    }
-
     @GetMapping("/download/{fileId}")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable Long fileId,

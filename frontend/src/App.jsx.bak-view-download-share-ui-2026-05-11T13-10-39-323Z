@@ -307,7 +307,7 @@ function Dashboard({ user, logout }) {
   }, [multiMessage]);
   const [shareFileId, setShareFileId] = useState("");
   const [targetUserEmail, setTargetUserEmail] = useState("");
-  const [permissionType, setPermissionType] = useState("VIEW");
+  const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
   const [shareMessage, setShareMessage] = useState("");
 
   // Day 6 floating-toast auto-clear: shareMessage:setShareMessage
@@ -744,8 +744,7 @@ function Dashboard({ user, logout }) {
             value={permissionType}
             onChange={(e) => setPermissionType(e.target.value)}
           >
-            <option value="VIEW">View Only</option>
-            <option value="DOWNLOAD">View + Download</option>
+            <option value="VIEW_DOWNLOAD">VIEW_DOWNLOAD</option>
           </select>
 
           <button className="btn primary" onClick={shareFileAccess}>

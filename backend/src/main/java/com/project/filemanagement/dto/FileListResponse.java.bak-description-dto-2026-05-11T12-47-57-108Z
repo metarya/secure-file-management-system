@@ -6,7 +6,6 @@ public class FileListResponse {
 
     private Long fileId;
     private String fileName;
-    private String description;
     private String fileType;
     private Long fileSize;
     private Long originalFileSize;
@@ -18,13 +17,12 @@ public class FileListResponse {
     public FileListResponse() {
     }
 
-    public FileListResponse(Long fileId, String fileName, String description, String fileType,
+    public FileListResponse(Long fileId, String fileName, String fileType,
                             Long fileSize, Long originalFileSize,
                             Long compressedFileSize, Boolean compressed,
                             String visibility, LocalDateTime uploadedAt) {
         this.fileId = fileId;
         this.fileName = fileName;
-        this.description = description;
         this.fileType = fileType;
         this.fileSize = fileSize;
         this.originalFileSize = originalFileSize;
@@ -44,10 +42,6 @@ public class FileListResponse {
 
     public String getFileType() {
         return fileType;
-    }
-
-    public String getDescription() {
-        return description;
     }
 
     public Long getFileSize() {

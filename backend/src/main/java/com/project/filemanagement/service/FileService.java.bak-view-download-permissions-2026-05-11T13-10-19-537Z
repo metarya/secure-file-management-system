@@ -333,17 +333,11 @@ public class FileService {
                 file.getUploadedAt()
         );
     }
-    public ResponseEntity<byte[]> previewFile(Long fileId, String userEmail) {
-        return serveFileContent(fileId, userEmail, false);
-    }
-
     public ResponseEntity<byte[]> downloadFile(Long fileId, String userEmail) {
-        return serveFileContent(fileId, userEmail, true);
-    }
 
-    private ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
+        Long requestFileId = fileId;
 
-        if (fileId == null) {
+        if (requestFileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
 
@@ -351,28 +345,22 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
         }
 
+        long safeFileId = requestFileId;
+
         User user = userRepository.findByEmail(userEmail.trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
 
-        FileEntity file = fileRepository.findById(fileId)
+        FileEntity file = fileRepository.findById(safeFileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
         boolean isOwner = file.getOwner().getId().equals(user.getId());
         boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
+        boolean isSharedWithUser = filePermissionRepository.existsByFileAndSharedWithUser(file, user);
 
-        boolean hasViewPermission = hasSharedPermission(file, user, "VIEW", "DOWNLOAD", "VIEW_DOWNLOAD");
-        boolean hasDownloadPermission = hasSharedPermission(file, user, "DOWNLOAD", "VIEW_DOWNLOAD");
-
-        boolean allowed = downloadMode
-                ? (isOwner || isPublic || hasDownloadPermission)
-                : (isOwner || isPublic || hasViewPermission);
-
-        if (!allowed) {
+        if (!isOwner && !isPublic && !isSharedWithUser) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    downloadMode
-                            ? "You only have view access. Download is not allowed."
-                            : "You are not allowed to preview this file"
+                    "You are not allowed to download this file"
             );
         }
 
@@ -385,32 +373,10 @@ public class FileService {
             outputBytes = storedBytes;
         }
 
-        String disposition = downloadMode ? "attachment" : "inline";
-
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getFileName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
                 .contentType(java.util.Objects.requireNonNull(MediaType.TEXT_PLAIN))
                 .body(outputBytes);
-    }
-
-    private boolean hasSharedPermission(FileEntity file, User user, String... allowedCodes) {
-        return filePermissionRepository.findByFileAndSharedWithUser(file, user)
-                .map(permission -> {
-                    String code = permission.getPermissionType().getCode();
-
-                    if (code == null) {
-                        return false;
-                    }
-
-                    for (String allowedCode : allowedCodes) {
-                        if (allowedCode.equalsIgnoreCase(code)) {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                })
-                .orElse(false);
     }
 
     public String deleteFile(Long fileId, Long userId) {

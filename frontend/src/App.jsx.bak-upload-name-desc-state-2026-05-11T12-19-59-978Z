@@ -231,8 +231,6 @@ function RegisterPage({ setPage }) {
 
 function Dashboard({ user, logout }) {
   const [singleFile, setSingleFile] = useState(null);
-  const [singleFileName, setSingleFileName] = useState("");
-  const [singleFileDescription, setSingleFileDescription] = useState("");
   const [multipleFiles, setMultipleFiles] = useState([]);
   const [files, setFiles] = useState([]);
   const [sharedFiles, setSharedFiles] = useState([]);
@@ -307,7 +305,7 @@ function Dashboard({ user, logout }) {
   }, [multiMessage]);
   const [shareFileId, setShareFileId] = useState("");
   const [targetUserEmail, setTargetUserEmail] = useState("");
-  const [permissionType, setPermissionType] = useState("VIEW");
+  const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
   const [shareMessage, setShareMessage] = useState("");
 
   // Day 6 floating-toast auto-clear: shareMessage:setShareMessage
@@ -417,52 +415,23 @@ function Dashboard({ user, logout }) {
       return;
     }
 
-    const enteredFileName = singleFileName.trim();
-
-    if (!enteredFileName) {
-      setSingleMessage("Please enter a file name.");
-      return;
-    }
-
-    const safeFileName = enteredFileName
-      .replace(/[\\/:*?"<>|]/g, "-")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const finalFileName = safeFileName.toLowerCase().endsWith(".txt")
-      ? safeFileName
-      : `${safeFileName}.txt`;
-
-    const renamedFile = new File([singleFile], finalFileName, {
-      type: singleFile.type || "text/plain",
-      lastModified: singleFile.lastModified,
-    });
-
     const formData = new FormData();
-    formData.append("file", renamedFile);
     formData.append("ownerId", user.userId);
-    formData.append("description", singleFileDescription.trim());
+    formData.append("file", singleFile);
 
     try {
       const response = await fetch(`${API_BASE_URL}/files/upload`, {
         method: "POST",
         headers: authHeaders(user),
-        body: formData,
+        body: formData
       });
 
       const text = await response.text();
       setSingleMessage(response.ok ? "File uploaded successfully." : text);
+      setSingleFile(null);
 
       if (response.ok) {
-        setSingleFile(null);
-        setSingleFileName("");
-        setSingleFileDescription("");
         loadMyFiles();
-
-        const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) {
-          fileInput.value = "";
-        }
       }
     } catch (error) {
       setSingleMessage("Upload failed: " + error.message);
@@ -656,28 +625,7 @@ function Dashboard({ user, logout }) {
           <h3>File Upload</h3>
           <p className="muted">Only real .txt files are allowed. Choose a file and upload it.</p>
 
-          
-          <label>
-            File Name
-            <input
-              type="text"
-              placeholder="Enter file name"
-              value={singleFileName}
-              onChange={(e) => setSingleFileName(e.target.value)}
-              required
-            />
-          </label>
-
-          <label>
-            Description
-            <textarea
-              placeholder="Enter file description"
-              value={singleFileDescription}
-              onChange={(e) => setSingleFileDescription(e.target.value)}
-              rows="3"
-            />
-          </label>
-<input
+          <input
             type="file"
             accept=".txt"
             onChange={(e) => setSingleFile(e.target.files[0])}
@@ -744,8 +692,7 @@ function Dashboard({ user, logout }) {
             value={permissionType}
             onChange={(e) => setPermissionType(e.target.value)}
           >
-            <option value="VIEW">View Only</option>
-            <option value="DOWNLOAD">View + Download</option>
+            <option value="VIEW_DOWNLOAD">VIEW_DOWNLOAD</option>
           </select>
 
           <button className="btn primary" onClick={shareFileAccess}>
