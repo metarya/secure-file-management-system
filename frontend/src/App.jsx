@@ -53,6 +53,17 @@ function LoginPage({ setUser, setPage }) {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
+  // Day 6 floating-toast auto-clear: message:setMessage
+  useEffect(() => {
+    if (!message) return;
+
+    const toastTimer = setTimeout(() => {
+      setMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [message]);
+
   async function loginUser() {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -119,6 +130,17 @@ function RegisterPage({ setPage }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+
+  // Day 6 floating-toast auto-clear: message:setMessage
+  useEffect(() => {
+    if (!message) return;
+
+    const toastTimer = setTimeout(() => {
+      setMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [message]);
 
   async function registerUser() {
     try {
@@ -193,14 +215,101 @@ function Dashboard({ user, logout }) {
   const [files, setFiles] = useState([]);
   const [sharedFiles, setSharedFiles] = useState([]);
   const [sharedMessage, setSharedMessage] = useState("");
+
+  // Day 6 floating-toast auto-clear: sharedMessage:setSharedMessage
+  useEffect(() => {
+    if (!sharedMessage) return;
+
+    const toastTimer = setTimeout(() => {
+      setSharedMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [sharedMessage]);
   const [searchName, setSearchName] = useState("");
+
+  // Day 6 debounced search: automatically searches after typing stops.
+  useEffect(() => {
+    if (!user?.userId) return;
+
+    const timer = setTimeout(() => {
+      const keyword = (searchName || "").trim();
+
+      if (keyword) {
+        searchFiles();
+      } else {
+        loadMyFiles();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchName, user?.userId]);
   const [singleMessage, setSingleMessage] = useState("");
+
+  // Day 6 upload success popup
+  useEffect(() => {
+    if (!singleMessage) return;
+
+    const messageText = String(singleMessage);
+
+    if (
+      messageText.toLowerCase().includes("uploaded") ||
+      messageText.toLowerCase().includes("upload successful") ||
+      messageText.toLowerCase().includes("file uploaded")
+    ) {
+      window.alert(messageText);
+    }
+  }, [singleMessage]);
+
+  // Day 6 floating-toast auto-clear: singleMessage:setSingleMessage
+  useEffect(() => {
+    if (!singleMessage) return;
+
+    const toastTimer = setTimeout(() => {
+      setSingleMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [singleMessage]);
   const [multiMessage, setMultiMessage] = useState("");
+
+  // Day 6 floating-toast auto-clear: multiMessage:setMultiMessage
+  useEffect(() => {
+    if (!multiMessage) return;
+
+    const toastTimer = setTimeout(() => {
+      setMultiMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [multiMessage]);
   const [shareFileId, setShareFileId] = useState("");
   const [targetUserEmail, setTargetUserEmail] = useState("");
   const [permissionType, setPermissionType] = useState("VIEW_DOWNLOAD");
   const [shareMessage, setShareMessage] = useState("");
+
+  // Day 6 floating-toast auto-clear: shareMessage:setShareMessage
+  useEffect(() => {
+    if (!shareMessage) return;
+
+    const toastTimer = setTimeout(() => {
+      setShareMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [shareMessage]);
   const [dashboardMessage, setDashboardMessage] = useState("");
+
+  // Day 6 floating-toast auto-clear: dashboardMessage:setDashboardMessage
+  useEffect(() => {
+    if (!dashboardMessage) return;
+
+    const toastTimer = setTimeout(() => {
+      setDashboardMessage("");
+    }, 3500);
+
+    return () => clearTimeout(toastTimer);
+  }, [dashboardMessage]);
 
   useEffect(() => {
     loadMyFiles();
@@ -470,25 +579,17 @@ function Dashboard({ user, logout }) {
   return (
     <div>
       <header className="topbar">
-        <div>
-          <h2>Secure File Management System</h2>
-          <p>
-            Logged in as {user.fullName} ({user.email}) | User ID: {user.userId}
-          </p>
-        </div>
+        
+        <h1 className="dashboard-title">Secure File Management System</h1>
         <button className="btn danger" onClick={logout}>Logout</button>
       </header>
 
-      {dashboardMessage && (
-        <div className="dashboard-notice">
-          {dashboardMessage}
-        </div>
-      )}
+      
 
       <main className="dashboard">
         <section className="card">
-          <h3>Single File Upload</h3>
-          <p className="muted">Only real .txt files are allowed.</p>
+          <h3>File Upload</h3>
+          <p className="muted">Only real .txt files are allowed. Choose a file and upload it.</p>
 
           <input
             type="file"
@@ -500,7 +601,7 @@ function Dashboard({ user, logout }) {
             Upload File
           </button>
 
-          {singleMessage && <div className="message">{singleMessage}</div>}
+          
         </section>
 
         <section className="card">
@@ -580,16 +681,8 @@ function Dashboard({ user, logout }) {
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
             />
-            <button className="btn primary" onClick={searchFiles}>Search</button>
-            <button
-              className="btn secondary"
-              onClick={() => {
-                setSearchName("");
-                loadMyFiles();
-              }}
-            >
-              Clear
-            </button>
+            
+            
           </div>
 
           <FileTable
