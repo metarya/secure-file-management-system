@@ -169,48 +169,10 @@ function FilePage() {
       setMessage("Download failed: " + error.message);
     }
   }
+
   function deleteFile(file) {
     setDeleteTarget(file);
   }
-
-  function cancelDeleteFile() {
-    if (!deleteLoading) {
-      setDeleteTarget(null);
-    }
-  }
-
-  async function confirmDeleteFile() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    const file = deleteTarget;
-    const fileId = file.fileId || file.id;
-    const fileName = file.fileName || file.name || "this file";
-
-    try {
-      setDeleteLoading(true);
-
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-
-      if (response.ok) {
-        setMessage(`File deleted successfully: ${fileName}`);
-        setDeleteTarget(null);
-        await refreshAllFiles();
-      } else {
-        const text = await response.text();
-        setMessage(text || "Delete failed.");
-      }
-    } catch (error) {
-      setMessage("Delete failed: " + error.message);
-    } finally {
-      setDeleteLoading(false);
-    }
-  }
-
 
   function cancelDeleteFile() {
     if (!deleteLoading) {

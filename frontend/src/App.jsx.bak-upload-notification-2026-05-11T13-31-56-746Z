@@ -267,20 +267,6 @@ function Dashboard({ user, logout }) {
     return () => clearTimeout(timer);
   }, [searchName, user?.userId]);
   const [singleMessage, setSingleMessage] = useState("");
-  const [uploadNotification, setUploadNotification] = useState("");
-
-  // Upload notification auto clear
-  useEffect(() => {
-    if (!uploadNotification) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setUploadNotification("");
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [uploadNotification]);
 
   // Day 6 upload success popup
   useEffect(() => {
@@ -293,7 +279,7 @@ function Dashboard({ user, logout }) {
       messageText.toLowerCase().includes("upload successful") ||
       messageText.toLowerCase().includes("file uploaded")
     ) {
-      
+      window.alert(messageText);
     }
   }, [singleMessage]);
 
@@ -468,12 +454,6 @@ function Dashboard({ user, logout }) {
       setSingleMessage(response.ok ? "File uploaded successfully." : text);
 
       if (response.ok) {
-        const uploadedName =
-          typeof finalFileName !== "undefined"
-            ? finalFileName
-            : singleFile?.name || "file";
-
-        setUploadNotification(`File uploaded successfully: ${uploadedName}`);
         setSingleFile(null);
         setSingleFileName("");
         setSingleFileDescription("");
@@ -576,7 +556,7 @@ function Dashboard({ user, logout }) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        
+        alert("Download failed: " + errorText);
         return;
       }
 
@@ -603,7 +583,7 @@ function Dashboard({ user, logout }) {
 
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      
+      alert("Download failed: " + error.message);
     }
   }
 
@@ -623,13 +603,13 @@ function Dashboard({ user, logout }) {
       const text = await response.text();
 
       if (response.ok) {
-        
+        alert(text);
         loadMyFiles();
       } else {
-        
+        alert("Delete failed: " + text);
       }
     } catch (error) {
-      
+      alert("Delete failed: " + error.message);
     }
   }
 
@@ -672,11 +652,6 @@ function Dashboard({ user, logout }) {
       
 
       <main className="dashboard">
-        {uploadNotification && (
-          <div className="upload-notification">
-            {uploadNotification}
-          </div>
-        )}
         <section className="card">
           <h3>File Upload</h3>
           <p className="muted">Only real .txt files are allowed. Choose a file and upload it.</p>

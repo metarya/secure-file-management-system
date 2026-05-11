@@ -293,7 +293,7 @@ function Dashboard({ user, logout }) {
       messageText.toLowerCase().includes("upload successful") ||
       messageText.toLowerCase().includes("file uploaded")
     ) {
-      
+      window.alert(messageText);
     }
   }, [singleMessage]);
 
@@ -576,7 +576,7 @@ function Dashboard({ user, logout }) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        
+        alert("Download failed: " + errorText);
         return;
       }
 
@@ -603,7 +603,7 @@ function Dashboard({ user, logout }) {
 
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      
+      alert("Download failed: " + error.message);
     }
   }
 
@@ -623,13 +623,13 @@ function Dashboard({ user, logout }) {
       const text = await response.text();
 
       if (response.ok) {
-        
+        alert(text);
         loadMyFiles();
       } else {
-        
+        alert("Delete failed: " + text);
       }
     } catch (error) {
-      
+      alert("Delete failed: " + error.message);
     }
   }
 

@@ -48,8 +48,6 @@ function FilePage() {
   const [previewFileName, setPreviewFileName] = useState("");
   const [previewText, setPreviewText] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   function authHeaders() {
     return {
@@ -169,75 +167,20 @@ function FilePage() {
       setMessage("Download failed: " + error.message);
     }
   }
-  function deleteFile(file) {
-    setDeleteTarget(file);
-  }
 
-  function cancelDeleteFile() {
-    if (!deleteLoading) {
-      setDeleteTarget(null);
-    }
-  }
-
-  async function confirmDeleteFile() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    const file = deleteTarget;
+  async function deleteFile(file) {
     const fileId = file.fileId || file.id;
-    const fileName = file.fileName || file.name || "this file";
+
+    if (!window.confirm(`Delete ${file.fileName || file.name}?`)) return;
 
     try {
-      setDeleteLoading(true);
-
       const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
 
       if (response.ok) {
-        setMessage(`File deleted successfully: ${fileName}`);
-        setDeleteTarget(null);
-        await refreshAllFiles();
-      } else {
-        const text = await response.text();
-        setMessage(text || "Delete failed.");
-      }
-    } catch (error) {
-      setMessage("Delete failed: " + error.message);
-    } finally {
-      setDeleteLoading(false);
-    }
-  }
-
-
-  function cancelDeleteFile() {
-    if (!deleteLoading) {
-      setDeleteTarget(null);
-    }
-  }
-
-  async function confirmDeleteFile() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    const file = deleteTarget;
-    const fileId = file.fileId || file.id;
-    const fileName = file.fileName || file.name || "this file";
-
-    try {
-      setDeleteLoading(true);
-
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-
-      if (response.ok) {
-        setMessage(`File deleted successfully: ${fileName}`);
-        setDeleteTarget(null);
+        setMessage("File deleted successfully.");
         refreshAllFiles();
       } else {
         const text = await response.text();
@@ -245,10 +188,9 @@ function FilePage() {
       }
     } catch (error) {
       setMessage("Delete failed: " + error.message);
-    } finally {
-      setDeleteLoading(false);
     }
   }
+
 
   async function toggleVisibility(file) {
     const fileId = file.fileId || file.id;
@@ -423,40 +365,6 @@ function FilePage() {
               <pre className="preview-content">
                 {previewLoading ? "Loading preview..." : previewText}
               </pre>
-            </div>
-          </div>
-        )}
-        {deleteTarget && (
-          <div className="delete-confirm-modal-overlay">
-            <div className="delete-confirm-modal">
-              <h3>Delete File</h3>
-
-              <p>
-                Are you sure you want to delete
-                <strong> {deleteTarget.fileName || deleteTarget.name || "this file"}</strong>?
-              </p>
-
-              <p className="muted">
-                This action will remove the file from your account.
-              </p>
-
-              <div className="delete-confirm-actions">
-                <button
-                  className="btn secondary"
-                  onClick={cancelDeleteFile}
-                  disabled={deleteLoading}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  className="btn danger"
-                  onClick={confirmDeleteFile}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? "Deleting..." : "Delete File"}
-                </button>
-              </div>
             </div>
           </div>
         )}
