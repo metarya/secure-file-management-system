@@ -460,6 +460,7 @@ public class FileService {
                     return new SharedWithMeFileResponse(
                             file.getId(),
                             file.getFileName(),
+                            file.getDescription(),
                             file.getFileType(),
                             file.getFileSize(),
                             file.getOriginalFileSize(),

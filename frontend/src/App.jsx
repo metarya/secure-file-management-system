@@ -56,6 +56,10 @@ export default function DashboardPage() {
         <LoginPage setUser={setUser} setPage={setPage} />
       )}
 
+      {!user && page === "forgotPassword" && (
+        <ForgotPasswordPage setPage={setPage} />
+      )}
+
       {!user && page === "register" && (
         <RegisterPage setPage={setPage} />
       )}
@@ -132,6 +136,14 @@ function LoginPage({ setUser, setPage }) {
           Login
         </button>
 
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setPage("forgotPassword")}
+          >
+            Forgot password?
+          </button>
+
         <p className="link-text">
           New user?{" "}
           <button className="link-button" onClick={() => setPage("register")}>
@@ -144,6 +156,90 @@ function LoginPage({ setUser, setPage }) {
     </div>
   );
 }
+
+
+function ForgotPasswordPage({ setPage }) {
+  const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function resetPassword(event) {
+    event.preventDefault();
+    setMessage("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          newPassword,
+        }),
+      });
+
+      const text = await response.text();
+
+      if (response.ok) {
+        setMessage(text || "Password changed successfully.");
+        setTimeout(() => setPage("login"), 1200);
+      } else {
+        setMessage(text || "Password change failed.");
+      }
+    } catch (error) {
+      setMessage("Password change failed: " + error.message);
+    }
+  }
+
+  return (
+    <div className="page center-page">
+      <div className="card form-card">
+        <h2>Change Password</h2>
+
+        <p className="muted">
+          Enter your registered email and new password.
+        </p>
+
+        <form onSubmit={resetPassword}>
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="Enter registered email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+
+          <label>New Password</label>
+          <input
+            type="password"
+            placeholder="Enter new password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            required
+          />
+
+          <button className="btn primary full-width" type="submit">
+            Change Password
+          </button>
+        </form>
+
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => setPage("login")}
+        >
+          Back to Login
+        </button>
+
+        {message && <div className="message">{message}</div>}
+      </div>
+    </div>
+  );
+}
+
 
 function RegisterPage({ setPage }) {
   const [fullName, setFullName] = useState("");

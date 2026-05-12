@@ -12,4 +12,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Check if email already exists during registration
     boolean existsByEmail(String email);
+    Optional<com.project.filemanagement.entity.User> findByPasswordResetToken(String passwordResetToken);
 }

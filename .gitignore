@@ -48,3 +48,8 @@ backend/slot10-test.txt
 
 # Local Netlify folder
 .netlify
+
+.vercel
+*.cjs
+*.bak-*
+reset-test.json

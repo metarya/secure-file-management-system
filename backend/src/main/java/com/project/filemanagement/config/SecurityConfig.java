@@ -46,13 +46,15 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/",
+                        .requestMatchers("/",
                                 "/error",
                                 "/api/test",
                                 "/api/auth/register",
-                                "/api/auth/login"
-                        ).permitAll()
+                                "/api/auth/login",
+                        "/api/auth/forgot-password",
+                        "/api/auth/reset-password"
+                    )
+                    .permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

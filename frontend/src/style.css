@@ -938,3 +938,40 @@ textarea:focus {
   margin-top: 20px;
 }
 /* Custom delete confirm END */
+
+
+
+
+
+/* Forgot password UI START */
+.link-button {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 10px 0;
+  text-align: center;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.reset-token-box {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 12px;
+  color: #1e3a8a;
+  display: grid;
+  gap: 6px;
+  word-break: break-all;
+}
+
+.reset-token-box span {
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 13px;
+}
+/* Forgot password UI END */

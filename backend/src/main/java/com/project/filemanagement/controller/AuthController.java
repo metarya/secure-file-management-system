@@ -1,6 +1,8 @@
 package com.project.filemanagement.controller;
 
-import com.project.filemanagement.dto.LoginRequest;
+
+
+import com.project.filemanagement.dto.ResetPasswordRequest;import com.project.filemanagement.dto.ForgotPasswordRequest;import com.project.filemanagement.dto.LoginRequest;
 import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.service.AuthService;
@@ -35,4 +37,15 @@ public class AuthController {
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(authService.forgotPassword(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(authService.resetPassword(request));
+    }
+
+
 }
