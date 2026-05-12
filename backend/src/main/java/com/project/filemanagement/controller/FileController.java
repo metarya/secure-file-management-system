@@ -110,6 +110,36 @@ public class FileController {
         return fileService.getSharedWithMeFiles(userEmail);
     }
 
+    @DeleteMapping("/shared-with-me/{fileId}")
+    public ResponseEntity<String> removeSharedFileFromMyList(
+            @PathVariable Long fileId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedFileFromMyList(fileId, authentication.getName())
+        );
+    }
+
+    @DeleteMapping("/shared-with-me/permission/{permissionId}")
+    public ResponseEntity<String> removeSharedPermissionFromMyList(
+            @PathVariable Long permissionId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedPermissionFromMyList(permissionId, authentication.getName())
+        );
+    }
+
+    @DeleteMapping("/remove-shared-entry/{fileId}")
+    public ResponseEntity<String> removeSharedEntryFromMySide(
+            @PathVariable Long fileId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedEntryFromMySide(fileId, authentication.getName())
+        );
+    }
+
     @PatchMapping("/{fileId}/visibility")
     public FileListResponse updateFileVisibility(
             @PathVariable Long fileId,

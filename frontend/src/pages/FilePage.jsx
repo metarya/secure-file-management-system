@@ -178,7 +178,6 @@ function FilePage() {
       setDeleteTarget(null);
     }
   }
-
   async function confirmDeleteFile() {
     if (!deleteTarget) {
       return;
@@ -187,22 +186,47 @@ function FilePage() {
     const file = deleteTarget;
     const fileId = file.fileId || file.id;
     const fileName = file.fileName || file.name || "this file";
+    const isSharedFile = file.sourceType === "SHARED";
+
+    const deleteUrl = isSharedFile
+      ? `${API_BASE_URL}/files/remove-shared-entry/${fileId}`
+      : `${API_BASE_URL}/files/${fileId}?userId=${user.userId}`;
 
     try {
       setDeleteLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
+      const response = await fetch(deleteUrl, {
         method: "DELETE",
         headers: authHeaders(),
       });
 
+      const responseText = await response.text();
+
       if (response.ok) {
-        setMessage(`File deleted successfully: ${fileName}`);
+        if (isSharedFile) {
+          setSharedFiles((previousFiles) =>
+            previousFiles.filter((sharedFile) => {
+              const sharedFileId = sharedFile.fileId || sharedFile.id;
+              return String(sharedFileId) !== String(fileId);
+            })
+          );
+
+          setMessage(`Shared file removed from your list: ${fileName}`);
+        } else {
+          setOwnedFiles((previousFiles) =>
+            previousFiles.filter((ownedFile) => {
+              const ownedFileId = ownedFile.fileId || ownedFile.id;
+              return String(ownedFileId) !== String(fileId);
+            })
+          );
+
+          setMessage(`File deleted successfully: ${fileName}`);
+        }
+
         setDeleteTarget(null);
         await refreshAllFiles();
       } else {
-        const text = await response.text();
-        setMessage(text || "Delete failed.");
+        setMessage(`Remove failed. Status: ${response.status}. URL: ${deleteUrl}. Response: ${responseText || "No response text"}`);
       }
     } catch (error) {
       setMessage("Delete failed: " + error.message);
@@ -210,43 +234,18 @@ function FilePage() {
       setDeleteLoading(false);
     }
   }
+
+
+
+
+
+
+
 
 
   function cancelDeleteFile() {
     if (!deleteLoading) {
       setDeleteTarget(null);
-    }
-  }
-
-  async function confirmDeleteFile() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    const file = deleteTarget;
-    const fileId = file.fileId || file.id;
-    const fileName = file.fileName || file.name || "this file";
-
-    try {
-      setDeleteLoading(true);
-
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}?userId=${user.userId}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-
-      if (response.ok) {
-        setMessage(`File deleted successfully: ${fileName}`);
-        setDeleteTarget(null);
-        refreshAllFiles();
-      } else {
-        const text = await response.text();
-        setMessage(text || "Delete failed.");
-      }
-    } catch (error) {
-      setMessage("Delete failed: " + error.message);
-    } finally {
-      setDeleteLoading(false);
     }
   }
 
@@ -426,18 +425,24 @@ function FilePage() {
             </div>
           </div>
         )}
-        {deleteTarget && (
+                {deleteTarget && (
           <div className="delete-confirm-modal-overlay">
             <div className="delete-confirm-modal">
-              <h3>Delete File</h3>
+              <h3>
+                {deleteTarget?.sourceType === "SHARED" ? "Remove Shared File" : "Delete File"}
+              </h3>
 
               <p>
-                Are you sure you want to delete
+                {deleteTarget?.sourceType === "SHARED"
+                  ? "Remove this shared file from your list?"
+                  : "Are you sure you want to delete"}
                 <strong> {deleteTarget.fileName || deleteTarget.name || "this file"}</strong>?
               </p>
 
               <p className="muted">
-                This action will remove the file from your account.
+                {deleteTarget?.sourceType === "SHARED"
+                  ? "This will only remove your access. The owner's original file will not be deleted."
+                  : "This action will permanently remove the file from your account."}
               </p>
 
               <div className="delete-confirm-actions">
@@ -454,13 +459,17 @@ function FilePage() {
                   onClick={confirmDeleteFile}
                   disabled={deleteLoading}
                 >
-                  {deleteLoading ? "Deleting..." : "Delete File"}
+                  {deleteLoading
+                    ? "Processing..."
+                    : deleteTarget?.sourceType === "SHARED"
+                    ? "Remove Shared File"
+                    : "Delete File"}
                 </button>
               </div>
             </div>
           </div>
         )}
-      </section>
+</section>
     </main>
   );
 }
@@ -534,7 +543,7 @@ function FileTable({ files, previewFile, downloadFile, deleteFile, toggleVisibil
                     </button>
                   )}
 
-                  {file.sourceType !== "SHARED" && (
+                  {file.sourceType !== "SHARED" ? (
                     <>
                       <button className="btn secondary" onClick={() => toggleVisibility(file)}>
                         Make {String(file.visibility).toUpperCase() === "PUBLIC" ? "PRIVATE" : "PUBLIC"}
@@ -544,6 +553,10 @@ function FileTable({ files, previewFile, downloadFile, deleteFile, toggleVisibil
                         Delete
                       </button>
                     </>
+                  ) : (
+                    <button className="btn danger" onClick={() => deleteFile(file)}>
+                      Remove
+                    </button>
                   )}
                 </td>
               </tr>
