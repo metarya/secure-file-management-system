@@ -679,9 +679,7 @@ function Dashboard({ user, logout }) {
         )}
         <section className="card">
           <h3>File Upload</h3>
-          <p className="muted">Only real .txt files are allowed. Choose a file and upload it.</p>
 
-          
           <label>
             File Name
             <input
