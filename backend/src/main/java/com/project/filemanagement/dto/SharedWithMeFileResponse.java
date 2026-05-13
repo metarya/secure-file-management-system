@@ -4,23 +4,23 @@ import java.time.LocalDateTime;
 
 public class SharedWithMeFileResponse {
 
-    private Long fileId;
-    private String fileName;
-    private String fileType;
-    private Long fileSize;
-    private Long originalFileSize;
-    private Long compressedFileSize;
-    private Boolean compressed;
-    private String visibility;
-    private LocalDateTime uploadedAt;
+    private final Long fileId;
+    private final String fileName;
+    private final String fileType;
+    private final Long fileSize;
+    private final Long originalFileSize;
+    private final Long compressedFileSize;
+    private final Boolean compressed;
+    private final String visibility;
+    private final LocalDateTime uploadedAt;
 
-    private Long ownerId;
-    private String ownerName;
-    private String ownerEmail;
+    private final Long ownerId;
+    private final String ownerName;
+    private final String ownerEmail;
 
-    private Long permissionId;
-    private String permissionType;
-    private LocalDateTime sharedAt;
+    private final Long permissionId;
+    private final String permissionType;
+    private final LocalDateTime sharedAt;
 
     public SharedWithMeFileResponse(
             Long fileId,
