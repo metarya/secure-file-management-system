@@ -48,3 +48,5 @@ backend/slot10-test.txt
 
 # Local Netlify folder
 .netlify
+
+.vercel/
