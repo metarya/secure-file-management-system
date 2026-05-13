@@ -60,6 +60,10 @@ public class FileService {
     }
 
     public FileUploadResponse uploadFile(MultipartFile file, Long ownerId) {
+        return uploadFile(file, ownerId, null);
+    }
+
+    public FileUploadResponse uploadFile(MultipartFile file, Long ownerId, String description) {
 
         // 1. Verify that ownerId is provided and owner user exists.
         if (ownerId == null) {
@@ -139,6 +143,7 @@ public class FileService {
         fileEntity.setOwner(owner);
         fileEntity.setFileName(originalFileName);
         fileEntity.setFileType(fileType);
+        fileEntity.setDescription(cleanDescription(description));
         fileEntity.setFileSize(file.getSize());
         fileEntity.setFileHash(fileHash);
         fileEntity.setOriginalFileSize(originalFileSize);
@@ -170,13 +175,9 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Share request is required");
         }
 
-        Long requestFileId = request.getFileId();
-
-        if (requestFileId == null) {
+        if (request.getFileId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
-
-        long fileId = requestFileId;
 
         if (request.getTargetUserEmail() == null || request.getTargetUserEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target user email is required");
@@ -187,12 +188,9 @@ public class FileService {
         }
 
         User owner = userRepository.findByEmail(ownerEmail.trim())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Authenticated owner user not found"
-                ));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated owner not found"));
 
-        FileEntity file = fileRepository.findById(fileId)
+        FileEntity file = fileRepository.findById(request.getFileId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
         if (!file.getOwner().getId().equals(owner.getId())) {
@@ -200,7 +198,7 @@ public class FileService {
         }
 
         User targetUser = userRepository.findByEmail(request.getTargetUserEmail().trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Target user not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Target user is not registered"));
 
         if (owner.getId().equals(targetUser.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner cannot share file with themselves");
@@ -215,10 +213,21 @@ public class FileService {
                         "Invalid or inactive permission type"
                 ));
 
-        boolean alreadyShared = filePermissionRepository.existsByFileAndSharedWithUser(file, targetUser);
+        java.util.Optional<FilePermission> existingPermission =
+                filePermissionRepository.findByFileAndSharedWithUser(file, targetUser);
 
-        if (alreadyShared) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "File is already shared with this user");
+        if (existingPermission.isPresent()) {
+            FilePermission permission = existingPermission.get();
+            String currentPermissionCode = permission.getPermissionType().getCode();
+
+            if (currentPermissionCode != null && currentPermissionCode.equalsIgnoreCase(requestedPermissionCode)) {
+                return new ShareFileResponse("Permission already set", permission.getId());
+            }
+
+            permission.setPermissionType(permissionType);
+            FilePermission updatedPermission = filePermissionRepository.save(permission);
+
+            return new ShareFileResponse("File permission updated successfully", updatedPermission.getId());
         }
 
         FilePermission permission = new FilePermission();
@@ -318,6 +327,7 @@ public class FileService {
         return new FileListResponse(
                 file.getId(),
                 file.getFileName(),
+                file.getDescription(),
                 file.getFileType(),
                 file.getFileSize(),
                 file.getOriginalFileSize(),
@@ -327,11 +337,17 @@ public class FileService {
                 file.getUploadedAt()
         );
     }
+    public ResponseEntity<byte[]> previewFile(Long fileId, String userEmail) {
+        return serveFileContent(fileId, userEmail, false);
+    }
+
     public ResponseEntity<byte[]> downloadFile(Long fileId, String userEmail) {
+        return serveFileContent(fileId, userEmail, true);
+    }
 
-        Long requestFileId = fileId;
+    private ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
 
-        if (requestFileId == null) {
+        if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
 
@@ -339,22 +355,28 @@ public class FileService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
         }
 
-        long safeFileId = requestFileId;
-
         User user = userRepository.findByEmail(userEmail.trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
 
-        FileEntity file = fileRepository.findById(safeFileId)
+        FileEntity file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
         boolean isOwner = file.getOwner().getId().equals(user.getId());
         boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
-        boolean isSharedWithUser = filePermissionRepository.existsByFileAndSharedWithUser(file, user);
 
-        if (!isOwner && !isPublic && !isSharedWithUser) {
+        boolean hasViewPermission = hasSharedPermission(file, user, "VIEW", "DOWNLOAD", "VIEW_DOWNLOAD");
+        boolean hasDownloadPermission = hasSharedPermission(file, user, "DOWNLOAD", "VIEW_DOWNLOAD");
+
+        boolean allowed = downloadMode
+                ? (isOwner || isPublic || hasDownloadPermission)
+                : (isOwner || isPublic || hasViewPermission);
+
+        if (!allowed) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "You are not allowed to download this file"
+                    downloadMode
+                            ? "You only have view access. Download is not allowed."
+                            : "You are not allowed to preview this file"
             );
         }
 
@@ -367,10 +389,32 @@ public class FileService {
             outputBytes = storedBytes;
         }
 
+        String disposition = downloadMode ? "attachment" : "inline";
+
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getFileName() + "\"")
                 .contentType(java.util.Objects.requireNonNull(MediaType.TEXT_PLAIN))
                 .body(outputBytes);
+    }
+
+    private boolean hasSharedPermission(FileEntity file, User user, String... allowedCodes) {
+        return filePermissionRepository.findByFileAndSharedWithUser(file, user)
+                .map(permission -> {
+                    String code = permission.getPermissionType().getCode();
+
+                    if (code == null) {
+                        return false;
+                    }
+
+                    for (String allowedCode : allowedCodes) {
+                        if (allowedCode.equalsIgnoreCase(code)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                })
+                .orElse(false);
     }
 
     public String deleteFile(Long fileId, Long userId) {
@@ -434,6 +478,94 @@ public class FileService {
                 .toList();
     }
 
+    public String removeSharedFileFromMyList(Long fileId, String userEmail) {
+
+        if (fileId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
+        }
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        User sharedUser = userRepository.findByEmail(userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
+
+        FileEntity file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        if (file.getOwner().getId().equals(sharedUser.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Owner cannot remove file as shared file. Use delete file instead."
+            );
+        }
+
+        FilePermission permission = filePermissionRepository.findByFileAndSharedWithUser(file, sharedUser)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "This file is not shared with your account"
+                ));
+
+        filePermissionRepository.delete(permission);
+
+        return "Shared file removed from your list";
+    }
+
+    public String removeSharedPermissionFromMyList(Long permissionId, String userEmail) {
+
+        if (permissionId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Permission ID is required");
+        }
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        User sharedUser = userRepository.findByEmail(userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
+
+        FilePermission permission = filePermissionRepository.findById(permissionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Shared permission not found"));
+
+        if (!permission.getSharedWithUser().getId().equals(sharedUser.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to remove this shared file"
+            );
+        }
+
+        filePermissionRepository.delete(permission);
+
+        return "Shared file removed from your list";
+    }
+
+
+
+
+    public String removeSharedEntryFromMySide(Long fileId, String userEmail) {
+
+        if (fileId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
+        }
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        FilePermission permission = filePermissionRepository
+                .findByFile_IdAndSharedWithUser_Email(fileId, userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Shared file entry not found for this user"
+                ));
+
+        filePermissionRepository.delete(permission);
+
+        return "Shared file removed from your list";
+    }
+
+
     public FileListResponse updateFileVisibility(Long fileId, String visibility, String ownerEmail) {
 
         if (ownerEmail == null || ownerEmail.isBlank()) {
@@ -474,6 +606,25 @@ public class FileService {
 
         return mapToFileListResponse(savedFile);
     }
+    private String cleanDescription(String description) {
+        if (description == null) {
+            return null;
+        }
+
+        String cleaned = description.trim();
+
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+
+        if (cleaned.length() > 1000) {
+            return cleaned.substring(0, 1000);
+        }
+
+        return cleaned;
+    }
+
+
 
     private String getFileExtension(String fileName) {
 

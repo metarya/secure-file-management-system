@@ -36,9 +36,10 @@ public class FileController {
     @PostMapping("/upload")
     public ResponseEntity<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("ownerId") Long ownerId) {
+            @RequestParam("ownerId") Long ownerId,
+            @RequestParam(value = "description", required = false) String description) {
 
-        return ResponseEntity.ok(fileService.uploadFile(file, ownerId));
+        return ResponseEntity.ok(fileService.uploadFile(file, ownerId, description));
     }
 
     @PostMapping("/upload-multiple")
@@ -61,6 +62,16 @@ public class FileController {
 
         return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
+    @GetMapping("/preview/{fileId}")
+    public ResponseEntity<byte[]> previewFile(
+            @PathVariable Long fileId,
+            Authentication authentication
+    ) {
+        String userEmail = authentication.getName();
+
+        return fileService.previewFile(fileId, userEmail);
+    }
+
     @GetMapping("/download/{fileId}")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable Long fileId,
@@ -97,6 +108,36 @@ public class FileController {
         String userEmail = authentication.getName();
 
         return fileService.getSharedWithMeFiles(userEmail);
+    }
+
+    @DeleteMapping("/shared-with-me/{fileId}")
+    public ResponseEntity<String> removeSharedFileFromMyList(
+            @PathVariable Long fileId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedFileFromMyList(fileId, authentication.getName())
+        );
+    }
+
+    @DeleteMapping("/shared-with-me/permission/{permissionId}")
+    public ResponseEntity<String> removeSharedPermissionFromMyList(
+            @PathVariable Long permissionId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedPermissionFromMyList(permissionId, authentication.getName())
+        );
+    }
+
+    @DeleteMapping("/remove-shared-entry/{fileId}")
+    public ResponseEntity<String> removeSharedEntryFromMySide(
+            @PathVariable Long fileId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                fileService.removeSharedEntryFromMySide(fileId, authentication.getName())
+        );
     }
 
     @PatchMapping("/{fileId}/visibility")
