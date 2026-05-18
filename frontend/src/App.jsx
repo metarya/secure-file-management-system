@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
-
-
 
 function getFriendlyShareErrorMessage(message, status) {
   const text = String(message || "").toLowerCase();
@@ -32,7 +31,7 @@ function authHeaders(user) {
   return headers;
 }
 
-export default function DashboardPage() {
+function DashboardPage() {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("sfmsUser") || localStorage.getItem("sfms_user");
     return savedUser ? JSON.parse(savedUser) : null;
@@ -63,16 +62,20 @@ export default function DashboardPage() {
       {user && (
         <Dashboard user={user} logout={logout} />
       )}
+
+      {!user && page === "reset-password" && (
+        <ResetPasswordPage setPage={setPage} />
+      )}
     </div>
   );
 }
 
 function LoginPage({ setUser, setPage }) {
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // Day 6 floating-toast auto-clear: message:setMessage
   useEffect(() => {
     if (!message) return;
 
@@ -81,66 +84,138 @@ function LoginPage({ setUser, setPage }) {
     }, 3500);
 
     return () => clearTimeout(toastTimer);
+
   }, [message]);
 
   async function loginUser() {
+
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, password })
-      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
 
       const data = await response.json();
 
       if (response.ok && data.userId) {
-        localStorage.setItem("sfmsUser", JSON.stringify(data));
-        localStorage.setItem("sfms_user", JSON.stringify(data));
+
+        localStorage.setItem(
+          "sfmsUser",
+          JSON.stringify(data)
+        );
+
+        localStorage.setItem(
+          "sfms_user",
+          JSON.stringify(data)
+        );
+
         setUser(data);
+
       } else {
-        setMessage(data.message || "Login failed");
+
+        setMessage(
+          data.message || "Login failed"
+        );
       }
+
     } catch (error) {
-      setMessage("Login failed: " + error.message);
+
+      setMessage(
+        "Login failed: " + error.message
+      );
     }
   }
 
+  async function forgotPassword() {
+  }
+
   return (
+
     <div className="page center-page">
+
       <div className="card form-card">
+
         <h2>Login</h2>
 
         <label>Email</label>
+
         <input
           type="email"
           placeholder="Enter email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) =>
+            setEmail(e.target.value)
+          }
         />
 
         <label>Password</label>
+
         <input
           type="password"
           placeholder="Enter password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) =>
+            setPassword(e.target.value)
+          }
         />
 
-        <button className="btn primary full-width" onClick={loginUser}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: "10px",
+            marginBottom: "10px",
+          }}
+        >
+          <span
+            onClick={() => setPage("reset-password")}
+            style={{
+              color: "#2563eb",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "14px",
+            }}
+          >
+            Forgot Password?
+          </span>
+        </div>
+
+        <button
+          className="btn primary full-width"
+          onClick={loginUser}
+        >
           Login
         </button>
 
         <p className="link-text">
           New user?{" "}
-          <button className="link-button" onClick={() => setPage("register")}>
+
+          <button
+            className="link-button"
+            onClick={() => setPage("register")}
+          >
             Register
           </button>
         </p>
 
-        {message && <div className="message error">{message}</div>}
+        {message && (
+          <div className="message error">
+            {message}
+          </div>
+        )}
+
       </div>
+
     </div>
   );
 }
@@ -225,6 +300,203 @@ function RegisterPage({ setPage }) {
 
         {message && <div className="message">{message}</div>}
       </div>
+    </div>
+  );
+}
+
+function ResetPasswordPage({ setPage }) {
+
+  const [step, setStep] = useState(1);
+
+  const [email, setEmail] = useState("");
+
+  const [token, setToken] = useState("");
+
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [message, setMessage] =
+    useState("");
+
+  const [verified, setVerified] =
+    useState(false);
+
+  async function sendResetLink() {
+
+    try {
+
+      const response = await fetch(
+        `${API_BASE_URL}/auth/forgot-password`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            email,
+          }),
+        }
+      );
+
+      const data = await response.text();
+
+      setMessage(data);
+      
+      setStep(2);
+
+    } catch (error) {
+
+      setMessage(
+        "Failed to send reset link"
+      );
+    }
+  }
+
+  async function resetPassword() {
+
+    try {
+
+      const response = await fetch(
+        `${API_BASE_URL}/auth/reset-password`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            token,
+            newPassword,
+          }),
+        }
+      );
+
+      const data = await response.text();
+
+      setMessage(data);
+
+    } catch (error) {
+
+      setMessage(
+        "Password reset failed"
+      );
+    }
+  }
+
+  return (
+
+    <div className="page center-page">
+
+      <div className="card form-card">
+
+        <h2>Reset Password</h2>
+
+        {step === 1 && (
+
+          <>
+
+            <input
+              type="email"
+              placeholder="Enter registered email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+            />
+
+            <button
+              className="btn primary full-width"
+              onClick={sendResetLink}
+            >
+              Send Code
+            </button>
+
+          </>
+
+        )}
+
+        {step === 2 && !verified && (
+
+          <>
+
+            <input
+              type="text"
+              placeholder="Enter token/code"
+              value={token}
+              onChange={(e) =>
+                setToken(e.target.value)
+              }
+            />
+
+            <button
+              className="btn primary full-width"
+              onClick={() => {
+
+                if (!token) {
+
+                  setMessage("Enter token");
+
+                  return;
+                }
+
+                setVerified(true);
+              }}
+            >
+              Verify
+            </button>
+
+          </>
+
+        )}
+
+        {verified && (
+
+          <>
+
+            <input
+              type="password"
+              placeholder="Enter new password"
+              value={newPassword}
+              onChange={(e) =>
+                setNewPassword(e.target.value)
+              }
+            />
+
+            <button
+              className="btn primary full-width"
+              onClick={resetPassword}
+            >
+              Reset Password
+            </button>
+
+          </>
+
+        )}
+
+        <p className="link-text">
+
+          Back to Login?{" "}
+
+          <button
+            className="link-button"
+            onClick={() => setPage("login")}
+          >
+            Login
+          </button>
+
+        </p>
+
+        {message && (
+          <div className="message">
+            {message}
+          </div>
+        )}
+
+      </div>
+
     </div>
   );
 }
@@ -935,5 +1207,18 @@ function SharedFileTable({ files, downloadFile }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+      <Routes>
+
+        <Route
+          path="/"
+          element={<DashboardPage />}
+        />
+
+      </Routes>
   );
 }

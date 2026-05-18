@@ -1,15 +1,18 @@
 package com.project.filemanagement.service;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.project.filemanagement.dto.LoginRequest;
 import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.security.JwtUtil;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -17,11 +20,17 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
-    public AuthService(UserRepository userRepository, JwtUtil jwtUtil) {
+    public AuthService(
+            UserRepository userRepository,
+            JwtUtil jwtUtil,
+            EmailService emailService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtUtil = jwtUtil;
+        this.emailService = emailService;
     }
 
     public String registerUser(RegisterRequest request) {
@@ -45,6 +54,7 @@ public class AuthService {
         String hashedPassword = passwordEncoder.encode(request.getPassword());
 
         User user = new User();
+
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPasswordHash(hashedPassword);
@@ -81,7 +91,10 @@ public class AuthService {
             return new LoginResponse("Invalid email or password", null, null, null);
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getFullName());
+        String token = jwtUtil.generateToken(
+                user.getEmail(),
+                user.getFullName()
+        );
 
         return new LoginResponse(
                 "Login successful",
@@ -90,5 +103,61 @@ public class AuthService {
                 user.getEmail(),
                 token
         );
+    }
+
+public String forgotPassword(String email) {
+
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    if (
+            user.getResetToken() != null &&
+            user.getResetTokenExpiry() != null &&
+            user.getResetTokenExpiry().isAfter(LocalDateTime.now())
+    ) {
+
+        return "Code already sent. Check your email.";
+    }
+
+    String token = UUID.randomUUID().toString();
+
+    user.setResetToken(token);
+
+    user.setResetTokenExpiry(
+            LocalDateTime.now().plusMinutes(10)
+    );
+
+    userRepository.save(user);
+
+    String resetLink = token;
+
+    emailService.sendResetPasswordEmail(
+            user.getEmail(),
+            resetLink
+    );
+
+    return "Check your email for reset code.";
+}
+    
+    public String resetPassword(String token, String newPassword) {
+
+        User user = userRepository.findByResetToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid token"));
+
+        if (user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token expired");
+        }
+
+        user.setPasswordHash(
+            passwordEncoder.encode(newPassword)
+        );
+
+        user.setResetToken(null);
+
+        user.setResetTokenExpiry(null);
+
+        userRepository.save(user);
+
+        return "Password reset successful";
     }
 }

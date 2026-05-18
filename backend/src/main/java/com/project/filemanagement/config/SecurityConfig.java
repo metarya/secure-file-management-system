@@ -1,6 +1,5 @@
 package com.project.filemanagement.config;
 
-import com.project.filemanagement.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +10,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.project.filemanagement.security.JwtAuthFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -51,7 +52,10 @@ public class SecurityConfig {
                                 "/error",
                                 "/api/test",
                                 "/api/auth/register",
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
+
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

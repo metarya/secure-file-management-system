@@ -1,38 +1,84 @@
 package com.project.filemanagement.controller;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.project.filemanagement.dto.ForgotPasswordRequest;
 import com.project.filemanagement.dto.LoginRequest;
 import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
+import com.project.filemanagement.dto.ResetPasswordRequest;
 import com.project.filemanagement.service.AuthService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
+@CrossOrigin(origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+})
 public class AuthController {
 
     private final AuthService authService;
-
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
+    // ---------------- REGISTER ----------------
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@RequestBody RegisterRequest request) {
+    public ResponseEntity<String> registerUser(
+            @RequestBody RegisterRequest request) {
+
         String response = authService.registerUser(request);
-        return ResponseEntity.ok(response);
-    }
 
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponse> loginUser(@RequestBody LoginRequest request) {
-        LoginResponse response = authService.loginUser(request);
-
-        if ("Login successful".equals(response.getMessage())) {
+        if ("User registered successfully".equalsIgnoreCase(response)) {
             return ResponseEntity.ok(response);
         }
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return ResponseEntity.badRequest().body(response);
     }
-}
+
+    // ---------------- LOGIN ----------------
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> loginUser(
+            @RequestBody LoginRequest request) {
+
+        LoginResponse response = authService.loginUser(request);
+
+        if ("Login successful".equalsIgnoreCase(response.getMessage())) {
+            return ResponseEntity.ok(response);
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(response);
+    }
+
+        @PostMapping("/forgot-password")
+        public ResponseEntity<?> forgotPassword(
+                @RequestBody ForgotPasswordRequest request
+        ) {
+
+            String response =
+                authService.forgotPassword(request.getEmail());
+
+            return ResponseEntity.ok(response);
+        }
+
+        @PostMapping("/reset-password")
+        public ResponseEntity<?> resetPassword(
+                @RequestBody ResetPasswordRequest request
+        ) {
+
+            String response =
+                authService.resetPassword(
+                        request.getToken(),
+                        request.getNewPassword()
+                );
+
+            return ResponseEntity.ok(response);
+        }
+    }

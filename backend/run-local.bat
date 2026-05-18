@@ -9,11 +9,6 @@ if not exist "%MAVEN_HOME%\bin\mvn.cmd" (
     exit /b 1
 )
 
-if not exist .env (
-    echo ERROR: .env file not found in backend folder.
-    exit /b 1
-)
-
 for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
     set "%%A=%%B"
 )
