@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+﻿import { useEffect, useMemo, useState } from "react";import { Navigate } from "react-router-dom";
+import authHeaders from "../utils/authHeaders";
+import { toggleVisibility } from "../api/fileApi";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -51,19 +52,16 @@ function FilePage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  function authHeaders() {
-    return {
-      Authorization: `Bearer ${user?.token}`,
-      "ngrok-skip-browser-warning": "true",
-    };
-  }
+  useEffect(() => {
+  refreshAllFiles();
+}, []);
 
   async function loadMyFiles() {
     if (!user?.userId || !user?.token) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/files/my-files?ownerId=${user.userId}`, {
-        headers: authHeaders(),
+        headers: authHeaders(user?.token),
       });
 
       const data = await response.json();
@@ -89,7 +87,7 @@ function FilePage() {
     for (const url of possibleUrls) {
       try {
         const response = await fetch(url, {
-          headers: authHeaders(),
+          headers: authHeaders(user?.token),
         });
 
         if (response.ok) {
@@ -122,7 +120,7 @@ function FilePage() {
       setPreviewLoading(true);
 
       const response = await fetch(`${API_BASE_URL}/files/preview/${fileId}?userId=${user.userId}`, {
-        headers: authHeaders(),
+        headers: authHeaders(user?.token),
       });
 
       if (!response.ok) {
@@ -146,7 +144,7 @@ function FilePage() {
 
     try {
       const response = await fetch(`${API_BASE_URL}/files/download/${fileId}?userId=${user.userId}`, {
-        headers: authHeaders(),
+        headers: authHeaders(user?.token),
       });
 
       if (!response.ok) {
@@ -197,7 +195,7 @@ function FilePage() {
 
       const response = await fetch(deleteUrl, {
         method: "DELETE",
-        headers: authHeaders(),
+        headers: authHeaders(user?.token),
       });
 
       const responseText = await response.text();
@@ -235,100 +233,28 @@ function FilePage() {
     }
   }
 
+  async function handleToggleVisibility(file) {
+  try {
+    const result =
+      await toggleVisibility(
+        user,
+        file
+      );
 
-
-
-
-
-
-
-
-  function cancelDeleteFile() {
-    if (!deleteLoading) {
-      setDeleteTarget(null);
+    if (result.response.ok) {
+      await refreshAllFiles();
+    } else {
+      console.error(
+        result.data?.message ||
+        "Visibility update failed"
+      );
     }
+  } catch (error) {
+    console.error(error);
+  }
   }
 
-  async function toggleVisibility(file) {
-    const fileId = file.fileId || file.id;
-    const currentVisibility = String(file.visibility || file.displayVisibility || "PRIVATE").toUpperCase();
-    const nextVisibility = currentVisibility === "PUBLIC" ? "PRIVATE" : "PUBLIC";
 
-    const requestsToTry = [
-      {
-        method: "PUT",
-        url: `${API_BASE_URL}/files/${fileId}/visibility?userId=${user.userId}&visibility=${nextVisibility}`,
-        body: null,
-      },
-      {
-        method: "PUT",
-        url: `${API_BASE_URL}/files/${fileId}/visibility?visibility=${nextVisibility}&userId=${user.userId}`,
-        body: null,
-      },
-      {
-        method: "PATCH",
-        url: `${API_BASE_URL}/files/${fileId}/visibility?userId=${user.userId}&visibility=${nextVisibility}`,
-        body: null,
-      },
-      {
-        method: "PATCH",
-        url: `${API_BASE_URL}/files/${fileId}/visibility?visibility=${nextVisibility}&userId=${user.userId}`,
-        body: null,
-      },
-      {
-        method: "PUT",
-        url: `${API_BASE_URL}/files/${fileId}/visibility`,
-        body: JSON.stringify({
-          userId: user.userId,
-          visibility: nextVisibility,
-        }),
-      },
-      {
-        method: "PATCH",
-        url: `${API_BASE_URL}/files/${fileId}/visibility`,
-        body: JSON.stringify({
-          userId: user.userId,
-          visibility: nextVisibility,
-        }),
-      },
-    ];
-
-    let finalError = "";
-
-    for (const request of requestsToTry) {
-      try {
-        const headers = {
-          ...authHeaders(),
-        };
-
-        if (request.body) {
-          headers["Content-Type"] = "application/json";
-        }
-
-        const response = await fetch(request.url, {
-          method: request.method,
-          headers,
-          body: request.body,
-        });
-
-        if (response.ok) {
-          setMessage(`File visibility changed to ${nextVisibility}.`);
-          await refreshAllFiles();
-          return;
-        }
-
-        finalError = await response.text();
-      } catch (error) {
-        finalError = error.message;
-      }
-    }
-
-    setMessage(finalError || "Visibility update failed.");
-  }
-
-  useEffect(() => {
-    refreshAllFiles();
-  }, []);
 
   const combinedFiles = useMemo(() => {
     const owned = ownedFiles.map((file) => ({
@@ -398,7 +324,7 @@ function FilePage() {
           previewFile={previewFile}
           downloadFile={downloadFile}
           deleteFile={deleteFile}
-          toggleVisibility={toggleVisibility}
+          toggleVisibility={handleToggleVisibility}
         />
       
 
