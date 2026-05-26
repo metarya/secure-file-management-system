@@ -6,6 +6,7 @@ public class SharedWithMeFileResponse {
 
     private final Long fileId;
     private final String fileName;
+    private final String description;
     private final String fileType;
     private final Long fileSize;
     private final Long originalFileSize;
@@ -25,6 +26,7 @@ public class SharedWithMeFileResponse {
     public SharedWithMeFileResponse(
             Long fileId,
             String fileName,
+            String description,
             String fileType,
             Long fileSize,
             Long originalFileSize,
@@ -41,6 +43,7 @@ public class SharedWithMeFileResponse {
     ) {
         this.fileId = fileId;
         this.fileName = fileName;
+        this.description = description;
         this.fileType = fileType;
         this.fileSize = fileSize;
         this.originalFileSize = originalFileSize;
@@ -62,6 +65,10 @@ public class SharedWithMeFileResponse {
 
     public String getFileName() {
         return fileName;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public String getFileType() {

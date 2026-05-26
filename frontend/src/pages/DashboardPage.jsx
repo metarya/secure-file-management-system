@@ -215,7 +215,7 @@ export default function Dashboard({ user, logout }) {
       ? safeFileName
       : `${safeFileName}.txt`;
 
-    const renamedFile = new File([File], finalFileName, {
+    const renamedFile = new window.File([File], finalFileName, {
       type: File.type || "text/plain",
       lastModified: File.lastModified,
     });
@@ -228,7 +228,7 @@ export default function Dashboard({ user, logout }) {
     try {
       const response = await fetch(`${API_BASE_URL}/files/upload`, {
         method: "POST",
-        headers: authHeaders(user),
+        headers: authHeaders(user?.token),
         body: formData,
       });
 
@@ -273,7 +273,7 @@ export default function Dashboard({ user, logout }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(user)
+          ...authHeaders(user?.token)
         },
         body: JSON.stringify({
           fileId: Number(shareFileId),

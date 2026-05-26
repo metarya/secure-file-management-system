@@ -1,4 +1,11 @@
-export default function FileTable({ files, downloadFile, deleteFile, toggleVisibility }) {
+export default function FileTable({
+  files,
+  downloadFile,
+  deleteFile,
+  toggleVisibility,
+  previewFile
+}) {
+
   if (!files || files.length === 0) {
     return (
       <div className="empty-state">
@@ -8,61 +15,113 @@ export default function FileTable({ files, downloadFile, deleteFile, toggleVisib
   }
 
   return (
+
     <div className="table-wrapper">
+
       <table>
+
         <thead>
+
           <tr>
-            <th>ID</th>
             <th>File Name</th>
-            <th>Type</th>
-            <th>Original Size</th>
-            <th>Compressed Size</th>
-            <th>Compressed</th>
+            <th>Description</th>
             <th>Visibility</th>
             <th>Uploaded At</th>
             <th>Actions</th>
           </tr>
+
         </thead>
 
         <tbody>
+
           {files.map((file) => (
+
             <tr key={file.fileId}>
-              <td>{file.fileId}</td>
-              <td>{file.fileName}</td>
-              <td>{file.fileType}</td>
-              <td>{file.originalFileSize ?? file.fileSize ?? "-"}</td>
-              <td>{file.compressedFileSize ?? "-"}</td>
-              <td>{file.compressed ? "Yes" : "No"}</td>
+
               <td>
-                <span className={`status-badge ${file.visibility === "PUBLIC" ? "public" : "private"}`}>
-                  {file.visibility}
-                </span>
+
+                <button
+                  type="button"
+                  className="file-preview-link"
+                  onClick={() => previewFile(file)}
+                  title="Click to preview file"
+                >
+                  {file.fileName ||
+                   file.name ||
+                   "Unnamed file"}
+                </button>
+
               </td>
-              <td>{file.uploadedAt || "-"}</td>
+
               <td>
+                {file.sharedFile?.description ||
+                 file.description ||
+                 "-"}
+              </td>
+
+              <td>
+
+                <span
+                  className={`status-badge ${
+                    file.sharedAt
+                      ? "shared"
+                      : file.visibility === "PUBLIC"
+                      ? "public"
+                      : "private"
+                  }`}
+                >
+
+                  {file.sharedAt
+                    ? "SHARED"
+                    : file.visibility}
+
+                </span>
+
+              </td>
+
+              <td>
+                {file.uploadedAt || "-"}
+              </td>
+
+              <td>
+
                 <button
                   className="btn secondary action-btn"
-                  onClick={() => downloadFile(file.fileId)}
+                  onClick={() => downloadFile(file)}
                 >
                   Download
                 </button>
-                <button
-                  className="btn secondary action-btn"
-                  onClick={() => toggleVisibility(file)}
-                >
-                  Make {file.visibility === "PUBLIC" ? "PRIVATE" : "PUBLIC"}
-                </button>
+
+                {!file.sharedAt && (
+                  <button
+                    className="btn secondary action-btn"
+                    onClick={() => toggleVisibility(file)}
+                  >
+                    Make {file.visibility === "PUBLIC"
+                      ? "PRIVATE"
+                      : "PUBLIC"}
+                  </button>
+                )}
+
                 <button
                   className="btn danger action-btn"
-                  onClick={() => deleteFile(file.fileId)}
+                  onClick={() => deleteFile(file)}
                 >
-                  Delete
+                  {file.sharedAt
+                    ? "Remove"
+                    : "Delete"}
                 </button>
+
               </td>
+
             </tr>
+
           ))}
+
         </tbody>
+
       </table>
+
     </div>
   );
 }

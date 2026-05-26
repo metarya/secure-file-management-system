@@ -1,6 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from "react";import { Navigate } from "react-router-dom";
-import authHeaders from "../utils/authHeaders";
 import { toggleVisibility } from "../api/fileApi";
+import useFiles from "../hooks/useFile";
+import authHeaders from "../utils/authHeaders";
+import FileTable from "../components/tables/FileTable";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -40,10 +42,6 @@ function loadStoredUser() {
 }
 
 function FilePage() {
-  const [user] = useState(loadStoredUser);
-  const [ownedFiles, setOwnedFiles] = useState([]);
-  const [sharedFiles, setSharedFiles] = useState([]);
-  const [message, setMessage] = useState("");
   const [searchName, setSearchName] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewFileName, setPreviewFileName] = useState("");
@@ -51,10 +49,8 @@ function FilePage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  useEffect(() => {
-  refreshAllFiles();
-}, []);
+  const [user] = useState(loadStoredUser);
+  const {files, setFiles, sharedFiles, setSharedFiles, message, setMessage, refreshAllFiles} = useFiles();
 
   async function loadMyFiles() {
     if (!user?.userId || !user?.token) return;
@@ -67,7 +63,7 @@ function FilePage() {
       const data = await response.json();
 
       if (response.ok) {
-        setOwnedFiles(Array.isArray(data) ? data : []);
+        setFiles(Array.isArray(data) ? data : []);
       } else {
         setMessage(data?.message || "Failed to load my files.");
       }
@@ -103,11 +99,13 @@ function FilePage() {
     setSharedFiles([]);
   }
 
-  async function refreshAllFiles() {
-    await loadMyFiles();
-    await loadSharedFiles();
-    setMessage("Files refreshed successfully.");
-  }
+  useEffect(() => {
+    refreshAllFiles(
+      loadMyFiles,
+      loadSharedFiles,
+      setMessage
+    );
+  }, []);
 
   async function previewFile(file) {
     const fileId = file.fileId || file.id;
@@ -167,6 +165,7 @@ function FilePage() {
       setMessage("Download failed: " + error.message);
     }
   }
+
   function deleteFile(file) {
     setDeleteTarget(file);
   }
@@ -211,7 +210,7 @@ function FilePage() {
 
           setMessage(`Shared file removed from your list: ${fileName}`);
         } else {
-          setOwnedFiles((previousFiles) =>
+          setFiles((previousFiles) =>
             previousFiles.filter((ownedFile) => {
               const ownedFileId = ownedFile.fileId || ownedFile.id;
               return String(ownedFileId) !== String(fileId);
@@ -222,7 +221,11 @@ function FilePage() {
         }
 
         setDeleteTarget(null);
-        await refreshAllFiles();
+        await refreshAllFiles(
+          loadMyFiles,
+          loadSharedFiles,
+          setMessage,
+        );
       } else {
         setMessage(`Remove failed. Status: ${response.status}. URL: ${deleteUrl}. Response: ${responseText || "No response text"}`);
       }
@@ -242,7 +245,11 @@ function FilePage() {
       );
 
     if (result.response.ok) {
-      await refreshAllFiles();
+      await refreshAllFiles(
+        loadMyFiles,
+        loadSharedFiles,
+        setMessage,
+      );
     } else {
       console.error(
         result.data?.message ||
@@ -254,10 +261,8 @@ function FilePage() {
   }
   }
 
-
-
   const combinedFiles = useMemo(() => {
-    const owned = ownedFiles.map((file) => ({
+    const owned = files.map((file) => ({
       ...file,
       sourceType: "OWNED",
       displayVisibility: String(file.visibility || "PRIVATE").toUpperCase(),
@@ -270,7 +275,7 @@ function FilePage() {
     }));
 
     return [...owned, ...shared];
-  }, [ownedFiles, sharedFiles]);
+  }, [files, sharedFiles]);
 
   const displayedFiles = useMemo(() => {
     const keyword = searchName.trim().toLowerCase();
@@ -397,100 +402,6 @@ function FilePage() {
         )}
 </section>
     </main>
-  );
-}
-
-function FileTable({ files, previewFile, downloadFile, deleteFile, toggleVisibility }) {
-  if (!files || files.length === 0) {
-    return <div className="empty-state">No files found.</div>;
-  }
-
-  return (
-    <div className="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>File Name</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th>Visibility</th>
-            <th>Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {files.map((file) => {
-            const fileId = file.fileId || file.id;
-            const fileName = file.fileName || file.name || "Unnamed file";
-            const description =
-              file.description ||
-              file.fileDescription ||
-              file.file_description ||
-              file.details ||
-              "-";
-            const fileType = file.fileType || file.type || "txt";
-            const visibility = file.displayVisibility;
-            const dateValue =
-              file.sourceType === "SHARED"
-                ? file.sharedAt || file.createdAt || "-"
-                : file.uploadedAt || "-";
-
-            const permissionCode = String(file.permissionType || "").toUpperCase();
-            const canDownload =
-              file.sourceType !== "SHARED" ||
-              permissionCode === "DOWNLOAD" ||
-              permissionCode === "VIEW_DOWNLOAD";
-
-            return (
-              <tr key={`${file.sourceType}-${fileId}-${fileName}`}>
-                <td>
-                  <button
-                    type="button"
-                    className="file-preview-link"
-                    onClick={() => previewFile(file)}
-                    title="Click to preview file"
-                  >
-                    {fileName}
-                  </button>
-                </td>
-                <td className="description-cell">{description}</td>
-                <td>{fileType}</td>
-                <td>
-                  <span className={`status-badge ${String(visibility).toLowerCase()}`}>
-                    {visibility}
-                  </span>
-                </td>
-                <td>{dateValue}</td>
-                <td>
-                  {canDownload && (
-                    <button className="btn secondary" onClick={() => downloadFile(file)}>
-                      Download
-                    </button>
-                  )}
-
-                  {file.sourceType !== "SHARED" ? (
-                    <>
-                      <button className="btn secondary" onClick={() => toggleVisibility(file)}>
-                        Make {String(file.visibility).toUpperCase() === "PUBLIC" ? "PRIVATE" : "PUBLIC"}
-                      </button>
-
-                      <button className="btn danger" onClick={() => deleteFile(file)}>
-                        Delete
-                      </button>
-                    </>
-                  ) : (
-                    <button className="btn danger" onClick={() => deleteFile(file)}>
-                      Remove
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
