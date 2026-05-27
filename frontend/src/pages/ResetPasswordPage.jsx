@@ -1,4 +1,15 @@
 import { useState } from "react";
+import {
+  Box,
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Stack,
+  Alert
+} from "@mui/material";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:8080/api";
@@ -85,117 +96,290 @@ export default function ResetPasswordPage({ setPage }) {
     }
   }
 
-  return (
+return (
 
-    <div className="page center-page">
+  <Box
+    sx={{
+      minHeight: "100vh",
+      backgroundColor: "#eef2f7",
 
-      <div className="card form-card">
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
 
-        <h2>Reset Password</h2>
+      px: 2
+    }}
+  >
 
-        {step === 1 && (
+    <Container maxWidth="xs">
 
-          <>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 4,
+          borderRadius: 5,
 
-            <input
-              type="email"
-              placeholder="Enter registered email"
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
-            />
+          backgroundColor: "#ffffff",
 
-            <button
-              className="btn primary full-width"
-              onClick={sendResetLink}
-            >
-              Send Code
-            </button>
+          border:
+            "1px solid #dbe2ea",
 
-          </>
+          boxShadow:
+            "0 8px 24px rgba(15,23,42,0.06)"
+        }}
+      >
 
-        )}
+        {/* Heading */}
 
-        {step === 2 && !verified && (
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            mb: 1,
+            color: "#0f172a"
+          }}
+        >
+          Reset Password
+        </Typography>
 
-          <>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "#64748b",
+            mb: 4
+          }}
+        >
+          Recover your account access
+        </Typography>
 
-            <input
-              type="text"
-              placeholder="Enter token/code"
-              value={token}
-              onChange={(e) =>
-                setToken(e.target.value)
-              }
-            />
+        <Stack spacing={3}>
 
-            <button
-              className="btn primary full-width"
-              onClick={() => {
+          {/* STEP 1 */}
 
-                if (!token) {
+          {step === 1 && (
 
-                  setMessage("Enter token");
+            <>
 
-                  return;
+              <TextField
+                fullWidth
+                label="Registered Email"
+                type="email"
+
+                value={email}
+
+                onChange={(e) =>
+                  setEmail(
+                    e.target.value
+                  )
                 }
 
-                setVerified(true);
+                sx={{
+                  "& .MuiOutlinedInput-root":
+                    {
+                      borderRadius: 4,
+                      height: "56px"
+                    }
+                }}
+              />
+
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={sendResetLink}
+
+                sx={{
+                  height: "56px",
+
+                  borderRadius: 4,
+
+                  fontWeight: 700,
+
+                  backgroundColor:
+                    "#1d4ed8",
+
+                  boxShadow: "none"
+                }}
+              >
+                Send Code
+              </Button>
+
+            </>
+
+          )}
+
+          {/* STEP 2 */}
+
+          {step === 2 && !verified && (
+
+            <>
+
+              <TextField
+                fullWidth
+                label="Verification Code"
+
+                value={token}
+
+                onChange={(e) =>
+                  setToken(
+                    e.target.value
+                  )
+                }
+
+                sx={{
+                  "& .MuiOutlinedInput-root":
+                    {
+                      borderRadius: 4,
+                      height: "56px"
+                    }
+                }}
+              />
+
+              <Button
+                variant="contained"
+                fullWidth
+
+                onClick={() => {
+
+                  if (!token) {
+
+                    setMessage(
+                      "Enter token"
+                    );
+
+                    return;
+                  }
+
+                  setVerified(true);
+                }}
+
+                sx={{
+                  height: "56px",
+
+                  borderRadius: 4,
+
+                  fontWeight: 700,
+
+                  backgroundColor:
+                    "#1d4ed8",
+
+                  boxShadow: "none"
+                }}
+              >
+                Verify
+              </Button>
+
+            </>
+
+          )}
+
+          {/* STEP 3 */}
+
+          {verified && (
+
+            <>
+
+              <TextField
+                fullWidth
+                label="New Password"
+                type="password"
+
+                value={newPassword}
+
+                onChange={(e) =>
+                  setNewPassword(
+                    e.target.value
+                  )
+                }
+
+                sx={{
+                  "& .MuiOutlinedInput-root":
+                    {
+                      borderRadius: 4,
+                      height: "56px"
+                    }
+                }}
+              />
+
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={resetPassword}
+
+                sx={{
+                  height: "56px",
+
+                  borderRadius: 4,
+
+                  fontWeight: 700,
+
+                  backgroundColor:
+                    "#1d4ed8",
+
+                  boxShadow: "none"
+                }}
+              >
+                Reset Password
+              </Button>
+
+            </>
+
+          )}
+
+          {/* Back to Login */}
+
+          <Typography
+            sx={{
+              textAlign: "center",
+              color: "#475569",
+              fontSize: "0.95rem"
+            }}
+          >
+            Back to Login?{" "}
+
+            <Box
+              component="span"
+
+              onClick={() =>
+                setPage("login")
+              }
+
+              sx={{
+                color: "#2563eb",
+                cursor: "pointer",
+                fontWeight: 700,
+
+                "&:hover": {
+                  textDecoration:
+                    "underline"
+                }
               }}
             >
-              Verify
-            </button>
+              Login
+            </Box>
 
-          </>
+          </Typography>
 
-        )}
+          {/* Message */}
 
-        {verified && (
+          {message && (
 
-          <>
-
-            <input
-              type="password"
-              placeholder="Enter new password"
-              value={newPassword}
-              onChange={(e) =>
-                setNewPassword(e.target.value)
-              }
-            />
-
-            <button
-              className="btn primary full-width"
-              onClick={resetPassword}
+            <Alert
+              severity="info"
+              sx={{
+                borderRadius: 3
+              }}
             >
-              Reset Password
-            </button>
+              {message}
+            </Alert>
 
-          </>
+          )}
 
-        )}
+        </Stack>
 
-        <p className="link-text">
+      </Paper>
 
-          Back to Login?{" "}
+    </Container>
 
-          <button
-            className="link-button"
-            onClick={() => setPage("login")}
-          >
-            Login
-          </button>
-
-        </p>
-
-        {message && (
-          <div className="message">
-            {message}
-          </div>
-        )}
-
-      </div>
-
-    </div>
-  );
+  </Box>
+);
 }

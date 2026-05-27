@@ -2,7 +2,22 @@
 import { toggleVisibility } from "../api/fileApi";
 import useFiles from "../hooks/useFile";
 import authHeaders from "../utils/authHeaders";
-import FileTable from "../components/tables/FileTable";
+import {
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  Stack,
+  Link
+} from "@mui/material";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -295,113 +310,433 @@ function FilePage() {
   }
 
   return (
-    <main className="dashboard">
-      <section className="card wide-card">
-        <div className="section-header">
-          <div>
-            <h3>Files</h3>
-          </div>
+    <Box
+    sx={{
+      minHeight: "100vh",
+      backgroundColor: "#f3f4f6",
+      p: 4,
+    }}
+  >
+    <Paper
+      elevation={0}
+      sx={{
+        maxWidth: "1250px",
+        margin: "0 auto",
+        borderRadius: "22px",
+        p: 4,
+        backgroundColor: "#ffffff",
+        border: "1px solid #e5e7eb",
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 4,
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+            color: "#111827",
+          }}
+        >
+          Files
+        </Typography>
 
-          <div className="file-page-actions">
-            <a className="btn secondary back-home-button" href="/">
-              Back to Home
-            </a>
+        <Stack direction="row" spacing={2}>
+          <Button
+            href="/"
+            variant="contained"
+            disableElevation
+            sx={{
+              backgroundColor: "#e5e7eb",
+              color: "#111827",
+              borderRadius: "12px",
+              px: 3,
+              py: 1.2,
+              fontWeight: 700,
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "#d1d5db",
+              },
+            }}
+          >
+            Back to Home
+          </Button>
 
-            <button className="btn secondary" onClick={refreshAllFiles}>
-              Refresh
-            </button>
-          </div>
-        </div>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() =>
+              refreshAllFiles(
+                loadMyFiles,
+                loadSharedFiles,
+                setMessage
+              )
+            }
+            sx={{
+              backgroundColor: "#e5e7eb",
+              color: "#111827",
+              borderRadius: "12px",
+              px: 3,
+              py: 1.2,
+              fontWeight: 700,
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "#d1d5db",
+              },
+            }}
+          >
+            Refresh
+          </Button>
+        </Stack>
+      </Box>
 
-        <div className="search-row">
-          <input
-            type="text"
-            placeholder="Search by file name"
-            value={searchName}
-            onChange={(event) => setSearchName(event.target.value)}
-          />
-        </div>
+      {/* Search */}
+      <TextField
+        fullWidth
+        placeholder="Search by file name"
+        value={searchName}
+        onChange={(event) => setSearchName(event.target.value)}
+        variant="outlined"
+        sx={{
+          mb: 3,
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "14px",
+            backgroundColor: "#fafafa",
+          },
+        }}
+      />
 
-        {message && <div className="message">{message}</div>}
+      {/* Message */}
+      {message && (
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            sx={{
+              color: "#374151",
+              fontSize: "14px",
+            }}
+          >
+            {message}
+          </Typography>
+        </Box>
+      )}
 
-        <FileTable
-          files={displayedFiles}
-          previewFile={previewFile}
-          downloadFile={downloadFile}
-          deleteFile={deleteFile}
-          toggleVisibility={handleToggleVisibility}
-        />
-      
+      {/* Table */}
+      <TableContainer
+        component={Paper}
+        elevation={0}
+        sx={{
+          borderRadius: "18px",
+          overflow: "hidden",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow
+              sx={{
+                backgroundColor: "#f3f4f6",
+              }}
+            >
+              <TableCell sx={{ fontWeight: 700 }}>File Name</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Visibility</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Uploaded At</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
 
-        {previewOpen && (
-          <div className="preview-modal-overlay">
-            <div className="preview-modal">
-              <div className="preview-header">
-                <div>
-                  <h3>{previewFileName}</h3>
-                  <p className="muted">Text file preview</p>
-                </div>
+          <TableBody>
+            {displayedFiles.map((file, index) => {
+              const visibility = file.displayVisibility;
 
-                <button
-                  className="btn secondary"
-                  onClick={() => setPreviewOpen(false)}
+              return (
+                <TableRow
+                  key={file.fileId || file.id || index}
+                  hover
                 >
-                  Close
-                </button>
-              </div>
+                  <TableCell>
+                    <Link
+                      component="button"
+                      underline="hover"
+                      onClick={() => previewFile(file)}
+                      sx={{
+                        fontWeight: 700,
+                        color: "#2563eb",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {file.fileName || file.name}
+                    </Link>
+                  </TableCell>
 
-              <pre className="preview-content">
-                {previewLoading ? "Loading preview..." : previewText}
-              </pre>
-            </div>
-          </div>
-        )}
-                {deleteTarget && (
-          <div className="delete-confirm-modal-overlay">
-            <div className="delete-confirm-modal">
-              <h3>
-                {deleteTarget?.sourceType === "SHARED" ? "Remove Shared File" : "Delete File"}
-              </h3>
+                  <TableCell>
+                    {file.description || "-"}
+                  </TableCell>
 
-              <p>
-                {deleteTarget?.sourceType === "SHARED"
-                  ? "Remove this shared file from your list?"
-                  : "Are you sure you want to delete"}
-                <strong> {deleteTarget.fileName || deleteTarget.name || "this file"}</strong>?
-              </p>
+                  <TableCell>
+                    <Chip
+                      label={visibility}
+                      sx={{
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        px: 1,
+                        backgroundColor:
+                          visibility === "PUBLIC"
+                            ? "#d1fae5"
+                            : visibility === "PRIVATE"
+                            ? "#fce7e7"
+                            : "#dbeafe",
+                        color:
+                          visibility === "PUBLIC"
+                            ? "#065f46"
+                            : visibility === "PRIVATE"
+                            ? "#991b1b"
+                            : "#1e3a8a",
+                      }}
+                    />
+                  </TableCell>
 
-              <p className="muted">
-                {deleteTarget?.sourceType === "SHARED"
-                  ? "This will only remove your access. The owner's original file will not be deleted."
-                  : "This action will permanently remove the file from your account."}
-              </p>
+                  <TableCell>
+                    {file.uploadedAt || file.createdAt || "-"}
+                  </TableCell>
 
-              <div className="delete-confirm-actions">
-                <button
-                  className="btn secondary"
-                  onClick={cancelDeleteFile}
-                  disabled={deleteLoading}
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        disableElevation
+                        onClick={() => downloadFile(file)}
+                        sx={{
+                          backgroundColor: "#e5e7eb",
+                          color: "#111827",
+                          borderRadius: "10px",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          "&:hover": {
+                            backgroundColor: "#d1d5db",
+                          },
+                        }}
+                      >
+                        Download
+                      </Button>
+
+                      {file.sourceType !== "SHARED" ? (
+                        <Button
+                          variant="contained"
+                          disableElevation
+                          onClick={() =>
+                            handleToggleVisibility(file)
+                          }
+                          sx={{
+                            backgroundColor: "#e5e7eb",
+                            color: "#111827",
+                            borderRadius: "10px",
+                            textTransform: "none",
+                            fontWeight: 700,
+                            "&:hover": {
+                              backgroundColor: "#d1d5db",
+                            },
+                          }}
+                        >
+                          {visibility === "PUBLIC"
+                            ? "Make PRIVATE"
+                            : "Make PUBLIC"}
+                        </Button>
+                      ) : null}
+
+                      <Button
+                        variant="contained"
+                        disableElevation
+                        onClick={() => deleteFile(file)}
+                        sx={{
+                          backgroundColor: "#dc2626",
+                          color: "#ffffff",
+                          borderRadius: "10px",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          "&:hover": {
+                            backgroundColor: "#b91c1c",
+                          },
+                        }}
+                      >
+                        {file.sourceType === "SHARED"
+                          ? "Remove"
+                          : "Delete"}
+                      </Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Preview Modal */}
+      {previewOpen && (
+        <Box className="preview-modal-overlay">
+          <Paper
+            sx={{
+              width: "700px",
+              maxWidth: "95%",
+              p: 3,
+              borderRadius: "20px",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="h6" fontWeight={700}>
+                  {previewFileName}
+                </Typography>
+
+                <Typography
+                  sx={{
+                    color: "#6b7280",
+                    fontSize: "14px",
+                  }}
                 >
-                  Cancel
-                </button>
+                  Text file preview
+                </Typography>
+              </Box>
 
-                <button
-                  className="btn danger"
-                  onClick={confirmDeleteFile}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading
-                    ? "Processing..."
-                    : deleteTarget?.sourceType === "SHARED"
-                    ? "Remove Shared File"
-                    : "Delete File"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-</section>
-    </main>
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={() => setPreviewOpen(false)}
+                sx={{
+                  backgroundColor: "#e5e7eb",
+                  color: "#111827",
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                Close
+              </Button>
+            </Box>
+
+            <Box
+              component="pre"
+              sx={{
+                backgroundColor: "#f9fafb",
+                p: 2,
+                borderRadius: "12px",
+                overflowX: "auto",
+                maxHeight: "400px",
+              }}
+            >
+              {previewLoading
+                ? "Loading preview..."
+                : previewText}
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Delete Modal */}
+      {deleteTarget && (
+        <Box className="delete-confirm-modal-overlay">
+          <Paper
+            sx={{
+              width: "450px",
+              maxWidth: "95%",
+              p: 4,
+              borderRadius: "20px",
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700, mb: 2 }}
+            >
+              {deleteTarget?.sourceType === "SHARED"
+                ? "Remove Shared File"
+                : "Delete File"}
+            </Typography>
+
+            <Typography sx={{ mb: 2 }}>
+              {deleteTarget?.sourceType === "SHARED"
+                ? "Remove this shared file from your list?"
+                : "Are you sure you want to delete"}
+              <strong>
+                {" "}
+                {deleteTarget.fileName ||
+                  deleteTarget.name ||
+                  "this file"}
+              </strong>
+              ?
+            </Typography>
+
+            <Typography
+              sx={{
+                color: "#6b7280",
+                fontSize: "14px",
+                mb: 3,
+              }}
+            >
+              {deleteTarget?.sourceType === "SHARED"
+                ? "This will only remove your access. The owner's original file will not be deleted."
+                : "This action will permanently remove the file from your account."}
+            </Typography>
+
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent="flex-end"
+            >
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={cancelDeleteFile}
+                disabled={deleteLoading}
+                sx={{
+                  backgroundColor: "#e5e7eb",
+                  color: "#111827",
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={confirmDeleteFile}
+                disabled={deleteLoading}
+                sx={{
+                  backgroundColor: "#dc2626",
+                  color: "#ffffff",
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                }}
+              >
+                {deleteLoading
+                  ? "Processing..."
+                  : deleteTarget?.sourceType === "SHARED"
+                  ? "Remove Shared File"
+                  : "Delete File"}
+              </Button>
+            </Stack>
+          </Paper>
+        </Box>
+      )}
+    </Paper>
+    </Box>
   );
 }
 

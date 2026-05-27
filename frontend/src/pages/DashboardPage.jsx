@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import FileTable from "../components/tables/FileTable";
 import authHeaders from "../utils/authHeaders";
 import ShareErrorMessage from "../utils/shareErrorMessage";
 import Upload from "../components/upload/Upload";
@@ -7,10 +6,19 @@ import ShareFile from "../components/share/ShareFile";
 import {loadMyFiles, 
   loadSharedWithMe, 
   searchFiles, 
-  downloadFile, 
-  deleteFile, 
-  toggleVisibility
 } from "../api/fileApi";
+
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Paper,
+  Box,
+  Alert,
+  Grid
+} from "@mui/material";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
@@ -35,7 +43,7 @@ export default function Dashboard({ user, logout }) {
 
     return () => clearTimeout(toastTimer);
   }, [sharedMessage]);
-  const [searchName, setSearchName] = useState("");
+  const [searchName] = useState("");
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -258,10 +266,6 @@ export default function Dashboard({ user, logout }) {
   }
 
   async function shareFileAccess() {
-    if (!shareFileId.trim()) {
-      setShareMessage("Please enter a file ID.");
-      return;
-    }
 
     if (!targetUserEmail.trim()) {
       setShareMessage("Please enter target user email.");
@@ -298,160 +302,221 @@ export default function Dashboard({ user, logout }) {
     }
   }
 
-  async function handledownloadFile(fileId) {
-  try {
-    const result = await downloadFile(
-      user,
-      fileId
-    );
+return (
 
-    const downloadUrl =
-      window.URL.createObjectURL(result.blob);
+  <Box
+    sx={{
+      backgroundColor: "#eef2f7",
+      minHeight: "100vh"
+    }}
+  >
 
-    const link =
-      document.createElement("a");
+    {/* Navbar */}
 
-    link.href = downloadUrl;
-    link.download = result.fileName;
+    <AppBar
+      position="static"
+      sx={{
+        background:
+          "linear-gradient(90deg, #0b1020 0%, #16213e 100%)",
 
-    document.body.appendChild(link);
+        boxShadow:
+          "0 4px 20px rgba(0,0,0,0.15)"
+      }}
+    >
 
-    link.click();
+      <Toolbar
+        sx={{
+          minHeight:
+            "90px !important",
 
-    link.remove();
+          px: {
+            xs: 2,
+            sm: 4,
+            md: 8
+          },
 
-    window.URL.revokeObjectURL(downloadUrl);
-  } catch (error) {
-    setDashboardMessage(
-      "Download failed: " + error.message
-    );
-  }
-  }
+          py: 4
+        }}
+      >
 
-  async function handleDeleteFile(fileId) {
-  const confirmed = window.confirm(
-    "Are you sure you want to delete this file?"
-  );
+        <Typography
+          variant="h2"
+          sx={{
+            flexGrow: 1,
+            fontWeight: 600,
 
-  if (!confirmed) return;
+            fontSize: {
+              xs: "2.5rem",
+              md: "4rem"
+            }
+          }}
+        >
+          File Management System
+        </Typography>
 
-  try {
-    const response = await deleteFile(
-      user,
-      fileId
-    );
+        <Button
+          variant="contained"
+          href="/files"
+          sx={{
+            mr: 2,
+            backgroundColor: "#ffffff",
+            color: "#111827",
+            fontWeight: 700,
+            px: 3,
+            py: 1.2,
+            borderRadius: 3,
 
-    if (response.ok) {
-      fetchMyFilesData();
-    } else {
-      setDashboardMessage(
-        "Delete failed."
-      );
-    }
-  } catch (error) {
-    setDashboardMessage(
-      "Delete failed: " + error.message
-    );
-  }
-  }
-
-  async function handleToggleVisibility(file) {
-  try {
-    const result =
-      await toggleVisibility(
-        user,
-        file
-      );
-
-    if (result.response.ok) {
-      fetchMyFilesData();
-    } else {
-      console.error(
-        result.data?.message ||
-        "Visibility update failed"
-      );
-    }
-  } catch (error) {
-    console.error(error);
-  }
-  }
-
-  return (
-    <div>
-      <header className="topbar">
-        
-        <h1 className="dashboard-title">File Management System</h1>
-        <a className="btn secondary files-page-button" href="/files">
+            "&:hover": {
+              backgroundColor: "#f3f4f6"
+            }
+          }}
+        >
           Files
-        </a>
+        </Button>
 
-        <button className="btn danger" onClick={logout}>Logout</button>
-      </header>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={logout}
+          sx={{
+            fontWeight: 700,
+            px: 3,
+            py: 1.2,
+            borderRadius: 3
+          }}
+        >
+          Logout
+        </Button>
 
-      
+      </Toolbar>
 
-      <main className="dashboard">
-        {uploadNotification && (
-          <div className="upload-notification">
-            {uploadNotification}
-          </div>
-        )}
+    </AppBar>
 
-          <Upload
-            FileName={FileName}
-            setFileName={setFileName}
-            FileDescription={FileDescription}
-            setFileDescription={setFileDescription}
-            setFile={setFile}
-            uploadFile={uploadFile}
-          />
+    {/* Main Dashboard */}
 
-          <ShareFile
-            files={files}
-            shareFileId={shareFileId}
-            setShareFileId={setShareFileId}
-            targetUserEmail={targetUserEmail}
-            setTargetUserEmail={setTargetUserEmail}
-            permissionType={permissionType}
-            setPermissionType={setPermissionType}
-            shareFileAccess={shareFileAccess}
-            shareMessage={shareMessage}
-          />
+    <Container
+      maxWidth={false}
+      sx={{
+        py: 5,
 
+        px: {
+          xs: 2,
+          sm: 4,
+          md: 6
+        }
+      }}
+    >
 
-        <section className="card wide-card home-my-files-section">
-          <div className="section-header">
-            <div>
-              <h3>My Files</h3>
-              <p className="muted">
-                Metadata only. fileData and fileHash are not shown.
-              </p>
-            </div>
-            <button className="btn secondary" onClick={loadMyFiles}>
-              Refresh
-            </button>
-          </div>
+      {/* Upload Notification */}
 
-          <div className="search-row">
-            <input
-              type="text"
-              placeholder="Search by file name"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
+      {uploadNotification && (
+
+        <Alert
+          severity="success"
+          sx={{
+            mb: 4,
+            borderRadius: 3
+          }}
+        >
+          {uploadNotification}
+        </Alert>
+
+      )}
+
+      {/* Top Cards */}
+
+      <Grid
+        container
+        spacing={4}
+        alignItems="stretch"
+      >
+
+        {/* Upload Card */}
+
+        <Grid
+          item
+          xs={12}
+          md={7}
+          lg={6}
+        >
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 5,
+              borderRadius: 5,
+              backgroundColor: "#ffffff",
+
+              border:
+                "1px solid #dbe2ea",
+
+              height: "100%",
+
+              boxShadow:
+                "0 6px 18px rgba(15, 23, 42, 0.05)"
+            }}
+          >
+
+            <Upload
+              FileName={FileName}
+              setFileName={setFileName}
+              FileDescription={FileDescription}
+              setFileDescription={setFileDescription}
+              setFile={setFile}
+              uploadFile={uploadFile}
             />
-            
-            
-          </div>
 
-          <FileTable
-            files={files}
-            downloadFile={handledownloadFile}
-            deleteFile={handleDeleteFile}
-            toggleVisibility={handleToggleVisibility}
-          />
-        </section>
+          </Paper>
 
-      </main>
-    </div>
-  );
+        </Grid>
+
+        {/* Share Card */}
+
+        <Grid
+          item
+          xs={12}
+          md={5}
+          lg={4}
+        >
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 5,
+              borderRadius: 5,
+              backgroundColor: "#ffffff",
+
+              border:
+                "1px solid #dbe2ea",
+
+              height: "100%",
+
+              boxShadow:
+                "0 6px 18px rgba(15, 23, 42, 0.05)"
+            }}
+          >
+
+            <ShareFile
+              files={files}
+              shareFileId={shareFileId}
+              setShareFileId={setShareFileId}
+              targetUserEmail={targetUserEmail}
+              setTargetUserEmail={setTargetUserEmail}
+              permissionType={permissionType}
+              setPermissionType={setPermissionType}
+              shareFileAccess={shareFileAccess}
+              shareMessage={shareMessage}
+            />
+
+          </Paper>
+
+        </Grid>
+
+      </Grid>
+
+    </Container>
+
+  </Box>
+);
+
 }
