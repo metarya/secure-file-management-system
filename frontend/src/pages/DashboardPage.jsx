@@ -3,9 +3,10 @@ import authHeaders from "../utils/authHeaders";
 import ShareErrorMessage from "../utils/shareErrorMessage";
 import Upload from "../components/upload/Upload";
 import ShareFile from "../components/share/ShareFile";
-import {loadMyFiles, 
-  loadSharedWithMe, 
-  searchFiles, 
+import {
+  loadMyFiles,
+  loadSharedWithMe,
+  searchFiles,
 } from "../api/fileApi";
 
 import {
@@ -17,16 +18,18 @@ import {
   Paper,
   Box,
   Alert,
-  Grid
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:8080/api";
-
-
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 export default function Dashboard({ user, logout }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // < 600px
+  const [activeTab, setActiveTab] = useState("upload"); // "upload" | "share"
+
   const [File, setFile] = useState(null);
   const [FileName, setFileName] = useState("");
   const [FileDescription, setFileDescription] = useState("");
@@ -36,163 +39,115 @@ export default function Dashboard({ user, logout }) {
 
   useEffect(() => {
     if (!sharedMessage) return;
-
-    const toastTimer = setTimeout(() => {
-      setSharedMessage("");
-    }, 3500);
-
+    const toastTimer = setTimeout(() => setSharedMessage(""), 3500);
     return () => clearTimeout(toastTimer);
   }, [sharedMessage]);
+
   const [searchName] = useState("");
 
   useEffect(() => {
     if (!user?.userId) return;
-
     const timer = setTimeout(() => {
       const keyword = (searchName || "").trim();
-
       if (keyword) {
         searchFilesData();
       } else {
-        fetchMyFilesData()
+        fetchMyFilesData();
       }
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchName, user?.userId]);
+
   const [singleMessage, setSingleMessage] = useState("");
   const [uploadNotification, setUploadNotification] = useState("");
 
   useEffect(() => {
-    if (!uploadNotification) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setUploadNotification("");
-    }, 4000);
-
+    if (!uploadNotification) return;
+    const timer = setTimeout(() => setUploadNotification(""), 4000);
     return () => clearTimeout(timer);
   }, [uploadNotification]);
-  
+
   useEffect(() => {
     if (!singleMessage) return;
-
-    const toastTimer = setTimeout(() => {
-      setSingleMessage("");
-    }, 3500);
-
+    const toastTimer = setTimeout(() => setSingleMessage(""), 3500);
     return () => clearTimeout(toastTimer);
   }, [singleMessage]);
+
   const [multiMessage, setMultiMessage] = useState("");
 
-  // Day 6 floating-toast auto-clear: multiMessage:setMultiMessage
   useEffect(() => {
     if (!multiMessage) return;
-
-    const toastTimer = setTimeout(() => {
-      setMultiMessage("");
-    }, 3500);
-
+    const toastTimer = setTimeout(() => setMultiMessage(""), 3500);
     return () => clearTimeout(toastTimer);
   }, [multiMessage]);
+
   const [shareFileId, setShareFileId] = useState("");
   const [targetUserEmail, setTargetUserEmail] = useState("");
   const [permissionType, setPermissionType] = useState("VIEW");
   const [shareMessage, setShareMessage] = useState("");
 
-  // Day 6 floating-toast auto-clear: shareMessage:setShareMessage
   useEffect(() => {
     if (!shareMessage) return;
-
-    const toastTimer = setTimeout(() => {
-      setShareMessage("");
-    }, 3500);
-
+    const toastTimer = setTimeout(() => setShareMessage(""), 3500);
     return () => clearTimeout(toastTimer);
   }, [shareMessage]);
+
   const [dashboardMessage, setDashboardMessage] = useState("");
 
   useEffect(() => {
     if (!dashboardMessage) return;
-
-    const toastTimer = setTimeout(() => {
-      setDashboardMessage("");
-    }, 3500);
-
+    const toastTimer = setTimeout(() => setDashboardMessage(""), 3500);
     return () => clearTimeout(toastTimer);
   }, [dashboardMessage]);
 
   useEffect(() => {
-    fetchMyFilesData()
-    fetchSharedFilesData()
+    fetchMyFilesData();
+    fetchSharedFilesData();
   }, []);
 
-
   async function fetchMyFilesData() {
-  try {
-    const result = await loadMyFiles(user);
-
-    if (result.ok) {
-      setFiles(result.data);
-
-      setDashboardMessage(
-        result.data.length === 0
-          ? "No owned files found."
-          : "My Files refreshed successfully."
-      );
-    } else {
-      setDashboardMessage(
-        result.data?.message ||
-        "Failed to load my files."
-      );
+    try {
+      const result = await loadMyFiles(user);
+      if (result.ok) {
+        setFiles(result.data);
+        if (result.data.length === 0) {
+          setDashboardMessage("No owned files found.");
+        }
+      } else {
+        setDashboardMessage(result.data?.message || "Failed to load my files.");
+      }
+    } catch (error) {
+      setDashboardMessage("Failed to load files: " + error.message);
     }
-  } catch (error) {
-    setDashboardMessage(
-      "Failed to load files: " + error.message
-    );
   }
-  }
-  
+
   async function fetchSharedFilesData() {
-  try {
-    const result = await loadSharedWithMe(user);
-
-    if (result.ok) {
-      setSharedFiles(result.data);
-
-      setSharedMessage(
-        result.data.length === 0
-          ? "No files have been shared with you yet."
-          : ""
-      );
-    } else {
-      setSharedMessage(
-        result.data?.message ||
-        "Failed to load shared files."
-      );
+    try {
+      const result = await loadSharedWithMe(user);
+      if (result.ok) {
+        setSharedFiles(result.data);
+        setSharedMessage(
+          result.data.length === 0 ? "No files have been shared with you yet." : ""
+        );
+      } else {
+        setSharedMessage(result.data?.message || "Failed to load shared files.");
+      }
+    } catch (error) {
+      setSharedMessage("Failed to load shared files: " + error.message);
     }
-  } catch (error) {
-    setSharedMessage(
-      "Failed to load shared files: " + error.message
-    );
-  }
   }
 
   async function searchFilesData() {
     if (!searchName.trim()) {
-      fetchMyFilesData()
+      fetchMyFilesData();
       return;
     }
-
     try {
       const result = await searchFiles(user, searchName);
-
       const data = await result.json();
-
       if (result.ok) {
         setFiles(data);
-        setDashboardMessage(data.length === 0 ? "No owned files found." : "My Files refreshed successfully.");
+        if (data.length === 0) setDashboardMessage("No owned files found.");
       } else {
         setDashboardMessage(data?.message || "Failed to load my files.");
       }
@@ -208,7 +163,6 @@ export default function Dashboard({ user, logout }) {
     }
 
     const enteredFileName = FileName.trim();
-
     if (!enteredFileName) {
       setSingleMessage("Please enter a file name.");
       return;
@@ -245,20 +199,15 @@ export default function Dashboard({ user, logout }) {
 
       if (response.ok) {
         const uploadedName =
-          typeof finalFileName !== "undefined"
-            ? finalFileName
-            : File?.name || "file";
-
+          typeof finalFileName !== "undefined" ? finalFileName : File?.name || "file";
         setUploadNotification(`File uploaded successfully: ${uploadedName}`);
         setFile(null);
         setFileName("");
         setFileDescription("");
-        fetchMyFilesData()
+        fetchMyFilesData();
 
         const fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) {
-          fileInput.value = "";
-        }
+        if (fileInput) fileInput.value = "";
       }
     } catch (error) {
       setSingleMessage("Upload failed: " + error.message);
@@ -266,7 +215,6 @@ export default function Dashboard({ user, logout }) {
   }
 
   async function shareFileAccess() {
-
     if (!targetUserEmail.trim()) {
       setShareMessage("Please enter target user email.");
       return;
@@ -277,246 +225,225 @@ export default function Dashboard({ user, logout }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(user?.token)
+          ...authHeaders(user?.token),
         },
         body: JSON.stringify({
           fileId: Number(shareFileId),
           targetUserEmail: targetUserEmail.trim(),
-          permissionType
-        })
+          permissionType,
+        }),
       });
 
       const data = await response.json().catch(() => null);
 
       if (response.ok) {
-        setShareMessage(response.ok ? (data?.message || "File shared successfully") : ShareErrorMessage(data?.message || data?.error, response.status));
+        setShareMessage(
+          data?.message ||
+            ShareErrorMessage(data?.message || data?.error, response.status)
+        );
         setDashboardMessage("Sharing permission updated successfully.");
         setShareFileId("");
         setTargetUserEmail("");
-        fetchMyFilesData()
+        fetchMyFilesData();
       } else {
-        setShareMessage(response.ok ? (data?.message || "Share failed") : ShareErrorMessage(data?.message || data?.error, response.status));
+        setShareMessage(
+          ShareErrorMessage(data?.message || data?.error, response.status)
+        );
       }
     } catch (error) {
       setShareMessage(ShareErrorMessage(error.message));
     }
   }
 
-return (
+  /* ─── Toggle button style helper ─── */
+  function tabBtn(tab) {
+    const active = activeTab === tab;
+    return {
+      flex: 1,
+      fontWeight: 700,
+      fontSize: { xs: "0.85rem", sm: "0.95rem" },
+      textTransform: "none",
+      borderRadius: "10px",
+      py: 1.1,
+      transition: "all 0.2s ease",
+      backgroundColor: active ? "#3b5bdb" : "transparent",
+      color: active ? "#fff" : "#6b7280",
+      boxShadow: active ? "0 2px 10px rgba(59,91,219,0.3)" : "none",
+      "&:hover": {
+        backgroundColor: active ? "#3451c7" : "#f3f4f6",
+      },
+    };
+  }
 
-  <Box
-    sx={{
-      backgroundColor: "#eef2f7",
-      minHeight: "100vh"
-    }}
-  >
-
-    {/* Navbar */}
-
-    <AppBar
-      position="static"
-      sx={{
-        background:
-          "linear-gradient(90deg, #0b1020 0%, #16213e 100%)",
-
-        boxShadow:
-          "0 4px 20px rgba(0,0,0,0.15)"
-      }}
-    >
-
-      <Toolbar
+  return (
+    <Box sx={{ backgroundColor: "#eef2f7", minHeight: "100dvh" }}>
+      {/* ── AppBar ── */}
+      <AppBar
+        position="static"
         sx={{
-          minHeight:
-            "90px !important",
-
-          px: {
-            xs: 2,
-            sm: 4,
-            md: 8
-          },
-
-          py: 4
+          background: "linear-gradient(90deg, #0b1020 0%, #16213e 100%)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
         }}
       >
-
-        <Typography
-          variant="h2"
+        <Toolbar
           sx={{
-            flexGrow: 1,
-            fontWeight: 600,
-
-            fontSize: {
-              xs: "2.5rem",
-              md: "4rem"
-            }
+            minHeight: { xs: "auto", md: "90px" },
+            flexDirection: { xs: "column", md: "row" },
+            alignItems: { xs: "stretch", md: "center" },
+            gap: { xs: 1.5, md: 0 },
+            px: { xs: 2, sm: 3, md: 8 },
+            py: { xs: 2, md: 0 },
           }}
         >
-          File Management System
-        </Typography>
+          <Typography
+            variant="h2"
+            sx={{
+              flexGrow: 1,
+              fontWeight: 600,
+              fontSize: { xs: "1.35rem", sm: "1.75rem", md: "2.8rem" },
+              textAlign: { xs: "center", md: "left" },
+              lineHeight: 1.2,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            File Management System
+          </Typography>
 
-        <Button
-          variant="contained"
-          href="/files"
-          sx={{
-            mr: 2,
-            backgroundColor: "#ffffff",
-            color: "#111827",
-            fontWeight: 700,
-            px: 3,
-            py: 1.2,
-            borderRadius: 3,
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              width: { xs: "100%", md: "auto" },
+              gap: { xs: 1, sm: 2 },
+            }}
+          >
+            <Button
+              variant="contained"
+              href="/files"
+              fullWidth={isMobile}
+              sx={{
+                backgroundColor: "#ffffff",
+                color: "#111827",
+                fontWeight: 700,
+                px: { xs: 2, sm: 3 },
+                py: { xs: 1, sm: 1.2 },
+                borderRadius: 3,
+                fontSize: { xs: "0.82rem", sm: "0.9rem" },
+                "&:hover": { backgroundColor: "#f3f4f6" },
+              }}
+            >
+              Files
+            </Button>
 
-            "&:hover": {
-              backgroundColor: "#f3f4f6"
-            }
-          }}
-        >
-          Files
-        </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={logout}
+              fullWidth={isMobile}
+              sx={{
+                fontWeight: 700,
+                px: { xs: 2, sm: 3 },
+                py: { xs: 1, sm: 1.2 },
+                borderRadius: 3,
+                fontSize: { xs: "0.82rem", sm: "0.9rem" },
+              }}
+            >
+              Logout
+            </Button>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-        <Button
-          variant="contained"
-          color="error"
-          onClick={logout}
-          sx={{
-            fontWeight: 700,
-            px: 3,
-            py: 1.2,
-            borderRadius: 3
-          }}
-        >
-          Logout
-        </Button>
-
-      </Toolbar>
-
-    </AppBar>
-
-    {/* Main Dashboard */}
-
-    <Container
-      maxWidth={false}
-      sx={{
-        py: 5,
-
-        px: {
-          xs: 2,
-          sm: 4,
-          md: 6
-        }
-      }}
-    >
-
-      {/* Upload Notification */}
-
-      {uploadNotification && (
-
-        <Alert
-          severity="success"
-          sx={{
-            mb: 4,
-            borderRadius: 3
-          }}
-        >
-          {uploadNotification}
-        </Alert>
-
-      )}
-
-      {/* Top Cards */}
-
-      <Grid
-        container
-        spacing={4}
-        alignItems="stretch"
+      {/* ── Main content ── */}
+      <Container
+        maxWidth={false}
+        sx={{
+          py: { xs: 3, md: 6 },
+          px: { xs: 1.5, sm: 3, md: 6 },
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
       >
+        {/* Alerts */}
+        <Box sx={{ width: "100%", maxWidth: "520px", mb: 2 }}>
+          {uploadNotification && (
+            <Alert severity="success" sx={{ mb: 1.5, borderRadius: 3 }}>
+              {uploadNotification}
+            </Alert>
+          )}
+          {dashboardMessage && (
+            <Alert severity="info" sx={{ mb: 1.5, borderRadius: 3 }}>
+              {dashboardMessage}
+            </Alert>
+          )}
+        </Box>
 
-        {/* Upload Card */}
-
-        <Grid
-          item
-          xs={12}
-          md={7}
-          lg={6}
+        {/* ── Single centered card ── */}
+        <Paper
+          elevation={0}
+          sx={{
+            width: "100%",
+            maxWidth: "520px",
+            borderRadius: { xs: "20px", sm: "24px" },
+            border: "1px solid #dbe2ea",
+            boxShadow: "0 8px 32px rgba(15, 23, 42, 0.08)",
+            overflow: "hidden",
+          }}
         >
-
-          <Paper
-            elevation={0}
+          {/* Toggle strip */}
+          <Box
             sx={{
-              p: 5,
-              borderRadius: 5,
-              backgroundColor: "#ffffff",
-
-              border:
-                "1px solid #dbe2ea",
-
-              height: "100%",
-
-              boxShadow:
-                "0 6px 18px rgba(15, 23, 42, 0.05)"
+              display: "flex",
+              gap: 0.5,
+              p: 1,
+              backgroundColor: "#f3f4f6",
+              borderBottom: "1px solid #e5e7eb",
             }}
           >
+            <Button
+              disableElevation
+              onClick={() => setActiveTab("upload")}
+              sx={tabBtn("upload")}
+            >
+              📤 File Upload
+            </Button>
+            <Button
+              disableElevation
+              onClick={() => setActiveTab("share")}
+              sx={tabBtn("share")}
+            >
+              🔗 Share File
+            </Button>
+          </Box>
 
-            <Upload
-              FileName={FileName}
-              setFileName={setFileName}
-              FileDescription={FileDescription}
-              setFileDescription={setFileDescription}
-              setFile={setFile}
-              uploadFile={uploadFile}
-            />
-
-          </Paper>
-
-        </Grid>
-
-        {/* Share Card */}
-
-        <Grid
-          item
-          xs={12}
-          md={5}
-          lg={4}
-        >
-
-          <Paper
-            elevation={0}
-            sx={{
-              p: 5,
-              borderRadius: 5,
-              backgroundColor: "#ffffff",
-
-              border:
-                "1px solid #dbe2ea",
-
-              height: "100%",
-
-              boxShadow:
-                "0 6px 18px rgba(15, 23, 42, 0.05)"
-            }}
-          >
-
-            <ShareFile
-              files={files}
-              shareFileId={shareFileId}
-              setShareFileId={setShareFileId}
-              targetUserEmail={targetUserEmail}
-              setTargetUserEmail={setTargetUserEmail}
-              permissionType={permissionType}
-              setPermissionType={setPermissionType}
-              shareFileAccess={shareFileAccess}
-              shareMessage={shareMessage}
-            />
-
-          </Paper>
-
-        </Grid>
-
-      </Grid>
-
-    </Container>
-
-  </Box>
-);
-
+          {/* Panel */}
+          <Box sx={{ p: { xs: 3, sm: 4 } }}>
+            {activeTab === "upload" ? (
+              <Upload
+                FileName={FileName}
+                setFileName={setFileName}
+                FileDescription={FileDescription}
+                setFileDescription={setFileDescription}
+                setFile={setFile}
+                uploadFile={uploadFile}
+              />
+            ) : (
+              <ShareFile
+                files={files}
+                shareFileId={shareFileId}
+                setShareFileId={setShareFileId}
+                targetUserEmail={targetUserEmail}
+                setTargetUserEmail={setTargetUserEmail}
+                permissionType={permissionType}
+                setPermissionType={setPermissionType}
+                shareFileAccess={shareFileAccess}
+                shareMessage={shareMessage}
+              />
+            )}
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
+  );
 }

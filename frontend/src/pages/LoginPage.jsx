@@ -19,7 +19,6 @@ export default function LoginPage({
   setUser,
   setPage
 }) {
-
   const [email, setEmail] =
     useState("");
 
@@ -30,7 +29,6 @@ export default function LoginPage({
     useState("");
 
   useEffect(() => {
-
     if (!message) return;
 
     const toastTimer =
@@ -40,13 +38,10 @@ export default function LoginPage({
 
     return () =>
       clearTimeout(toastTimer);
-
   }, [message]);
 
   async function loginUser() {
-
     try {
-
       const response =
         await fetch(
           `${API_BASE_URL}/auth/login`,
@@ -72,7 +67,6 @@ export default function LoginPage({
         response.ok &&
         data.userId
       ) {
-
         localStorage.setItem(
           "sfmsUser",
           JSON.stringify(data)
@@ -84,17 +78,13 @@ export default function LoginPage({
         );
 
         setUser(data);
-
       } else {
-
         setMessage(
           data.message ||
           "Login failed"
         );
       }
-
     } catch (error) {
-
       setMessage(
         "Login failed: " +
         error.message
@@ -103,27 +93,36 @@ export default function LoginPage({
   }
 
   return (
-
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         backgroundColor: "#eef2f7",
 
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
 
-        px: 2
+        px: 2,
+        py: 0
       }}
     >
-
-      <Container maxWidth="xs">
-
+      <Container
+        maxWidth="xs"
+        disableGutters
+      >
         <Paper
           elevation={0}
           sx={{
-            p: 3,
-            borderRadius: 4,
+            p: {
+              xs: 2.5,
+              sm: 3,
+              md: 4
+            },
+
+            borderRadius: {
+              xs: 3,
+              sm: 4
+            },
 
             backgroundColor:
               "#ffffff",
@@ -135,15 +134,17 @@ export default function LoginPage({
               "0 8px 30px rgba(15, 23, 42, 0.08)"
           }}
         >
-
-          {/* Heading */}
-
           <Typography
             variant="h4"
             sx={{
               fontWeight: 700,
               mb: 1,
-              color: "#0f172a"
+              color: "#0f172a",
+
+              fontSize: {
+                xs: "1.8rem",
+                sm: "2.125rem"
+              }
             }}
           >
             Login
@@ -153,18 +154,27 @@ export default function LoginPage({
             variant="body1"
             sx={{
               color: "#64748b",
-              mb: 5
+
+              mb: {
+                xs: 3,
+                sm: 5
+              },
+
+              fontSize: {
+                xs: "0.95rem",
+                sm: "1rem"
+              }
             }}
           >
             Sign in to continue
           </Typography>
 
-          {/* Form */}
-
-          <Stack spacing={4}>
-
-            {/* Email */}
-
+          <Stack
+            spacing={{
+              xs: 3,
+              sm: 4
+            }}
+          >
             <TextField
               label="Email"
               type="email"
@@ -175,17 +185,14 @@ export default function LoginPage({
                   e.target.value
                 )
               }
-
               sx={{
                 "& .MuiOutlinedInput-root":
                   {
                     borderRadius: 4,
-                    height: "48px"
+                    height: 48
                   }
               }}
             />
-
-            {/* Password */}
 
             <TextField
               label="Password"
@@ -197,17 +204,14 @@ export default function LoginPage({
                   e.target.value
                 )
               }
-
               sx={{
                 "& .MuiOutlinedInput-root":
                   {
                     borderRadius: 4,
-                    height: "48px"
+                    height: 48
                   }
               }}
             />
-
-            {/* Forgot Password */}
 
             <Box
               sx={{
@@ -215,21 +219,24 @@ export default function LoginPage({
                 justifyContent:
                   "flex-end",
 
-                mt: -2
+                mt: -1
               }}
             >
-
               <Typography
                 onClick={() =>
                   setPage(
                     "reset-password"
                   )
                 }
-
                 sx={{
                   color: "#2563eb",
                   cursor: "pointer",
                   fontWeight: 600,
+
+                  fontSize: {
+                    xs: "0.9rem",
+                    sm: "1rem"
+                  },
 
                   "&:hover": {
                     textDecoration:
@@ -239,22 +246,21 @@ export default function LoginPage({
               >
                 Forgot Password?
               </Typography>
-
             </Box>
-
-            {/* Login Button */}
 
             <Button
               variant="contained"
               fullWidth
               onClick={loginUser}
-
               sx={{
-                height: "48px",
+                height: 48,
 
                 borderRadius: 4,
 
-                fontSize: "1.1rem",
+                fontSize: {
+                  xs: "1rem",
+                  sm: "1.1rem"
+                },
 
                 fontWeight: 700,
 
@@ -274,16 +280,18 @@ export default function LoginPage({
               Login
             </Button>
 
-            {/* Register */}
-
             <Typography
               sx={{
                 textAlign: "center",
-                color: "#475569"
+                color: "#475569",
+
+                fontSize: {
+                  xs: "0.95rem",
+                  sm: "1rem"
+                }
               }}
             >
               New user?{" "}
-
               <Box
                 component="span"
                 onClick={() =>
@@ -291,7 +299,6 @@ export default function LoginPage({
                     "register"
                   )
                 }
-
                 sx={{
                   color: "#2563eb",
                   cursor: "pointer",
@@ -305,13 +312,9 @@ export default function LoginPage({
               >
                 Register
               </Box>
-
             </Typography>
 
-            {/* Error Message */}
-
             {message && (
-
               <Alert
                 severity="error"
                 sx={{
@@ -320,15 +323,10 @@ export default function LoginPage({
               >
                 {message}
               </Alert>
-
             )}
-
           </Stack>
-
         </Paper>
-
       </Container>
-
     </Box>
   );
 }

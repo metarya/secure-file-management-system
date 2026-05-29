@@ -18,35 +18,43 @@ export default function ShareFile({
   shareFileAccess,
   shareMessage
 }) {
-
   return (
-
     <Box
       sx={{
         width: "100%",
-        maxWidth: "420px"
+        maxWidth: {
+          xs: "100%",
+          sm: "480px",
+          md: "520px"
+        }
       }}
     >
-
       {/* Heading */}
 
       <Typography
         sx={{
           fontWeight: 700,
           mb: 1.5,
-          fontSize: "1.5rem",
+          fontSize: {
+            xs: "1.3rem",
+            sm: "1.5rem",
+            md: "1.6rem"
+          },
           color: "#0f172a"
         }}
       >
         Share File Access
       </Typography>
 
-      <Stack spacing={1.8}>
-
+      <Stack
+        spacing={{
+          xs: 2,
+          sm: 2.2
+        }}
+      >
         {/* File Select */}
 
         <Box>
-
           <Typography
             sx={{
               fontWeight: 600,
@@ -64,13 +72,14 @@ export default function ShareFile({
             size="small"
             value={shareFileId}
             onChange={(e) =>
-              setShareFileId(
-                e.target.value
-              )
+              setShareFileId(e.target.value)
             }
             sx={{
               "& .MuiOutlinedInput-root": {
-                height: "40px",
+                height: {
+                  xs: 44,
+                  sm: 40
+                },
                 borderRadius: "12px",
 
                 "& fieldset": {
@@ -83,36 +92,29 @@ export default function ShareFile({
               }
             }}
           >
-
             <MenuItem value="">
               Select file to share
             </MenuItem>
 
             {files.map((file) => {
-
               const optionFileId =
                 file.fileId || file.id;
 
               return (
-
                 <MenuItem
                   key={optionFileId}
                   value={optionFileId}
                 >
                   {file.fileName}
                 </MenuItem>
-
               );
             })}
-
           </TextField>
-
         </Box>
 
         {/* Email */}
 
         <Box>
-
           <Typography
             sx={{
               fontWeight: 600,
@@ -137,7 +139,10 @@ export default function ShareFile({
             }
             sx={{
               "& .MuiOutlinedInput-root": {
-                height: "40px",
+                height: {
+                  xs: 44,
+                  sm: 40
+                },
                 borderRadius: "12px",
 
                 "& fieldset": {
@@ -150,13 +155,11 @@ export default function ShareFile({
               }
             }}
           />
-
         </Box>
 
         {/* Permission */}
 
         <Box>
-
           <Typography
             sx={{
               fontWeight: 600,
@@ -180,7 +183,10 @@ export default function ShareFile({
             }
             sx={{
               "& .MuiOutlinedInput-root": {
-                height: "40px",
+                height: {
+                  xs: 44,
+                  sm: 40
+                },
                 borderRadius: "12px",
 
                 "& fieldset": {
@@ -193,7 +199,6 @@ export default function ShareFile({
               }
             }}
           >
-
             <MenuItem value="VIEW">
               View Only
             </MenuItem>
@@ -201,21 +206,28 @@ export default function ShareFile({
             <MenuItem value="DOWNLOAD">
               View + Download
             </MenuItem>
-
           </TextField>
-
         </Box>
 
-        {/* Button */}
+        {/* Share Button */}
 
         <Button
           variant="contained"
           onClick={shareFileAccess}
           sx={{
-            height: "40px",
+            height: {
+              xs: 48,
+              sm: 40
+            },
+
             borderRadius: "12px",
             fontWeight: 600,
-            fontSize: "0.85rem",
+
+            fontSize: {
+              xs: "0.95rem",
+              sm: "0.85rem"
+            },
+
             backgroundColor: "#1d4ed8",
             boxShadow: "none",
             textTransform: "none",
@@ -232,21 +244,21 @@ export default function ShareFile({
         {/* Message */}
 
         {shareMessage && (
-
           <Typography
             sx={{
-              fontSize: "13px",
+              fontSize: {
+                xs: "12px",
+                sm: "13px"
+              },
               color: "#2563eb",
-              mt: 0.5
+              mt: 0.5,
+              wordBreak: "break-word"
             }}
           >
             {shareMessage}
           </Typography>
-
         )}
-
       </Stack>
-
     </Box>
   );
 }

@@ -18,7 +18,6 @@ const API_BASE_URL =
 export default function RegisterPage({
   setPage
 }) {
-
   const [fullName, setFullName] =
     useState("");
 
@@ -32,7 +31,6 @@ export default function RegisterPage({
     useState("");
 
   useEffect(() => {
-
     if (!message) return;
 
     const toastTimer =
@@ -42,13 +40,10 @@ export default function RegisterPage({
 
     return () =>
       clearTimeout(toastTimer);
-
   }, [message]);
 
   async function registerUser() {
-
     try {
-
       const response =
         await fetch(
           `${API_BASE_URL}/auth/register`,
@@ -79,14 +74,11 @@ export default function RegisterPage({
           .toLowerCase()
           .includes("success")
       ) {
-
         setTimeout(() => {
           setPage("login");
         }, 900);
       }
-
     } catch (error) {
-
       setMessage(
         "Registration failed: " +
         error.message
@@ -95,27 +87,36 @@ export default function RegisterPage({
   }
 
   return (
-
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         backgroundColor: "#eef2f7",
 
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
 
-        px: 2
+        px: 2,
+        py: 0
       }}
     >
-
-      <Container maxWidth="xs">
-
+      <Container
+        maxWidth="xs"
+        disableGutters
+      >
         <Paper
           elevation={0}
           sx={{
-            p: 4,
-            borderRadius: 5,
+            p: {
+              xs: 2.5,
+              sm: 3,
+              md: 4
+            },
+
+            borderRadius: {
+              xs: 3,
+              sm: 5
+            },
 
             backgroundColor:
               "#ffffff",
@@ -127,15 +128,17 @@ export default function RegisterPage({
               "0 8px 24px rgba(15,23,42,0.06)"
           }}
         >
-
-          {/* Heading */}
-
           <Typography
             variant="h4"
             sx={{
               fontWeight: 700,
               mb: 1,
-              color: "#0f172a"
+              color: "#0f172a",
+
+              fontSize: {
+                xs: "1.8rem",
+                sm: "2.125rem"
+              }
             }}
           >
             Create Account
@@ -145,98 +148,96 @@ export default function RegisterPage({
             variant="body2"
             sx={{
               color: "#64748b",
-              mb: 4
+
+              mb: {
+                xs: 3,
+                sm: 4
+              },
+
+              fontSize: {
+                xs: "0.95rem",
+                sm: "1rem"
+              }
             }}
           >
             Register to continue
           </Typography>
 
-          {/* Form */}
-
-          <Stack spacing={3}>
-
-            {/* Full Name */}
-
+          <Stack
+            spacing={{
+              xs: 3,
+              sm: 3.5
+            }}
+          >
             <TextField
               fullWidth
               label="Full Name"
-
               value={fullName}
-
               onChange={(e) =>
                 setFullName(
                   e.target.value
                 )
               }
-
               sx={{
                 "& .MuiOutlinedInput-root":
                   {
                     borderRadius: 4,
-                    height: "56px"
+                    height: 56
                   }
               }}
             />
-
-            {/* Email */}
 
             <TextField
               fullWidth
               label="Email"
               type="email"
-
               value={email}
-
               onChange={(e) =>
                 setEmail(
                   e.target.value
                 )
               }
-
               sx={{
                 "& .MuiOutlinedInput-root":
                   {
                     borderRadius: 4,
-                    height: "56px"
+                    height: 56
                   }
               }}
             />
-
-            {/* Password */}
 
             <TextField
               fullWidth
               label="Password"
               type="password"
-
               value={password}
-
               onChange={(e) =>
                 setPassword(
                   e.target.value
                 )
               }
-
               sx={{
                 "& .MuiOutlinedInput-root":
                   {
                     borderRadius: 4,
-                    height: "56px"
+                    height: 56
                   }
               }}
             />
-
-            {/* Register Button */}
 
             <Button
               variant="contained"
               fullWidth
               onClick={registerUser}
-
               sx={{
-                height: "56px",
+                height: 56,
 
                 borderRadius: 4,
+
+                fontSize: {
+                  xs: "1rem",
+                  sm: "1.05rem"
+                },
 
                 fontWeight: 700,
 
@@ -256,24 +257,23 @@ export default function RegisterPage({
               Register
             </Button>
 
-            {/* Login Link */}
-
             <Typography
               sx={{
                 textAlign: "center",
                 color: "#475569",
-                fontSize: "0.95rem"
+
+                fontSize: {
+                  xs: "0.95rem",
+                  sm: "1rem"
+                }
               }}
             >
               Already have an account?{" "}
-
               <Box
                 component="span"
-
                 onClick={() =>
                   setPage("login")
                 }
-
                 sx={{
                   color: "#2563eb",
                   cursor: "pointer",
@@ -287,13 +287,9 @@ export default function RegisterPage({
               >
                 Login
               </Box>
-
             </Typography>
 
-            {/* Message */}
-
             {message && (
-
               <Alert
                 severity="info"
                 sx={{
@@ -302,15 +298,10 @@ export default function RegisterPage({
               >
                 {message}
               </Alert>
-
             )}
-
           </Stack>
-
         </Paper>
-
       </Container>
-
     </Box>
   );
 }

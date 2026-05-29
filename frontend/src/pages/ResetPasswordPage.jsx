@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   Box,
   Container,
@@ -15,7 +16,6 @@ const API_BASE_URL =
   "http://localhost:8080/api";
 
 export default function ResetPasswordPage({ setPage }) {
-
   const [step, setStep] = useState(1);
 
   const [email, setEmail] = useState("");
@@ -32,9 +32,7 @@ export default function ResetPasswordPage({ setPage }) {
     useState(false);
 
   async function sendResetLink() {
-
     try {
-
       const response = await fetch(
         `${API_BASE_URL}/auth/forgot-password`,
         {
@@ -53,11 +51,9 @@ export default function ResetPasswordPage({ setPage }) {
       const data = await response.text();
 
       setMessage(data);
-      
+
       setStep(2);
-
     } catch {
-
       setMessage(
         "Failed to send reset link"
       );
@@ -65,9 +61,7 @@ export default function ResetPasswordPage({ setPage }) {
   }
 
   async function resetPassword() {
-
     try {
-
       const response = await fetch(
         `${API_BASE_URL}/auth/reset-password`,
         {
@@ -87,299 +81,314 @@ export default function ResetPasswordPage({ setPage }) {
       const data = await response.text();
 
       setMessage(data);
-
     } catch {
-
       setMessage(
         "Password reset failed"
       );
     }
   }
 
-return (
+  return (
+    <Box
+      sx={{
+        minHeight: "100dvh",
+        backgroundColor: "#eef2f7",
 
-  <Box
-    sx={{
-      minHeight: "100vh",
-      backgroundColor: "#eef2f7",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
 
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-
-      px: 2
-    }}
-  >
-
-    <Container maxWidth="xs">
-
-      <Paper
-        elevation={0}
-        sx={{
-          p: 4,
-          borderRadius: 5,
-
-          backgroundColor: "#ffffff",
-
-          border:
-            "1px solid #dbe2ea",
-
-          boxShadow:
-            "0 8px 24px rgba(15,23,42,0.06)"
-        }}
+        px: 2,
+        py: 0
+      }}
+    >
+      <Container
+        maxWidth="xs"
+        disableGutters
       >
-
-        {/* Heading */}
-
-        <Typography
-          variant="h4"
+        <Paper
+          elevation={0}
           sx={{
-            fontWeight: 700,
-            mb: 1,
-            color: "#0f172a"
+            p: {
+              xs: 2.5,
+              sm: 3,
+              md: 4
+            },
+
+            borderRadius: {
+              xs: 3,
+              sm: 5
+            },
+
+            backgroundColor:
+              "#ffffff",
+
+            border:
+              "1px solid #dbe2ea",
+
+            boxShadow:
+              "0 8px 24px rgba(15,23,42,0.06)"
           }}
         >
-          Reset Password
-        </Typography>
-
-        <Typography
-          variant="body2"
-          sx={{
-            color: "#64748b",
-            mb: 4
-          }}
-        >
-          Recover your account access
-        </Typography>
-
-        <Stack spacing={3}>
-
-          {/* STEP 1 */}
-
-          {step === 1 && (
-
-            <>
-
-              <TextField
-                fullWidth
-                label="Registered Email"
-                type="email"
-
-                value={email}
-
-                onChange={(e) =>
-                  setEmail(
-                    e.target.value
-                  )
-                }
-
-                sx={{
-                  "& .MuiOutlinedInput-root":
-                    {
-                      borderRadius: 4,
-                      height: "56px"
-                    }
-                }}
-              />
-
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={sendResetLink}
-
-                sx={{
-                  height: "56px",
-
-                  borderRadius: 4,
-
-                  fontWeight: 700,
-
-                  backgroundColor:
-                    "#1d4ed8",
-
-                  boxShadow: "none"
-                }}
-              >
-                Send Code
-              </Button>
-
-            </>
-
-          )}
-
-          {/* STEP 2 */}
-
-          {step === 2 && !verified && (
-
-            <>
-
-              <TextField
-                fullWidth
-                label="Verification Code"
-
-                value={token}
-
-                onChange={(e) =>
-                  setToken(
-                    e.target.value
-                  )
-                }
-
-                sx={{
-                  "& .MuiOutlinedInput-root":
-                    {
-                      borderRadius: 4,
-                      height: "56px"
-                    }
-                }}
-              />
-
-              <Button
-                variant="contained"
-                fullWidth
-
-                onClick={() => {
-
-                  if (!token) {
-
-                    setMessage(
-                      "Enter token"
-                    );
-
-                    return;
-                  }
-
-                  setVerified(true);
-                }}
-
-                sx={{
-                  height: "56px",
-
-                  borderRadius: 4,
-
-                  fontWeight: 700,
-
-                  backgroundColor:
-                    "#1d4ed8",
-
-                  boxShadow: "none"
-                }}
-              >
-                Verify
-              </Button>
-
-            </>
-
-          )}
-
-          {/* STEP 3 */}
-
-          {verified && (
-
-            <>
-
-              <TextField
-                fullWidth
-                label="New Password"
-                type="password"
-
-                value={newPassword}
-
-                onChange={(e) =>
-                  setNewPassword(
-                    e.target.value
-                  )
-                }
-
-                sx={{
-                  "& .MuiOutlinedInput-root":
-                    {
-                      borderRadius: 4,
-                      height: "56px"
-                    }
-                }}
-              />
-
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={resetPassword}
-
-                sx={{
-                  height: "56px",
-
-                  borderRadius: 4,
-
-                  fontWeight: 700,
-
-                  backgroundColor:
-                    "#1d4ed8",
-
-                  boxShadow: "none"
-                }}
-              >
-                Reset Password
-              </Button>
-
-            </>
-
-          )}
-
-          {/* Back to Login */}
-
           <Typography
+            variant="h4"
             sx={{
-              textAlign: "center",
-              color: "#475569",
-              fontSize: "0.95rem"
+              fontWeight: 700,
+              mb: 1,
+              color: "#0f172a",
+
+              fontSize: {
+                xs: "1.8rem",
+                sm: "2.125rem"
+              }
             }}
           >
-            Back to Login?{" "}
+            Reset Password
+          </Typography>
 
-            <Box
-              component="span"
+          <Typography
+            variant="body2"
+            sx={{
+              color: "#64748b",
 
-              onClick={() =>
-                setPage("login")
+              mb: {
+                xs: 3,
+                sm: 4
+              },
+
+              fontSize: {
+                xs: "0.95rem",
+                sm: "1rem"
               }
+            }}
+          >
+            Recover your account access
+          </Typography>
 
+          <Stack
+            spacing={{
+              xs: 3,
+              sm: 3.5
+            }}
+          >
+            {step === 1 && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Registered Email"
+                  type="email"
+                  value={email}
+                  onChange={(e) =>
+                    setEmail(
+                      e.target.value
+                    )
+                  }
+                  sx={{
+                    "& .MuiOutlinedInput-root":
+                      {
+                        borderRadius: 4,
+                        height: 56
+                      }
+                  }}
+                />
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={sendResetLink}
+                  sx={{
+                    height: 56,
+
+                    borderRadius: 4,
+
+                    fontSize: {
+                      xs: "1rem",
+                      sm: "1.05rem"
+                    },
+
+                    fontWeight: 700,
+
+                    backgroundColor:
+                      "#1d4ed8",
+
+                    boxShadow: "none",
+
+                    "&:hover": {
+                      backgroundColor:
+                        "#1e40af",
+
+                      boxShadow: "none"
+                    }
+                  }}
+                >
+                  Send Code
+                </Button>
+              </>
+            )}
+
+            {step === 2 && !verified && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Verification Code"
+                  value={token}
+                  onChange={(e) =>
+                    setToken(
+                      e.target.value
+                    )
+                  }
+                  sx={{
+                    "& .MuiOutlinedInput-root":
+                      {
+                        borderRadius: 4,
+                        height: 56
+                      }
+                  }}
+                />
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={() => {
+                    if (!token) {
+                      setMessage(
+                        "Enter token"
+                      );
+                      return;
+                    }
+
+                    setVerified(true);
+                  }}
+                  sx={{
+                    height: 56,
+
+                    borderRadius: 4,
+
+                    fontSize: {
+                      xs: "1rem",
+                      sm: "1.05rem"
+                    },
+
+                    fontWeight: 700,
+
+                    backgroundColor:
+                      "#1d4ed8",
+
+                    boxShadow: "none",
+
+                    "&:hover": {
+                      backgroundColor:
+                        "#1e40af",
+
+                      boxShadow: "none"
+                    }
+                  }}
+                >
+                  Verify
+                </Button>
+              </>
+            )}
+
+            {verified && (
+              <>
+                <TextField
+                  fullWidth
+                  label="New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) =>
+                    setNewPassword(
+                      e.target.value
+                    )
+                  }
+                  sx={{
+                    "& .MuiOutlinedInput-root":
+                      {
+                        borderRadius: 4,
+                        height: 56
+                      }
+                  }}
+                />
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={resetPassword}
+                  sx={{
+                    height: 56,
+
+                    borderRadius: 4,
+
+                    fontSize: {
+                      xs: "1rem",
+                      sm: "1.05rem"
+                    },
+
+                    fontWeight: 700,
+
+                    backgroundColor:
+                      "#1d4ed8",
+
+                    boxShadow: "none",
+
+                    "&:hover": {
+                      backgroundColor:
+                        "#1e40af",
+
+                      boxShadow: "none"
+                    }
+                  }}
+                >
+                  Reset Password
+                </Button>
+              </>
+            )}
+
+            <Typography
               sx={{
-                color: "#2563eb",
-                cursor: "pointer",
-                fontWeight: 700,
+                textAlign: "center",
+                color: "#475569",
 
-                "&:hover": {
-                  textDecoration:
-                    "underline"
+                fontSize: {
+                  xs: "0.95rem",
+                  sm: "1rem"
                 }
               }}
             >
-              Login
-            </Box>
+              Back to Login?{" "}
+              <Box
+                component="span"
+                onClick={() =>
+                  setPage("login")
+                }
+                sx={{
+                  color: "#2563eb",
+                  cursor: "pointer",
+                  fontWeight: 700,
 
-          </Typography>
+                  "&:hover": {
+                    textDecoration:
+                      "underline"
+                  }
+                }}
+              >
+                Login
+              </Box>
+            </Typography>
 
-          {/* Message */}
-
-          {message && (
-
-            <Alert
-              severity="info"
-              sx={{
-                borderRadius: 3
-              }}
-            >
-              {message}
-            </Alert>
-
-          )}
-
-        </Stack>
-
-      </Paper>
-
-    </Container>
-
-  </Box>
-);
+            {message && (
+              <Alert
+                severity="info"
+                sx={{
+                  borderRadius: 3
+                }}
+              >
+                {message}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      </Container>
+    </Box>
+  );
 }
