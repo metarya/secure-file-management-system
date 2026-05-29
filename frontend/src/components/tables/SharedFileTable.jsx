@@ -1,91 +1,122 @@
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Button,
+  Link
+} from "@mui/material";
+
 export default function SharedFileTable({
   files,
   previewFile,
   downloadFile
 }) {
-
   if (!files || files.length === 0) {
     return (
-      <div className="empty-state">
-        No shared files found.
-      </div>
+    <Paper
+      sx={{
+        p: 3,
+        textAlign: "center",
+        color: "#64748b",
+        backgroundColor: "#f8fafc",
+        border: "1px dashed #cbd5e1",
+        borderRadius: 2
+      }}
+    >
+      No shared files found.
+    </Paper>
     );
   }
 
   return (
+    <TableContainer
+      component={Paper}
+      sx={{
+        borderRadius: 3,
+        border: "1px solid #e5e7eb",
+        overflow: "hidden"
+      }}
+    >
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>File Name</TableCell>
+            <TableCell>Description</TableCell>
+            <TableCell>Shared By</TableCell>
+            <TableCell>Permission</TableCell>
+            <TableCell>Actions</TableCell>
+          </TableRow>
+        </TableHead>
 
-    <div className="table-wrapper">
-
-      <table>
-
-        <thead>
-
-          <tr>
-            <th>File Name</th>
-            <th>Description</th>
-            <th>Shared By</th>
-            <th>Permission</th>
-            <th>Actions</th>
-          </tr>
-
-        </thead>
-
-        <tbody>
-
+        <TableBody>
           {files.map((file) => (
-
-            <tr key={file.fileId}>
-
-              <td>
-
-                <button
-                  type="button"
-                  className="file-preview-link"
+            <TableRow key={file.fileId} hover>
+              <TableCell>
+                <Link
+                  component="button"
+                  underline="hover"
                   onClick={() => previewFile(file)}
+                  sx={{
+                    fontWeight: 600,
+                    textAlign: "left"
+                  }}
                 >
                   {file.fileName ||
-                   file.name ||
-                   "Unnamed file"}
-                </button>
+                    file.name ||
+                    "Unnamed file"}
+                </Link>
+              </TableCell>
 
-              </td>
-
-              <td>
+              <TableCell>
                 {file.description ||
-                 "No description"}
-              </td>
+                  "No description"}
+              </TableCell>
 
-              <td>
+              <TableCell>
                 {file.ownerEmail ||
-                 file.sharedBy ||
-                 "-"}
-              </td>
+                  file.sharedBy ||
+                  "-"}
+              </TableCell>
 
-              <td>
-                <span className="status-badge shared">
-                  {file.permission || "SHARED"}
-               </span>
-              </td>
+              <TableCell>
+                <Chip
+                  label={file.permission || "SHARED"}
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    backgroundColor: "#dbeafe",
+                    color: "#1e3a8a"
+                  }}
+                />
+              </TableCell>
 
-              <td>
-
-                <button
-                  className="btn secondary action-btn"
+              <TableCell>
+                <Button
+                  variant="contained"
+                  size="small"
                   onClick={() => downloadFile(file)}
+                  sx={{
+                    backgroundColor: "#e5e7eb",
+                    color: "#111827",
+                    boxShadow: "none",
+                    "&:hover": {
+                      backgroundColor: "#d1d5db",
+                      boxShadow: "none"
+                    }
+                  }}
                 >
                   Download
-                </button>
-
-              </td>
-
-            </tr>
-
+                </Button>
+              </TableCell>
+            </TableRow>
           ))}
-
-        </tbody>
-
-      </table>
-
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

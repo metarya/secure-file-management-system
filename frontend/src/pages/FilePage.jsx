@@ -16,7 +16,11 @@ import {
   TextField,
   Typography,
   Stack,
-  Link
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
@@ -310,7 +314,7 @@ function FilePage() {
   }
 
   return (
-    <Box
+  <Box
     sx={{
       minHeight: "100vh",
       backgroundColor: "#f3f4f6",
@@ -328,7 +332,6 @@ function FilePage() {
         border: "1px solid #e5e7eb",
       }}
     >
-      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -396,7 +399,6 @@ function FilePage() {
         </Stack>
       </Box>
 
-      {/* Search */}
       <TextField
         fullWidth
         placeholder="Search by file name"
@@ -412,7 +414,6 @@ function FilePage() {
         }}
       />
 
-      {/* Message */}
       {message && (
         <Box sx={{ mb: 2 }}>
           <Typography
@@ -426,7 +427,6 @@ function FilePage() {
         </Box>
       )}
 
-      {/* Table */}
       <TableContainer
         component={Paper}
         elevation={0}
@@ -518,15 +518,12 @@ function FilePage() {
                           borderRadius: "10px",
                           textTransform: "none",
                           fontWeight: 700,
-                          "&:hover": {
-                            backgroundColor: "#d1d5db",
-                          },
                         }}
                       >
                         Download
                       </Button>
 
-                      {file.sourceType !== "SHARED" ? (
+                      {file.sourceType !== "SHARED" && (
                         <Button
                           variant="contained"
                           disableElevation
@@ -539,16 +536,13 @@ function FilePage() {
                             borderRadius: "10px",
                             textTransform: "none",
                             fontWeight: 700,
-                            "&:hover": {
-                              backgroundColor: "#d1d5db",
-                            },
                           }}
                         >
                           {visibility === "PUBLIC"
                             ? "Make PRIVATE"
                             : "Make PUBLIC"}
                         </Button>
-                      ) : null}
+                      )}
 
                       <Button
                         variant="contained"
@@ -578,165 +572,145 @@ function FilePage() {
         </Table>
       </TableContainer>
 
-      {/* Preview Modal */}
-      {previewOpen && (
-        <Box className="preview-modal-overlay">
-          <Paper
+      <Dialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight={700}>
+            {previewFileName}
+          </Typography>
+
+          <Typography
             sx={{
-              width: "700px",
-              maxWidth: "95%",
-              p: 3,
-              borderRadius: "20px",
+              color: "#6b7280",
+              fontSize: "14px",
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 2,
-              }}
-            >
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  {previewFileName}
-                </Typography>
+            Text file preview
+          </Typography>
+        </DialogTitle>
 
-                <Typography
-                  sx={{
-                    color: "#6b7280",
-                    fontSize: "14px",
-                  }}
-                >
-                  Text file preview
-                </Typography>
-              </Box>
-
-              <Button
-                variant="contained"
-                disableElevation
-                onClick={() => setPreviewOpen(false)}
-                sx={{
-                  backgroundColor: "#e5e7eb",
-                  color: "#111827",
-                  borderRadius: "10px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                }}
-              >
-                Close
-              </Button>
-            </Box>
-
-            <Box
-              component="pre"
-              sx={{
-                backgroundColor: "#f9fafb",
-                p: 2,
-                borderRadius: "12px",
-                overflowX: "auto",
-                maxHeight: "400px",
-              }}
-            >
-              {previewLoading
-                ? "Loading preview..."
-                : previewText}
-            </Box>
-          </Paper>
-        </Box>
-      )}
-
-      {/* Delete Modal */}
-      {deleteTarget && (
-        <Box className="delete-confirm-modal-overlay">
-          <Paper
+        <DialogContent>
+          <Box
+            component="pre"
             sx={{
-              width: "450px",
-              maxWidth: "95%",
-              p: 4,
-              borderRadius: "20px",
+              backgroundColor: "#f9fafb",
+              p: 2,
+              borderRadius: "12px",
+              overflowX: "auto",
+              maxHeight: "400px",
+              whiteSpace: "pre-wrap",
             }}
           >
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 700, mb: 2 }}
-            >
-              {deleteTarget?.sourceType === "SHARED"
-                ? "Remove Shared File"
-                : "Delete File"}
-            </Typography>
+            {previewLoading
+              ? "Loading preview..."
+              : previewText}
+          </Box>
+        </DialogContent>
 
-            <Typography sx={{ mb: 2 }}>
-              {deleteTarget?.sourceType === "SHARED"
-                ? "Remove this shared file from your list?"
-                : "Are you sure you want to delete"}
-              <strong>
-                {" "}
-                {deleteTarget.fileName ||
-                  deleteTarget.name ||
-                  "this file"}
-              </strong>
-              ?
-            </Typography>
+        <DialogActions>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => setPreviewOpen(false)}
+            sx={{
+              backgroundColor: "#e5e7eb",
+              color: "#111827",
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 700,
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-            <Typography
-              sx={{
-                color: "#6b7280",
-                fontSize: "14px",
-                mb: 3,
-              }}
-            >
-              {deleteTarget?.sourceType === "SHARED"
-                ? "This will only remove your access. The owner's original file will not be deleted."
-                : "This action will permanently remove the file from your account."}
-            </Typography>
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={cancelDeleteFile}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {deleteTarget?.sourceType === "SHARED"
+            ? "Remove Shared File"
+            : "Delete File"}
+        </DialogTitle>
 
-            <Stack
-              direction="row"
-              spacing={2}
-              justifyContent="flex-end"
-            >
-              <Button
-                variant="contained"
-                disableElevation
-                onClick={cancelDeleteFile}
-                disabled={deleteLoading}
-                sx={{
-                  backgroundColor: "#e5e7eb",
-                  color: "#111827",
-                  borderRadius: "10px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                }}
-              >
-                Cancel
-              </Button>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            {deleteTarget?.sourceType === "SHARED"
+              ? "Remove this shared file from your list?"
+              : "Are you sure you want to delete"}
 
-              <Button
-                variant="contained"
-                disableElevation
-                onClick={confirmDeleteFile}
-                disabled={deleteLoading}
-                sx={{
-                  backgroundColor: "#dc2626",
-                  color: "#ffffff",
-                  borderRadius: "10px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                }}
-              >
-                {deleteLoading
-                  ? "Processing..."
-                  : deleteTarget?.sourceType === "SHARED"
-                  ? "Remove Shared File"
-                  : "Delete File"}
-              </Button>
-            </Stack>
-          </Paper>
-        </Box>
-      )}
+            <strong>
+              {" "}
+              {deleteTarget?.fileName ||
+                deleteTarget?.name ||
+                "this file"}
+            </strong>
+            ?
+          </Typography>
+
+          <Typography
+            sx={{
+              color: "#6b7280",
+              fontSize: "14px",
+            }}
+          >
+            {deleteTarget?.sourceType === "SHARED"
+              ? "This will only remove your access. The owner's original file will not be deleted."
+              : "This action will permanently remove the file from your account."}
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3 }}>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={cancelDeleteFile}
+            disabled={deleteLoading}
+            sx={{
+              backgroundColor: "#e5e7eb",
+              color: "#111827",
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 700,
+            }}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={confirmDeleteFile}
+            disabled={deleteLoading}
+            sx={{
+              backgroundColor: "#dc2626",
+              color: "#ffffff",
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 700,
+              "&:hover": {
+                backgroundColor: "#b91c1c",
+              },
+            }}
+          >
+            {deleteLoading
+              ? "Processing..."
+              : deleteTarget?.sourceType === "SHARED"
+              ? "Remove Shared File"
+              : "Delete File"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
-    </Box>
+  </Box>
   );
 }
 

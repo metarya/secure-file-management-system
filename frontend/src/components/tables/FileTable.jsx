@@ -1,3 +1,17 @@
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Button,
+  Stack,
+  Link
+} from "@mui/material";
+
 export default function FileTable({
   files,
   downloadFile,
@@ -5,123 +19,164 @@ export default function FileTable({
   toggleVisibility,
   previewFile
 }) {
-
   if (!files || files.length === 0) {
     return (
-      <div className="empty-state">
-        No files found. Click Refresh after uploading files.
-      </div>
+    <Paper
+      sx={{
+        p: 3,
+        textAlign: "center",
+        color: "#64748b",
+        backgroundColor: "#f8fafc",
+        border: "1px dashed #cbd5e1",
+        borderRadius: 2
+      }}
+    >
+      No files found. Click Refresh after uploading files.
+    </Paper>
     );
   }
 
   return (
+    <TableContainer
+      component={Paper}
+      sx={{
+        borderRadius: 3,
+        border: "1px solid #e5e7eb",
+        overflow: "hidden"
+      }}
+    >
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>File Name</TableCell>
+            <TableCell>Description</TableCell>
+            <TableCell>Visibility</TableCell>
+            <TableCell>Uploaded At</TableCell>
+            <TableCell>Actions</TableCell>
+          </TableRow>
+        </TableHead>
 
-    <div className="table-wrapper">
-
-      <table>
-
-        <thead>
-
-          <tr>
-            <th>File Name</th>
-            <th>Description</th>
-            <th>Visibility</th>
-            <th>Uploaded At</th>
-            <th>Actions</th>
-          </tr>
-
-        </thead>
-
-        <tbody>
-
+        <TableBody>
           {files.map((file) => (
-
-            <tr key={file.fileId}>
-
-              <td>
-
-                <button
-                  type="button"
-                  className="file-preview-link"
+            <TableRow key={file.fileId} hover>
+              <TableCell>
+                <Link
+                  component="button"
+                  underline="hover"
                   onClick={() => previewFile(file)}
-                  title="Click to preview file"
+                  sx={{
+                    fontWeight: 600,
+                    textAlign: "left"
+                  }}
                 >
                   {file.fileName ||
-                   file.name ||
-                   "Unnamed file"}
-                </button>
+                    file.name ||
+                    "Unnamed file"}
+                </Link>
+              </TableCell>
 
-              </td>
-
-              <td>
+              <TableCell>
                 {file.sharedFile?.description ||
-                 file.description ||
-                 "-"}
-              </td>
+                  file.description ||
+                  "-"}
+              </TableCell>
 
-              <td>
-
-                <span
-                  className={`status-badge ${
+              <TableCell>
+                <Chip
+                  label={
                     file.sharedAt
-                      ? "shared"
+                      ? "SHARED"
+                      : file.visibility
+                  }
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    backgroundColor: file.sharedAt
+                      ? "#dbeafe"
                       : file.visibility === "PUBLIC"
-                      ? "public"
-                      : "private"
-                  }`}
-                >
+                      ? "#d1fae5"
+                      : "#fee2e2",
+                    color: file.sharedAt
+                      ? "#1e3a8a"
+                      : file.visibility === "PUBLIC"
+                      ? "#065f46"
+                      : "#991b1b"
+                  }}
+                />
+              </TableCell>
 
-                  {file.sharedAt
-                    ? "SHARED"
-                    : file.visibility}
-
-                </span>
-
-              </td>
-
-              <td>
+              <TableCell>
                 {file.uploadedAt || "-"}
-              </td>
+              </TableCell>
 
-              <td>
-
-                <button
-                  className="btn secondary action-btn"
-                  onClick={() => downloadFile(file)}
+              <TableCell>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
                 >
-                  Download
-                </button>
-
-                {!file.sharedAt && (
-                  <button
-                    className="btn secondary action-btn"
-                    onClick={() => toggleVisibility(file)}
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => downloadFile(file)}
+                    sx={{
+                      backgroundColor: "#e5e7eb",
+                      color: "#111827",
+                      boxShadow: "none",
+                      "&:hover": {
+                        backgroundColor: "#d1d5db",
+                        boxShadow: "none"
+                      }
+                    }}
                   >
-                    Make {file.visibility === "PUBLIC"
-                      ? "PRIVATE"
-                      : "PUBLIC"}
-                  </button>
-                )}
+                    Download
+                  </Button>
 
-                <button
-                  className="btn danger action-btn"
-                  onClick={() => deleteFile(file)}
-                >
-                  {file.sharedAt
-                    ? "Remove"
-                    : "Delete"}
-                </button>
+                  {!file.sharedAt && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => toggleVisibility(file)}
+                      sx={{
+                        backgroundColor: "#e5e7eb",
+                        color: "#111827",
+                        boxShadow: "none",
+                        "&:hover": {
+                          backgroundColor: "#d1d5db",
+                          boxShadow: "none"
+                        }
+                      }}
+                    >
+                      Make {file.visibility === "PUBLIC"
+                        ? "PRIVATE"
+                        : "PUBLIC"}
+                    </Button>
+                  )}
 
-              </td>
-
-            </tr>
-
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => deleteFile(file)}
+                    sx={{
+                      backgroundColor: "#dc2626",
+                      color: "#ffffff",
+                      boxShadow: "none",
+                      "&:hover": {
+                        backgroundColor: "#b91c1c",
+                        boxShadow: "none"
+                      }
+                    }}
+                  >
+                    {file.sharedAt
+                      ? "Remove"
+                      : "Delete"}
+                  </Button>
+                </Stack>
+              </TableCell>
+            </TableRow>
           ))}
-
-        </tbody>
-
-      </table>
-
-    </div>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

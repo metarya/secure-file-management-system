@@ -11,8 +11,6 @@ import AppRoutes from "./routes/AppRoutes";
 import theme from "./theme/theme";
 
 import "./styles/app.css";
-import "./styles/table.css";
-import "./styles/modal.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
