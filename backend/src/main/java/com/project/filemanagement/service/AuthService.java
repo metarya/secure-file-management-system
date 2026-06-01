@@ -93,7 +93,8 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(
                 user.getEmail(),
-                user.getFullName()
+                user.getFullName(),
+                user.getRole().name()
         );
 
         return new LoginResponse(
@@ -101,44 +102,45 @@ public class AuthService {
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
-                token
+                token,
+                user.getRole().name()
         );
     }
 
-public String forgotPassword(String email) {
+    public String forgotPassword(String email) {
 
-    User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-    if (
-            user.getResetToken() != null &&
-            user.getResetTokenExpiry() != null &&
-            user.getResetTokenExpiry().isAfter(LocalDateTime.now())
-    ) {
+        if (
+                user.getResetToken() != null &&
+                user.getResetTokenExpiry() != null &&
+                user.getResetTokenExpiry().isAfter(LocalDateTime.now())
+        ) {
 
-        return "Code already sent. Check your email.";
+            return "Code already sent. Check your email.";
+        }
+
+        String token = UUID.randomUUID().toString();
+
+        user.setResetToken(token);
+
+        user.setResetTokenExpiry(
+                LocalDateTime.now().plusMinutes(10)
+        );
+
+        userRepository.save(user);
+
+        String resetLink = token;
+
+        emailService.sendResetPasswordEmail(
+                user.getEmail(),
+                resetLink
+        );
+
+        return "Check your email for reset code.";
     }
 
-    String token = UUID.randomUUID().toString();
-
-    user.setResetToken(token);
-
-    user.setResetTokenExpiry(
-            LocalDateTime.now().plusMinutes(10)
-    );
-
-    userRepository.save(user);
-
-    String resetLink = token;
-
-    emailService.sendResetPasswordEmail(
-            user.getEmail(),
-            resetLink
-    );
-
-    return "Check your email for reset code.";
-}
-    
     public String resetPassword(String token, String newPassword) {
 
         User user = userRepository.findByResetToken(token)
@@ -149,7 +151,7 @@ public String forgotPassword(String email) {
         }
 
         user.setPasswordHash(
-            passwordEncoder.encode(newPassword)
+                passwordEncoder.encode(newPassword)
         );
 
         user.setResetToken(null);
