@@ -2,6 +2,8 @@ package com.project.filemanagement.entity;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -25,6 +27,7 @@ public class User {
     @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
@@ -35,9 +38,11 @@ public class User {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @JsonIgnore
     @Column(name = "reset_token")
     private String resetToken;
 
+    @JsonIgnore
     @Column(name = "reset_token_expiry")
     private LocalDateTime resetTokenExpiry;
 

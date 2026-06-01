@@ -49,6 +49,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String email = jwtUtil.extractEmail(token);
         String role = jwtUtil.extractRole(token);
 
+        System.out.println("JWT EMAIL = " + email);
+        System.out.println("JWT ROLE = " + role);
+
         if (email != null &&
                 SecurityContextHolder.getContext().getAuthentication() == null) {
 
