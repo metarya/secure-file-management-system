@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -26,6 +28,10 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role = Role.USER;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -42,6 +48,7 @@ public class User {
         this.fullName = fullName;
         this.email = email;
         this.passwordHash = passwordHash;
+        this.role = Role.USER;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -73,10 +80,17 @@ public class User {
         this.passwordHash = passwordHash;
     }
 
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
-
 
     public String getResetToken() {
         return resetToken;
@@ -87,10 +101,10 @@ public class User {
     }
 
     public LocalDateTime getResetTokenExpiry() {
-    return resetTokenExpiry;
+        return resetTokenExpiry;
     }
 
     public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) {
-    this.resetTokenExpiry = resetTokenExpiry;
+        this.resetTokenExpiry = resetTokenExpiry;
     }
 }

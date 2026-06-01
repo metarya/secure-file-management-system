@@ -7,6 +7,7 @@ public class LoginResponse {
     private String fullName;
     private String email;
     private String token;
+    private String role;
 
     public LoginResponse() {
     }
@@ -18,15 +19,24 @@ public class LoginResponse {
         this.fullName = fullName;
         this.email = email;
         this.token = null;
+        this.role = null;
     }
 
     // New constructor for JWT login success
-    public LoginResponse(String message, Long userId, String fullName, String email, String token) {
+    public LoginResponse(
+            String message,
+            Long userId,
+            String fullName,
+            String email,
+            String token,
+            String role) {
+
         this.message = message;
         this.userId = userId;
         this.fullName = fullName;
         this.email = email;
         this.token = token;
+        this.role = role;
     }
 
     public String getMessage() {
@@ -49,6 +59,10 @@ public class LoginResponse {
         return token;
     }
 
+    public String getRole() {
+        return role;
+    }
+
     public void setMessage(String message) {
         this.message = message;
     }
@@ -67,5 +81,9 @@ public class LoginResponse {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 }
