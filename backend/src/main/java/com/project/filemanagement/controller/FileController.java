@@ -17,7 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
-import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
@@ -40,14 +39,6 @@ public class FileController {
             @RequestParam(value = "description", required = false) String description) {
 
         return ResponseEntity.ok(fileService.uploadFile(file, ownerId, description));
-    }
-
-    @PostMapping("/upload-multiple")
-    public ResponseEntity<List<FileUploadResultResponse>> uploadMultipleFiles(
-            @RequestParam("files") MultipartFile[] files,
-            @RequestParam("ownerId") Long ownerId) {
-
-        return ResponseEntity.ok(fileService.uploadMultipleFiles(files, ownerId));
     }
 
     @GetMapping("/my-files")

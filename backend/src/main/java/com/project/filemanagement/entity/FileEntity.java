@@ -1,7 +1,16 @@
 package com.project.filemanagement.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "files")
@@ -51,6 +60,9 @@ public class FileEntity {
     @Column(name = "uploaded_at")
     private LocalDateTime uploadedAt = LocalDateTime.now();
 
+    @Column(name = "is_deleted")
+private Boolean deleted = false;
+
     public FileEntity() {
     }
 
@@ -80,7 +92,9 @@ public class FileEntity {
         return fileType;
     }
 
-    
+    public Boolean getDeleted() {
+    return deleted;
+}
 
     public String getDescription() {
         return description;
@@ -117,7 +131,9 @@ public Long getFileSize() {
         this.fileType = fileType;
     }
 
-    
+    public void setDeleted(Boolean deleted) {
+    this.deleted = deleted;
+}
 
     public void setDescription(String description) {
         this.description = description;

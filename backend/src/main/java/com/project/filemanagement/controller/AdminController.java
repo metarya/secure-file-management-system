@@ -2,28 +2,61 @@ package com.project.filemanagement.controller;
 
 import java.util.List;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project.filemanagement.dto.AdminFilePreviewResponse;
+import com.project.filemanagement.dto.AdminFileResponse;
+import com.project.filemanagement.dto.AdminFileStatsResponse;
+import com.project.filemanagement.dto.AdminResetPasswordResponse;
 import com.project.filemanagement.dto.AdminStatsResponse;
+import com.project.filemanagement.dto.AdminSystemHealthResponse;
+import com.project.filemanagement.dto.AdminUserActivityResponse;
+import com.project.filemanagement.dto.AdminUserFileSummaryResponse;
 import com.project.filemanagement.dto.AdminUserResponse;
+import com.project.filemanagement.dto.AuditLogResponse;
 import com.project.filemanagement.dto.UpdateRoleRequest;
+import com.project.filemanagement.dto.UpdateUserStatusRequest;
+import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.Role;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.entity.UserStatus;
+import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.service.AuditLogService;
+import com.project.filemanagement.service.AuthService;
+import com.project.filemanagement.service.FileService;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
     private final UserRepository userRepository;
+    private final FileRepository fileRepository;
+    private final FileService fileService;
+    private final AuthService authService;
+    private final AuditLogService auditLogService;
 
-    public AdminController(UserRepository userRepository) {
+    public AdminController(
+            UserRepository userRepository,
+            FileRepository fileRepository,
+            FileService fileService,
+            AuthService authService,
+            AuditLogService auditLogService
+    ) {
         this.userRepository = userRepository;
+        this.fileRepository = fileRepository;
+        this.fileService = fileService;
+        this.authService = authService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/test")
@@ -60,28 +93,275 @@ public class AdminController {
                         user.getFullName(),
                         user.getEmail(),
                         user.getRole().name(),
+                        user.getStatus().name(),
                         user.getCreatedAt()
                 ))
                 .toList();
     }
 
-    @PatchMapping("/users/{id}/role")
-    public String updateUserRole(
-            @PathVariable Long id,
-            @RequestBody UpdateRoleRequest request
-    ) {
+    @GetMapping("/files")
+    public List<AdminFileResponse> getAllFiles() {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Role role = Role.valueOf(
-                request.getRole().toUpperCase()
-        );
-
-        user.setRole(role);
-
-        userRepository.save(user);
-
-        return "Role updated successfully";
+        return fileRepository.findAll()
+                .stream()
+                .map(file -> new AdminFileResponse(
+                        file.getId(),
+                        file.getFileName(),
+                        file.getDescription(),
+                        file.getFileSize(),
+                        file.getVisibility(),
+                        file.getUploadedAt(),
+                        file.getOwner().getId(),
+                        file.getOwner().getFullName(),
+                        file.getOwner().getEmail()
+                ))
+                .toList();
     }
+
+    @GetMapping("/files/{fileId}/preview")
+    public AdminFilePreviewResponse previewFile(
+            @PathVariable Long fileId
+    ) {
+        return fileService.adminPreviewFile(fileId);
+    }
+
+    @GetMapping("/files/{fileId}/download")
+    public ResponseEntity<byte[]> adminDownloadFile(
+            @PathVariable Long fileId
+    ) {
+        return fileService.adminDownloadFile(fileId);
+    }
+
+    @DeleteMapping("/files/{fileId}")
+    public String deleteFile(
+            @PathVariable Long fileId
+    ) {
+        return fileService.adminDeleteFile(fileId);
+    }
+
+    @GetMapping("/file-stats")
+    public AdminFileStatsResponse getFileStats() {
+
+        List<FileEntity> files = fileRepository.findAll();
+
+        long totalFiles = files.size();
+
+        long publicFiles = files.stream()
+                .filter(file -> "PUBLIC".equalsIgnoreCase(file.getVisibility()))
+                .count();
+
+        long privateFiles = files.stream()
+                .filter(file -> "PRIVATE".equalsIgnoreCase(file.getVisibility()))
+                .count();
+
+        long totalStorageBytes = files.stream()
+                .mapToLong(file ->
+                        file.getFileSize() == null
+                                ? 0
+                                : file.getFileSize())
+                .sum();
+
+        double totalStorageMB =
+                totalStorageBytes / (1024.0 * 1024.0);
+
+        return new AdminFileStatsResponse(
+                totalFiles,
+                publicFiles,
+                privateFiles,
+                totalStorageBytes,
+                totalStorageMB
+        );
+    }
+
+    @GetMapping("/user-file-summary")
+    public List<AdminUserFileSummaryResponse> getUserFileSummary() {
+
+        return userRepository.findAll()
+                .stream()
+                .map(user -> {
+
+                    List<FileEntity> userFiles =
+                            fileRepository.findByOwner(user);
+
+                    long totalFiles = userFiles.size();
+
+                    long totalStorageBytes = userFiles.stream()
+                            .mapToLong(file ->
+                                    file.getFileSize() == null
+                                            ? 0
+                                            : file.getFileSize())
+                            .sum();
+
+                    return new AdminUserFileSummaryResponse(
+                            user.getId(),
+                            user.getFullName(),
+                            user.getEmail(),
+                            totalFiles,
+                            totalStorageBytes
+                    );
+                })
+                .toList();
+    }
+
+    @GetMapping("/user-activity")
+    public List<AdminUserActivityResponse> getUserActivity() {
+
+        return userRepository.findAll()
+                .stream()
+                .map(user -> {
+
+                    List<FileEntity> userFiles =
+                            fileRepository.findByOwner(user);
+
+                    long totalFiles = userFiles.size();
+
+                    long storageUsedBytes = userFiles.stream()
+                            .mapToLong(file ->
+                                    file.getFileSize() == null
+                                            ? 0
+                                            : file.getFileSize())
+                            .sum();
+
+                    java.time.LocalDateTime lastUploadDate =
+                            userFiles.stream()
+                                    .map(FileEntity::getUploadedAt)
+                                    .max(java.time.LocalDateTime::compareTo)
+                                    .orElse(null);
+
+                    return new AdminUserActivityResponse(
+                            user.getId(),
+                            user.getFullName(),
+                            user.getEmail(),
+                            totalFiles,
+                            storageUsedBytes,
+                            lastUploadDate
+                    );
+                })
+                .toList();
+    }
+
+    @GetMapping("/system-health")
+public AdminSystemHealthResponse getSystemHealth() {
+
+    long totalUsers = userRepository.count();
+
+    long activeUsers = userRepository.findAll()
+            .stream()
+            .filter(user ->
+                    user.getStatus() == UserStatus.ACTIVE)
+            .count();
+
+    long blockedUsers = userRepository.findAll()
+            .stream()
+            .filter(user ->
+                    user.getStatus() == UserStatus.BLOCKED)
+            .count();
+
+    List<FileEntity> files = fileRepository.findAll();
+
+    long totalFiles = files.size();
+
+    long totalStorageBytes = files.stream()
+            .mapToLong(file ->
+                    file.getFileSize() == null
+                            ? 0
+                            : file.getFileSize())
+            .sum();
+
+    return new AdminSystemHealthResponse(
+            totalUsers,
+            activeUsers,
+            blockedUsers,
+            totalFiles,
+            totalStorageBytes
+    );
+}
+
+   @PostMapping("/users/reset-password")
+public AdminResetPasswordResponse resetUserPassword(
+        @RequestParam String email
+) {
+    return authService.adminResetPassword(email);
+}
+
+@GetMapping("/audit-logs")
+public List<AuditLogResponse> getAuditLogs() {
+    return auditLogService.getAllLogs();
+}
+
+    @PatchMapping("/users/{id}/role")
+public String updateUserRole(
+        @PathVariable Long id,
+        @RequestBody UpdateRoleRequest request
+) {
+
+    User user = userRepository.findById(id)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found"));
+
+    Role oldRole = user.getRole();
+
+    Role newRole = Role.valueOf(
+            request.getRole().toUpperCase()
+    );
+
+    user.setRole(newRole);
+
+    userRepository.save(user);
+
+    auditLogService.logAction(
+            "ROLE_CHANGED",
+            "ADMIN",
+            "Changed user "
+                    + user.getEmail()
+                    + " role "
+                    + oldRole.name()
+                    + " -> "
+                    + newRole.name()
+    );
+
+    return "Role updated successfully";
+}
+
+
+@PatchMapping("/users/{id}/status")
+public String updateUserStatus(
+        @PathVariable Long id,
+        @RequestBody UpdateUserStatusRequest request
+) {
+
+    User user = userRepository.findById(id)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found"));
+
+    UserStatus oldStatus = user.getStatus();
+
+    UserStatus newStatus = UserStatus.valueOf(
+            request.getStatus().toUpperCase()
+    );
+
+    user.setStatus(newStatus);
+
+    userRepository.save(user);
+
+    auditLogService.logAction(
+            "USER_STATUS_CHANGED",
+            "ADMIN",
+            "Changed user "
+                    + user.getEmail()
+                    + " status "
+                    + oldStatus.name()
+                    + " -> "
+                    + newStatus.name()
+    );
+
+    return "User status updated successfully";
+}
+
+@PatchMapping("/files/{fileId}/restore")
+public String restoreFile(
+        @PathVariable Long fileId
+) {
+    return fileService.restoreFile(fileId);
+}
 }

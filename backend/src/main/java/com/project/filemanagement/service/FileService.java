@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
@@ -21,9 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.project.filemanagement.dto.AdminFilePreviewResponse;
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
-import com.project.filemanagement.dto.FileUploadResultResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
@@ -36,6 +35,8 @@ import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.PermissionTypeRepository;
 import com.project.filemanagement.repository.UserRepository;
 
+
+
 @Service
 @SuppressWarnings("null")
 public class FileService {
@@ -44,18 +45,21 @@ public class FileService {
     private final UserRepository userRepository;
     private final FilePermissionRepository filePermissionRepository;
     private final PermissionTypeRepository permissionTypeRepository;
+    private final AuditLogService auditLogService;
     private final Tika tika;
 
     public FileService(
             FileRepository fileRepository,
             UserRepository userRepository,
             FilePermissionRepository filePermissionRepository,
-            PermissionTypeRepository permissionTypeRepository
+            PermissionTypeRepository permissionTypeRepository,
+            AuditLogService auditLogService
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
         this.filePermissionRepository = filePermissionRepository;
         this.permissionTypeRepository = permissionTypeRepository;
+        this.auditLogService = auditLogService;
         this.tika = new Tika();
     }
 
@@ -240,54 +244,6 @@ public class FileService {
         return new ShareFileResponse("File shared successfully", savedPermission.getId());
     }
 
-    public List<FileUploadResultResponse> uploadMultipleFiles(MultipartFile[] files, Long ownerId) {
-
-        if (ownerId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
-        }
-
-        if (files == null || files.length == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one file is required");
-        }
-
-        List<FileUploadResultResponse> results = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-
-            String originalFileName = "unknown";
-
-            try {
-                if (file != null && file.getOriginalFilename() != null) {
-                    originalFileName = file.getOriginalFilename();
-                }
-
-                FileUploadResponse uploadedFile = uploadFile(file, ownerId);
-
-                results.add(new FileUploadResultResponse(
-                        true,
-                        uploadedFile.getMessage(),
-                        uploadedFile.getFileId(),
-                        uploadedFile.getFileName(),
-                        uploadedFile.getFileType(),
-                        uploadedFile.getFileSize()
-                ));
-
-            } catch (RuntimeException e) {
-
-                results.add(new FileUploadResultResponse(
-                        false,
-                        "Upload failed for " + originalFileName + ": " + e.getMessage(),
-                        null,
-                        originalFileName,
-                        null,
-                        null
-                ));
-            }
-        }
-
-        return results;
-    }
-
     public List<FileListResponse> getMyFiles(Long ownerId) {
 
         if (ownerId == null) {
@@ -337,6 +293,7 @@ public class FileService {
                 file.getUploadedAt()
         );
     }
+
     public ResponseEntity<byte[]> previewFile(Long fileId, String userEmail) {
         return serveFileContent(fileId, userEmail, false);
     }
@@ -344,6 +301,123 @@ public class FileService {
     public ResponseEntity<byte[]> downloadFile(Long fileId, String userEmail) {
         return serveFileContent(fileId, userEmail, true);
     }
+
+    public ResponseEntity<byte[]> adminDownloadFile(Long fileId) {
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "File not found"
+            ));
+
+    byte[] storedBytes = file.getFileData();
+    byte[] outputBytes;
+
+    if (Boolean.TRUE.equals(file.getCompressed())) {
+        outputBytes = decompressBytes(storedBytes);
+    } else {
+        outputBytes = storedBytes;
+    }
+
+    return ResponseEntity.ok()
+            .header(
+                    HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + file.getFileName() + "\""
+            )
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(outputBytes);
+}
+    
+    public AdminFilePreviewResponse adminPreviewFile(Long fileId) {
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "File not found"
+            ));
+
+    byte[] storedBytes = file.getFileData();
+    byte[] outputBytes;
+
+    if (Boolean.TRUE.equals(file.getCompressed())) {
+        outputBytes = decompressBytes(storedBytes);
+    } else {
+        outputBytes = storedBytes;
+    }
+
+    String content = new String(
+            outputBytes,
+            StandardCharsets.UTF_8
+    );
+
+    return new AdminFilePreviewResponse(
+            file.getFileName(),
+            file.getOwner().getFullName(),
+            file.getOwner().getEmail(),
+            content
+    );
+}
+
+    public String adminDeleteFile(Long fileId) {
+
+    if (fileId == null) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "File ID is required"
+        );
+    }
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "File not found"
+            ));
+
+    auditLogService.logAction(
+            "FILE_DELETED",
+            "ADMIN",
+            "Deleted file "
+                    + file.getFileName()
+                    + " owned by "
+                    + file.getOwner().getEmail()
+    );
+
+    file.setDeleted(true);
+    fileRepository.save(file);
+
+    return "File deleted successfully by admin";
+}
+    
+    public String restoreFile(Long fileId) {
+
+    if (fileId == null) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "File ID is required"
+        );
+    }
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "File not found"
+            ));
+
+    file.setDeleted(false);
+
+    fileRepository.save(file);
+
+    auditLogService.logAction(
+            "FILE_RESTORED",
+            "ADMIN",
+            "Restored file "
+                    + file.getFileName()
+                    + " owned by "
+                    + file.getOwner().getEmail()
+    );
+
+    return "File restored successfully";
+}
 
     private ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
 
@@ -541,9 +615,6 @@ public class FileService {
         return "Shared file removed from your list";
     }
 
-
-
-
     public String removeSharedEntryFromMySide(Long fileId, String userEmail) {
 
         if (fileId == null) {
@@ -565,7 +636,6 @@ public class FileService {
 
         return "Shared file removed from your list";
     }
-
 
     public FileListResponse updateFileVisibility(Long fileId, String visibility, String ownerEmail) {
 
@@ -607,6 +677,7 @@ public class FileService {
 
         return mapToFileListResponse(savedFile);
     }
+    
     private String cleanDescription(String description) {
         if (description == null) {
             return null;
@@ -624,8 +695,6 @@ public class FileService {
 
         return cleaned;
     }
-
-
 
     private String getFileExtension(String fileName) {
 

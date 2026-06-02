@@ -8,6 +8,7 @@ public class AdminUserResponse {
     private String fullName;
     private String email;
     private String role;
+    private String status;
     private LocalDateTime createdAt;
 
     public AdminUserResponse() {
@@ -18,12 +19,14 @@ public class AdminUserResponse {
             String fullName,
             String email,
             String role,
+            String status,
             LocalDateTime createdAt) {
 
         this.id = id;
         this.fullName = fullName;
         this.email = email;
         this.role = role;
+        this.status = status;
         this.createdAt = createdAt;
     }
 
@@ -41,6 +44,10 @@ public class AdminUserResponse {
 
     public String getRole() {
         return role;
+    }
+
+    public String getStatus() {
+        return status;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -61,6 +68,10 @@ public class AdminUserResponse {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {

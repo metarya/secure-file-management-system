@@ -7,10 +7,12 @@ import java.util.UUID;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.project.filemanagement.dto.AdminResetPasswordResponse;
 import com.project.filemanagement.dto.LoginRequest;
 import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.entity.UserStatus;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.security.JwtUtil;
 
@@ -21,16 +23,19 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     public AuthService(
             UserRepository userRepository,
             JwtUtil jwtUtil,
-            EmailService emailService
+            EmailService emailService,
+            AuditLogService auditLogService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtUtil = jwtUtil;
         this.emailService = emailService;
+        this.auditLogService = auditLogService;
     }
 
     public String registerUser(RegisterRequest request) {
@@ -89,6 +94,15 @@ public class AuthService {
 
         if (!passwordMatched) {
             return new LoginResponse("Invalid email or password", null, null, null);
+        }
+
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            return new LoginResponse(
+                    "Your account has been blocked. Contact administrator.",
+                    null,
+                    null,
+                    null
+            );
         }
 
         String token = jwtUtil.generateToken(
@@ -162,4 +176,37 @@ public class AuthService {
 
         return "Password reset successful";
     }
+
+
+    public AdminResetPasswordResponse adminResetPassword(
+        String email
+    ) {
+
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found"));
+
+    String temporaryPassword =
+            UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, 10);
+
+    user.setPasswordHash(
+            passwordEncoder.encode(temporaryPassword)
+    );
+
+userRepository.save(user);
+
+auditLogService.logAction(
+        "PASSWORD_RESET",
+        "ADMIN",
+        "Reset password for " + user.getEmail()
+);
+
+return new AdminResetPasswordResponse(
+        user.getEmail(),
+        temporaryPassword
+);
+}
 }
