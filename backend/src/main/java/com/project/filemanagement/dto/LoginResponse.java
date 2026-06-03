@@ -1,5 +1,12 @@
 package com.project.filemanagement.dto;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
 public class LoginResponse {
 
     private String message;
@@ -9,11 +16,13 @@ public class LoginResponse {
     private String token;
     private String role;
 
-    public LoginResponse() {
-    }
-
     // Old constructor kept so existing login code does not break
-    public LoginResponse(String message, Long userId, String fullName, String email) {
+    public LoginResponse(
+            String message,
+            Long userId,
+            String fullName,
+            String email
+    ) {
         this.message = message;
         this.userId = userId;
         this.fullName = fullName;
@@ -29,61 +38,13 @@ public class LoginResponse {
             String fullName,
             String email,
             String token,
-            String role) {
-
+            String role
+    ) {
         this.message = message;
         this.userId = userId;
         this.fullName = fullName;
         this.email = email;
         this.token = token;
-        this.role = role;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
-    public void setRole(String role) {
         this.role = role;
     }
 }

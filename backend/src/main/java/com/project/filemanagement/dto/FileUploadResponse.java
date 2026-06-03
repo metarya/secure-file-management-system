@@ -1,41 +1,15 @@
 package com.project.filemanagement.dto;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public class FileUploadResponse {
 
-    private String message;
-    private Long fileId;
-    private String fileName;
-    private String fileType;
-    private Long fileSize;
-
-    public FileUploadResponse() {
-    }
-
-    public FileUploadResponse(String message, Long fileId, String fileName, String fileType, Long fileSize) {
-        this.message = message;
-        this.fileId = fileId;
-        this.fileName = fileName;
-        this.fileType = fileType;
-        this.fileSize = fileSize;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public Long getFileId() {
-        return fileId;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public String getFileType() {
-        return fileType;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
+    private final String message;
+    private final Long fileId;
+    private final String fileName;
+    private final String fileType;
+    private final Long fileSize;
 }

@@ -1,23 +1,15 @@
 package com.project.filemanagement.dto;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+
+@Getter
+@RequiredArgsConstructor
+
 public class AdminResetPasswordResponse {
 
     private final String email;
     private final String temporaryPassword;
 
-    public AdminResetPasswordResponse(
-            String email,
-            String temporaryPassword
-    ) {
-        this.email = email;
-        this.temporaryPassword = temporaryPassword;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getTemporaryPassword() {
-        return temporaryPassword;
-    }
 }

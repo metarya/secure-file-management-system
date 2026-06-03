@@ -11,7 +11,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@Getter
+@NoArgsConstructor
+@Setter
 @Entity
 @Table(
     name = "file_permissions",
@@ -43,53 +49,10 @@ public class FilePermission {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public FilePermission() {
-    }
-
     public FilePermission(FileEntity file, User sharedWithUser, PermissionType permissionType) {
         this.file = file;
         this.sharedWithUser = sharedWithUser;
         this.permissionType = permissionType;
         this.createdAt = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public FileEntity getFile() {
-        return file;
-    }
-
-    public User getSharedWithUser() {
-        return sharedWithUser;
-    }
-
-    public PermissionType getPermissionType() {
-        return permissionType;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setFile(FileEntity file) {
-        this.file = file;
-    }
-
-    public void setSharedWithUser(User sharedWithUser) {
-        this.sharedWithUser = sharedWithUser;
-    }
-
-    public void setPermissionType(PermissionType permissionType) {
-        this.permissionType = permissionType;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
     }
 }

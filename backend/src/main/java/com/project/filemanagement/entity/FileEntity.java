@@ -11,7 +11,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "files")
 public class FileEntity {
@@ -63,9 +69,6 @@ public class FileEntity {
     @Column(name = "is_deleted")
 private Boolean deleted = false;
 
-    public FileEntity() {
-    }
-
     public FileEntity(User owner, String fileName, String fileType, Long fileSize, String visibility, byte[] fileData) {
         this.owner = owner;
         this.fileName = fileName;
@@ -75,116 +78,4 @@ private Boolean deleted = false;
         this.fileData = fileData;
         this.uploadedAt = LocalDateTime.now();
     }
-
-    public Long getId() {
-        return id;
-    }
-
-    public User getOwner() {
-        return owner;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public String getFileType() {
-        return fileType;
-    }
-
-    public Boolean getDeleted() {
-    return deleted;
-}
-
-    public String getDescription() {
-        return description;
-    }
-public Long getFileSize() {
-        return fileSize;
-    }
-
-    public String getVisibility() {
-        return visibility;
-    }
-
-    public byte[] getFileData() {
-        return fileData;
-    }
-
-    public LocalDateTime getUploadedAt() {
-        return uploadedAt;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setOwner(User owner) {
-        this.owner = owner;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public void setFileType(String fileType) {
-        this.fileType = fileType;
-    }
-
-    public void setDeleted(Boolean deleted) {
-    this.deleted = deleted;
-}
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-public void setFileSize(Long fileSize) {
-        this.fileSize = fileSize;
-    }
-
-    public void setVisibility(String visibility) {
-        this.visibility = visibility;
-    }
-
-    public void setFileData(byte[] fileData) {
-        this.fileData = fileData;
-    }
-
-    public void setUploadedAt(LocalDateTime uploadedAt) {
-        this.uploadedAt = uploadedAt;
-    }
-
-    public String getFileHash() {
-        return fileHash;
-    }
-
-    public void setFileHash(String fileHash) {
-        this.fileHash = fileHash;
-    }
-
-
-    public Long getOriginalFileSize() {
-        return originalFileSize;
-    }
-
-    public void setOriginalFileSize(Long originalFileSize) {
-        this.originalFileSize = originalFileSize;
-    }
-
-    public Long getCompressedFileSize() {
-        return compressedFileSize;
-    }
-
-    public void setCompressedFileSize(Long compressedFileSize) {
-        this.compressedFileSize = compressedFileSize;
-    }
-
-    public Boolean getCompressed() {
-        return compressed;
-    }
-
-    public void setCompressed(Boolean compressed) {
-        this.compressed = compressed;
-    }
-
 }

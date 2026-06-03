@@ -1,6 +1,11 @@
 package com.project.filemanagement.dto;
 
 import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 
 public class AdminUserActivityResponse {
 
@@ -11,43 +16,4 @@ public class AdminUserActivityResponse {
     private final long storageUsedBytes;
     private final LocalDateTime lastUploadDate;
 
-    public AdminUserActivityResponse(
-            Long userId,
-            String fullName,
-            String email,
-            long totalFiles,
-            long storageUsedBytes,
-            LocalDateTime lastUploadDate
-    ) {
-        this.userId = userId;
-        this.fullName = fullName;
-        this.email = email;
-        this.totalFiles = totalFiles;
-        this.storageUsedBytes = storageUsedBytes;
-        this.lastUploadDate = lastUploadDate;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public long getTotalFiles() {
-        return totalFiles;
-    }
-
-    public long getStorageUsedBytes() {
-        return storageUsedBytes;
-    }
-
-    public LocalDateTime getLastUploadDate() {
-        return lastUploadDate;
-    }
 }

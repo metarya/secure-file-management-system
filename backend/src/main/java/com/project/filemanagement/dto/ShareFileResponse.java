@@ -1,31 +1,16 @@
 package com.project.filemanagement.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class ShareFileResponse {
 
     private String message;
     private Long permissionId;
-
-    public ShareFileResponse() {
-    }
-
-    public ShareFileResponse(String message, Long permissionId) {
-        this.message = message;
-        this.permissionId = permissionId;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public Long getPermissionId() {
-        return permissionId;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public void setPermissionId(Long permissionId) {
-        this.permissionId = permissionId;
-    }
 }

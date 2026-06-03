@@ -2,75 +2,21 @@ package com.project.filemanagement.dto;
 
 import java.time.LocalDateTime;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public class FileListResponse {
 
-    private Long fileId;
-    private String fileName;
-    private String description;
-    private String fileType;
-    private Long fileSize;
-    private Long originalFileSize;
-    private Long compressedFileSize;
-    private Boolean compressed;
-    private String visibility;
-    private LocalDateTime uploadedAt;
-
-    public FileListResponse() {
-    }
-
-    public FileListResponse(Long fileId, String fileName, String description, String fileType,
-                            Long fileSize, Long originalFileSize,
-                            Long compressedFileSize, Boolean compressed,
-                            String visibility, LocalDateTime uploadedAt) {
-        this.fileId = fileId;
-        this.fileName = fileName;
-        this.description = description;
-        this.fileType = fileType;
-        this.fileSize = fileSize;
-        this.originalFileSize = originalFileSize;
-        this.compressedFileSize = compressedFileSize;
-        this.compressed = compressed;
-        this.visibility = visibility;
-        this.uploadedAt = uploadedAt;
-    }
-
-    public Long getFileId() {
-        return fileId;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public String getFileType() {
-        return fileType;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
-
-    public Long getOriginalFileSize() {
-        return originalFileSize;
-    }
-
-    public Long getCompressedFileSize() {
-        return compressedFileSize;
-    }
-
-    public Boolean getCompressed() {
-        return compressed;
-    }
-
-    public String getVisibility() {
-        return visibility;
-    }
-
-    public LocalDateTime getUploadedAt() {
-        return uploadedAt;
-    }
+    private final Long fileId;
+    private final String fileName;
+    private final String description;
+    private final String fileType;
+    private final Long fileSize;
+    private final Long originalFileSize;
+    private final Long compressedFileSize;
+    private final Boolean compressed;
+    private final String visibility;
+    private final LocalDateTime uploadedAt;
 }

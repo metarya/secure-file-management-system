@@ -12,7 +12,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "users")
 public class User {
@@ -49,9 +56,6 @@ public class User {
     @Column(name = "reset_token_expiry")
     private LocalDateTime resetTokenExpiry;
 
-    public User() {
-    }
-
     public User(String fullName, String email, String passwordHash) {
         this.fullName = fullName;
         this.email = email;
@@ -59,69 +63,5 @@ public class User {
         this.role = Role.USER;
         this.status = UserStatus.ACTIVE;
         this.createdAt = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
-
-    public UserStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(UserStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public String getResetToken() {
-        return resetToken;
-    }
-
-    public void setResetToken(String resetToken) {
-        this.resetToken = resetToken;
-    }
-
-    public LocalDateTime getResetTokenExpiry() {
-        return resetTokenExpiry;
-    }
-
-    public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) {
-        this.resetTokenExpiry = resetTokenExpiry;
     }
 }

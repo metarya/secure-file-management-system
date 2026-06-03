@@ -1,44 +1,17 @@
 package com.project.filemanagement.dto;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+
+@Getter
+@RequiredArgsConstructor
+
 public class AdminFileStatsResponse {
 
-    private long totalFiles;
-    private long publicFiles;
-    private long privateFiles;
-    private long totalStorageBytes;
-    private double totalStorageMB;
-
-    public AdminFileStatsResponse(
-            long totalFiles,
-            long publicFiles,
-            long privateFiles,
-            long totalStorageBytes,
-            double totalStorageMB
-    ) {
-        this.totalFiles = totalFiles;
-        this.publicFiles = publicFiles;
-        this.privateFiles = privateFiles;
-        this.totalStorageBytes = totalStorageBytes;
-        this.totalStorageMB = totalStorageMB;
-    }
-
-    public long getTotalFiles() {
-        return totalFiles;
-    }
-
-    public long getPublicFiles() {
-        return publicFiles;
-    }
-
-    public long getPrivateFiles() {
-        return privateFiles;
-    }
-
-    public long getTotalStorageBytes() {
-        return totalStorageBytes;
-    }
-
-    public double getTotalStorageMB() {
-        return totalStorageMB;
-    }
+    private final long totalFiles;
+    private final long publicFiles;
+    private final long privateFiles;
+    private final long totalStorageBytes;
+    private final double totalStorageMB;
 }

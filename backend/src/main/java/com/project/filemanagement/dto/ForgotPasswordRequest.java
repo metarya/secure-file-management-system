@@ -1,14 +1,14 @@
 package com.project.filemanagement.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@Setter
+@RequiredArgsConstructor
+
 public class ForgotPasswordRequest {
 
-    private String email;
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    private final String email;
 }
