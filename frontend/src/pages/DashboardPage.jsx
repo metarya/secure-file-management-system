@@ -34,7 +34,7 @@ export default function Dashboard({ user, logout }) {
   const [FileName, setFileName] = useState("");
   const [FileDescription, setFileDescription] = useState("");
   const [files, setFiles] = useState([]);
-  const [, setSharedFiles] = useState([]);
+  const [sharedFiles, setSharedFiles] = useState([]);
   const [sharedMessage, setSharedMessage] = useState("");
 
   useEffect(() => {
@@ -430,7 +430,7 @@ export default function Dashboard({ user, logout }) {
               />
             ) : (
               <ShareFile
-                files={files}
+                files={[...files, ...sharedFiles]}
                 shareFileId={shareFileId}
                 setShareFileId={setShareFileId}
                 targetUserEmail={targetUserEmail}

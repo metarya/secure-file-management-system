@@ -199,12 +199,12 @@ export default function ShareFile({
               }
             }}
           >
-            <MenuItem value="VIEW">
-              View Only
+            <MenuItem value="VIEWER">
+              VIEWER
             </MenuItem>
 
-            <MenuItem value="DOWNLOAD">
-              View + Download
+            <MenuItem value="EDITOR">
+              EDITOR
             </MenuItem>
           </TextField>
         </Box>

@@ -197,8 +197,13 @@ public class FileService {
         FileEntity file = fileRepository.findById(request.getFileId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
-        if (!file.getOwner().getId().equals(owner.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the file owner can share this file");
+        boolean isOwner =
+            file.getOwner().getId().equals(owner.getId());
+
+        boolean canShare = hasSharedPermission(file, owner, "VIEWER", "EDITOR");
+
+        if (!isOwner && !canShare){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Only owner, viewer, or editor can share this file");
         }
 
         User targetUser = userRepository.findByEmail(request.getTargetUserEmail().trim())
@@ -209,6 +214,18 @@ public class FileService {
         }
 
         String requestedPermissionCode = request.getPermissionType().trim().toUpperCase();
+
+        if(!isOwner){
+            boolean isViewer = hasSharedPermission(file, owner, "VIEWER");
+
+            if (isViewer && "EDITOR".equalsIgnoreCase(requestedPermissionCode))
+                {
+                throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Viewer cannot grant editor permission"
+                );
+            }
+        }
 
         PermissionType permissionType = permissionTypeRepository
                 .findByCodeAndActiveTrue(requestedPermissionCode)
@@ -438,8 +455,8 @@ public class FileService {
         boolean isOwner = file.getOwner().getId().equals(user.getId());
         boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
 
-        boolean hasViewPermission = hasSharedPermission(file, user, "VIEW", "DOWNLOAD", "VIEW_DOWNLOAD");
-        boolean hasDownloadPermission = hasSharedPermission(file, user, "DOWNLOAD", "VIEW_DOWNLOAD");
+        boolean hasViewPermission = hasSharedPermission(file, user, "VIEWER", "EDITOR");
+        boolean hasDownloadPermission = hasSharedPermission(file, user, "VIEWER", "EDITOR");
 
         boolean allowed = downloadMode
                 ? (isOwner || isPublic || hasDownloadPermission)
@@ -802,4 +819,68 @@ public class FileService {
             throw new RuntimeException("Unable to decompress stored file", e);
         }
     }
+    
+    public void updateFileContent(
+        Long fileId,
+        String userEmail,
+        String content
+) {
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new RuntimeException("File not found"));
+
+
+    User owner = userRepository.findByEmail(userEmail)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean isOwner =
+            file.getOwner().getId().equals(owner.getId()); 
+        
+        boolean isEditor = 
+            filePermissionRepository
+                .findByFileAndSharedWithUser(file, owner)
+                .map(permission ->
+                    "EDITOR".equalsIgnoreCase(
+                        permission.getPermissionType().getCode()
+                    )
+                )
+                .orElse(false);
+
+    if (!isOwner && !isEditor) {
+        throw new RuntimeException("Only Owner or Editor can edit this file");
+    }
+
+    if (!"txt".equalsIgnoreCase(file.getFileType())) {
+        throw new RuntimeException("Only TXT files can be edited");
+    };
+
+if (content == null || content.isBlank()) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "File content cannot be empty"
+    );
+}
+
+if (containsSuspiciousContent(content)) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Suspicious file content detected"
+    );
+}
+
+    byte[] updatedData = content.getBytes(StandardCharsets.UTF_8);
+
+byte[] compressedData = compressBytes(updatedData);
+
+file.setFileData(compressedData);
+
+file.setFileSize((long) updatedData.length);
+file.setOriginalFileSize((long) updatedData.length);
+file.setCompressedFileSize((long) compressedData.length);
+file.setCompressed(true);
+
+fileRepository.save(file);
+
+}
+
 }

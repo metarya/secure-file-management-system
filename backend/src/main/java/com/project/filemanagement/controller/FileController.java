@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +22,8 @@ import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.service.FileService;
+import com.project.filemanagement.dto.UpdateFileContentRequest;
+import com.project.filemanagement.dto.UpdateFileContentResponse;
 
 @RestController
 @RequestMapping("/api/files")
@@ -141,4 +144,24 @@ public class FileController {
 
         return fileService.updateFileVisibility(fileId, visibility, ownerEmail);
     }
+
+@PutMapping("/{fileId}/content")
+public ResponseEntity<UpdateFileContentResponse> updateFileContent(
+        @PathVariable Long fileId,
+        @RequestBody UpdateFileContentRequest request,
+        Authentication authentication
+) {
+
+    fileService.updateFileContent(
+            fileId,
+            authentication.getName(),
+            request.getContent()
+    );
+
+    return ResponseEntity.ok(
+            new UpdateFileContentResponse(
+                    "File updated successfully"
+            )
+    );
+}
 }

@@ -37,11 +37,10 @@ public class FileEntity {
     @Column(name = "file_type", nullable = false, length = 20)
     private String fileType;
 
-    
-
     @Column(name = "description", length = 1000)
     private String description;
-@Column(name = "file_size", nullable = false)
+
+    @Column(name = "file_size", nullable = false)
     private Long fileSize;
 
     @Column(name = "file_hash", length = 64)
@@ -67,7 +66,7 @@ public class FileEntity {
     private LocalDateTime uploadedAt = LocalDateTime.now();
 
     @Column(name = "is_deleted")
-private Boolean deleted = false;
+    private Boolean deleted = false;
 
     public FileEntity(User owner, String fileName, String fileType, Long fileSize, String visibility, byte[] fileData) {
         this.owner = owner;

@@ -107,3 +107,24 @@ export async function toggleVisibility(
     data: await response.json().catch(() => null),
   };
 }
+
+export async function updateFileContent(user, fileId, content) {
+  console.log("TOKEN:", user?.token);
+  
+  const response = await fetch(
+    `${API_BASE_URL}/files/${fileId}/content`,
+    {
+      method: "PUT",
+      headers: {
+        ...authHeaders(user?.token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    }
+  );
+
+  return {
+    ok: response.ok,
+    data: await response.json().catch(() => null),
+  };
+}
