@@ -1,6 +1,7 @@
 package com.project.filemanagement.security;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.lang.NonNull;
@@ -11,6 +12,10 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.project.filemanagement.entity.User;
+import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.service.RbacService;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,9 +25,17 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
+    private final RbacService rbacService;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(
+            JwtUtil jwtUtil,
+            UserRepository userRepository,
+            RbacService rbacService) {
+
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
+        this.rbacService = rbacService;
     }
 
     @Override
@@ -41,27 +54,42 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
 
+
         if (!jwtUtil.validateToken(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         String email = jwtUtil.extractEmail(token);
-        String role = jwtUtil.extractRole(token);
+
+        User user = userRepository.findByEmail(email)
+                .orElse(null);
 
         System.out.println("JWT EMAIL = " + email);
-        System.out.println("JWT ROLE = " + role);
+        System.out.println("DB USER = "
+                + (user != null ? user.getEmail() : "NOT FOUND"));
 
-        if (email != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (email != null
+                && user != null
+                && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+            // Legacy role authority (keep for compatibility)
+
+            // RBAC permissions
+            rbacService.getPermissionCodesForUser(user)
+                    .forEach(permission ->
+                            authorities.add(
+                                    new SimpleGrantedAuthority(permission)
+                            )
+                    );
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             email,
                             null,
-                            List.of(
-                                    new SimpleGrantedAuthority("ROLE_" + role)
-                            )
+                            authorities
                     );
 
             authentication.setDetails(

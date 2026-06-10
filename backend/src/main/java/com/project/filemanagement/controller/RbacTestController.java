@@ -2,6 +2,7 @@ package com.project.filemanagement.controller;
 
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,5 +28,18 @@ public class RbacTestController {
                 .orElseThrow();
 
         return rbacService.getPermissionCodesForUser(user);
+    }
+
+    @GetMapping("/api/rbac/me")
+    public Object me(Authentication authentication) {
+
+        if (authentication == null) {
+            return "Authentication is null";
+        }
+
+        return authentication.getAuthorities()
+                .stream()
+                .map(authority -> authority.getAuthority())
+                .toList();
     }
 }

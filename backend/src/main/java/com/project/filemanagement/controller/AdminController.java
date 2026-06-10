@@ -3,6 +3,7 @@ package com.project.filemanagement.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,11 +27,15 @@ import com.project.filemanagement.dto.AuditLogResponse;
 import com.project.filemanagement.dto.UpdateRoleRequest;
 import com.project.filemanagement.dto.UpdateUserStatusRequest;
 import com.project.filemanagement.entity.FileEntity;
-import com.project.filemanagement.entity.Role;
+import com.project.filemanagement.entity.RoleEntity;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.entity.UserRoleEntity;
+import com.project.filemanagement.entity.UserRoleId;
 import com.project.filemanagement.entity.UserStatus;
 import com.project.filemanagement.repository.FileRepository;
+import com.project.filemanagement.repository.RoleRepository;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.repository.UserRoleRepository;
 import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.AuthService;
 import com.project.filemanagement.service.FileService;
@@ -44,26 +49,34 @@ public class AdminController {
     private final FileService fileService;
     private final AuthService authService;
     private final AuditLogService auditLogService;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
 
     public AdminController(
             UserRepository userRepository,
             FileRepository fileRepository,
             FileService fileService,
             AuthService authService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            RoleRepository roleRepository,
+            UserRoleRepository userRoleRepository
     ) {
         this.userRepository = userRepository;
         this.fileRepository = fileRepository;
         this.fileService = fileService;
         this.authService = authService;
         this.auditLogService = auditLogService;
+        this.roleRepository = roleRepository;
+        this.userRoleRepository = userRoleRepository;
     }
 
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/test")
     public String test() {
         return "Admin access granted";
     }
 
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/stats")
     public AdminStatsResponse getStats() {
 
@@ -71,7 +84,7 @@ public class AdminController {
 
         long totalAdmins = userRepository.findAll()
                 .stream()
-                .filter(user -> user.getRole() == Role.ADMIN)
+                .filter(user ->  "ADMIN".equalsIgnoreCase(getPrimaryRole(user)))
                 .count();
 
         long totalRegularUsers = totalUsers - totalAdmins;
@@ -83,6 +96,7 @@ public class AdminController {
         );
     }
 
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/users")
     public List<AdminUserResponse> getAllUsers() {
 
@@ -92,13 +106,14 @@ public class AdminController {
                         user.getId(),
                         user.getFullName(),
                         user.getEmail(),
-                        user.getRole().name(),
+                        getPrimaryRole(user),
                         user.getStatus().name(),
                         user.getCreatedAt()
                 ))
                 .toList();
     }
 
+    @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/files")
     public List<AdminFileResponse> getAllFiles() {
 
@@ -132,13 +147,15 @@ public class AdminController {
         return fileService.adminDownloadFile(fileId);
     }
 
+    @PreAuthorize("hasAuthority('FILE:DELETE_ANY')")
     @DeleteMapping("/files/{fileId}")
-    public String deleteFile(
-            @PathVariable Long fileId
-    ) {
-        return fileService.adminDeleteFile(fileId);
-    }
+public String deleteFile(
+        @PathVariable Long fileId
+) {
+    return fileService.adminDeleteFile(fileId);
+}
 
+    @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/file-stats")
     public AdminFileStatsResponse getFileStats() {
 
@@ -173,6 +190,7 @@ public class AdminController {
         );
     }
 
+    
     @GetMapping("/user-file-summary")
     public List<AdminUserFileSummaryResponse> getUserFileSummary() {
 
@@ -277,7 +295,8 @@ public AdminSystemHealthResponse getSystemHealth() {
     );
 }
 
-   @PostMapping("/users/reset-password")
+@PreAuthorize("hasAuthority('USER:RESET_PASSWORD')")
+@PostMapping("/users/reset-password")
 public AdminResetPasswordResponse resetUserPassword(
         @RequestParam String email
 ) {
@@ -289,41 +308,52 @@ public List<AuditLogResponse> getAuditLogs() {
     return auditLogService.getAllLogs();
 }
 
-    @PatchMapping("/users/{id}/role")
+@PreAuthorize("hasAuthority('USER:ROLE_ASSIGN')")
+@PatchMapping("/users/{id}/role")
 public String updateUserRole(
         @PathVariable Long id,
         @RequestBody UpdateRoleRequest request
 ) {
 
-    User user = userRepository.findById(id)
-            .orElseThrow(() ->
-                    new RuntimeException("User not found"));
+User user = userRepository.findById(id)
+        .orElseThrow(() ->
+                new RuntimeException("User not found"));
 
-    Role oldRole = user.getRole();
+String oldRole = "UNKNOWN";
 
-    Role newRole = Role.valueOf(
-            request.getRole().toUpperCase()
-    );
+RoleEntity newRole = roleRepository
+        .findByName(request.getRole().toUpperCase())
+        .orElseThrow(() ->
+                new RuntimeException("Role not found"));
 
-    user.setRole(newRole);
+userRoleRepository.deleteByUser(user);
 
-    userRepository.save(user);
+UserRoleEntity userRole = UserRoleEntity.builder()
+        .id(new UserRoleId(
+                user.getId(),
+                newRole.getId()
+        ))
+        .user(user)
+        .role(newRole)
+        .build();
 
-    auditLogService.logAction(
-            "ROLE_CHANGED",
-            "ADMIN",
-            "Changed user "
-                    + user.getEmail()
-                    + " role "
-                    + oldRole.name()
-                    + " -> "
-                    + newRole.name()
-    );
+userRoleRepository.save(userRole);
+
+auditLogService.logAction(
+        "ROLE_CHANGED",
+        "ADMIN",
+        "Changed user "
+                + user.getEmail()
+                + " role "
+                + oldRole
+                + " -> "
+                + newRole.getName()
+);
 
     return "Role updated successfully";
 }
 
-
+@PreAuthorize("hasAuthority('USER:DISABLE')")
 @PatchMapping("/users/{id}/status")
 public String updateUserStatus(
         @PathVariable Long id,
@@ -358,10 +388,21 @@ public String updateUserStatus(
     return "User status updated successfully";
 }
 
+@PreAuthorize("hasAuthority('FILE:RESTORE')")
 @PatchMapping("/files/{fileId}/restore")
 public String restoreFile(
         @PathVariable Long fileId
 ) {
     return fileService.restoreFile(fileId);
+}
+
+private String getPrimaryRole(User user) {
+
+    return userRoleRepository.findByUser(user)
+            .stream()
+            .findFirst()
+            .map(userRole ->
+                    userRole.getRole().getName())
+            .orElse("NO_ROLE");
 }
 }

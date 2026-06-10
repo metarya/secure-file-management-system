@@ -14,7 +14,13 @@ import com.project.filemanagement.dto.RegisterRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.entity.UserStatus;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.repository.UserRoleRepository;
 import com.project.filemanagement.security.JwtUtil;
+import com.project.filemanagement.entity.RoleEntity;
+import com.project.filemanagement.entity.UserRoleEntity;
+import com.project.filemanagement.entity.UserRoleId;
+import com.project.filemanagement.repository.RoleRepository;
+
 
 @Service
 public class AuthService {
@@ -24,18 +30,25 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
+    private final UserRoleRepository userRoleRepository;
+    private final RoleRepository roleRepository;
 
     public AuthService(
             UserRepository userRepository,
             JwtUtil jwtUtil,
             EmailService emailService,
-            AuditLogService auditLogService
-    ) {
+            AuditLogService auditLogService,
+            UserRoleRepository userRoleRepository,
+            RoleRepository roleRepository
+            ) 
+    {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtUtil = jwtUtil;
         this.emailService = emailService;
         this.auditLogService = auditLogService;
+        this.userRoleRepository = userRoleRepository;
+        this.roleRepository = roleRepository;
     }
 
     public String registerUser(RegisterRequest request) {
@@ -64,9 +77,25 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPasswordHash(hashedPassword);
 
-        userRepository.save(user);
+user = userRepository.save(user);
 
-        return "User registered successfully";
+RoleEntity defaultRole = roleRepository
+        .findByName("USER")
+        .orElseThrow(() ->
+                new RuntimeException("Default USER role not found"));
+
+UserRoleEntity userRole = UserRoleEntity.builder()
+        .id(new UserRoleId(
+                user.getId(),
+                defaultRole.getId()
+        ))
+        .user(user)
+        .role(defaultRole)
+        .build();
+
+userRoleRepository.save(userRole);
+
+return "User registered successfully";
     }
 
     public LoginResponse loginUser(LoginRequest request) {
@@ -89,8 +118,7 @@ public class AuthService {
 
         boolean passwordMatched = passwordEncoder.matches(
                 request.getPassword(),
-                user.getPasswordHash()
-        );
+                user.getPasswordHash());
 
         if (!passwordMatched) {
             return new LoginResponse("Invalid email or password", null, null, null);
@@ -101,15 +129,12 @@ public class AuthService {
                     "Your account has been blocked. Contact administrator.",
                     null,
                     null,
-                    null
-            );
+                    null);
         }
 
         String token = jwtUtil.generateToken(
                 user.getEmail(),
-                user.getFullName(),
-                user.getRole().name()
-        );
+                user.getFullName());
 
         return new LoginResponse(
                 "Login successful",
@@ -117,8 +142,8 @@ public class AuthService {
                 user.getFullName(),
                 user.getEmail(),
                 token,
-                user.getRole().name()
-        );
+                getPrimaryRole(user)
+            );
     }
 
     public String forgotPassword(String email) {
@@ -126,11 +151,9 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (
-                user.getResetToken() != null &&
+        if (user.getResetToken() != null &&
                 user.getResetTokenExpiry() != null &&
-                user.getResetTokenExpiry().isAfter(LocalDateTime.now())
-        ) {
+                user.getResetTokenExpiry().isAfter(LocalDateTime.now())) {
 
             return "Code already sent. Check your email.";
         }
@@ -140,8 +163,7 @@ public class AuthService {
         user.setResetToken(token);
 
         user.setResetTokenExpiry(
-                LocalDateTime.now().plusMinutes(10)
-        );
+                LocalDateTime.now().plusMinutes(10));
 
         userRepository.save(user);
 
@@ -149,8 +171,7 @@ public class AuthService {
 
         emailService.sendResetPasswordEmail(
                 user.getEmail(),
-                resetLink
-        );
+                resetLink);
 
         return "Check your email for reset code.";
     }
@@ -165,8 +186,7 @@ public class AuthService {
         }
 
         user.setPasswordHash(
-                passwordEncoder.encode(newPassword)
-        );
+                passwordEncoder.encode(newPassword));
 
         user.setResetToken(null);
 
@@ -177,36 +197,39 @@ public class AuthService {
         return "Password reset successful";
     }
 
-
     public AdminResetPasswordResponse adminResetPassword(
-        String email
-    ) {
+            String email) {
 
-    User user = userRepository.findByEmail(email)
-            .orElseThrow(() ->
-                    new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-    String temporaryPassword =
-            UUID.randomUUID()
-                    .toString()
-                    .replace("-", "")
-                    .substring(0, 10);
+        String temporaryPassword = UUID.randomUUID()
+                .toString()
+                .replace("-", "")
+                .substring(0, 10);
 
-    user.setPasswordHash(
-            passwordEncoder.encode(temporaryPassword)
-    );
+        user.setPasswordHash(
+                passwordEncoder.encode(temporaryPassword));
 
-userRepository.save(user);
+        userRepository.save(user);
 
-auditLogService.logAction(
-        "PASSWORD_RESET",
-        "ADMIN",
-        "Reset password for " + user.getEmail()
-);
+        auditLogService.logAction(
+                "PASSWORD_RESET",
+                "ADMIN",
+                "Reset password for " + user.getEmail());
 
-return new AdminResetPasswordResponse(
-        user.getEmail(),
-        temporaryPassword
-);
+        return new AdminResetPasswordResponse(
+                user.getEmail(),
+                temporaryPassword);
+    }
+
+    private String getPrimaryRole(User user) {
+
+    return userRoleRepository.findByUser(user)
+            .stream()
+            .findFirst()
+            .map(userRole ->
+                    userRole.getRole().getName())
+            .orElse("NO_ROLE");
 }
 }

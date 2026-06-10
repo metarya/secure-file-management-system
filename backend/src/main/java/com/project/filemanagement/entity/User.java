@@ -38,10 +38,6 @@ public class User {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private Role role = Role.USER;
-
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
 
@@ -60,7 +56,6 @@ public class User {
         this.fullName = fullName;
         this.email = email;
         this.passwordHash = passwordHash;
-        this.role = Role.USER;
         this.status = UserStatus.ACTIVE;
         this.createdAt = LocalDateTime.now();
     }
