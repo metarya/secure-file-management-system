@@ -975,4 +975,65 @@ file.setFileName(newName);
     );
 }
 
+public void updateFileDescription(
+        Long fileId,
+        String userEmail,
+        String description
+) {
+
+    if (fileId == null) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "File ID is required"
+        );
+    }
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() ->
+                    new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "File not found"
+                    ));
+
+    User user = userRepository.findByEmail(userEmail)
+            .orElseThrow(() ->
+                    new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "User not found"
+                    ));
+
+    boolean isOwner =
+            file.getOwner().getId().equals(user.getId());
+
+    boolean isEditor =
+            filePermissionRepository
+                    .findByFileAndSharedWithUser(file, user)
+                    .map(permission ->
+                            "EDITOR".equalsIgnoreCase(
+                                    permission.getPermissionType().getCode()
+                            ))
+                    .orElse(false);
+
+    if (!isOwner && !isEditor) {
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only Owner or Editor can update description"
+        );
+    }
+
+    String cleanedDescription = cleanDescription(description);
+
+    file.setDescription(cleanedDescription);
+
+    fileRepository.save(file);
+
+    auditLogService.logAction(
+            "FILE_DESCRIPTION_UPDATED",
+            user.getEmail(),
+            "Updated description for file: "
+                    + file.getFileName()
+    );
+    
+}
+
 }

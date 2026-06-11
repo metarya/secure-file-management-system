@@ -1,130 +1,68 @@
-import authHeaders from "../utils/authHeaders";
+// File endpoints — /api/files/*  (every endpoint the FileController exposes)
+import { api } from "../lib/apiClient";
+import { API_BASE_URL } from "../config";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:8080/api";
+// --- listing / search ---------------------------------------------------
+export const getMyFiles = (ownerId) => api.get(`/files/my-files?ownerId=${ownerId}`);
+export const searchMyFiles = (ownerId, name) =>
+  api.get(`/files/search?ownerId=${ownerId}&name=${encodeURIComponent(name)}`);
+export const getSharedWithMe = () => api.get(`/files/shared-with-me`);
 
-export async function loadMyFiles(user) {
-  const response = await fetch(
-    `${API_BASE_URL}/files/my-files?ownerId=${user.userId}`,
-    {
-      headers: authHeaders(user?.token),
-    }
-  );
-
-  return {
-    ok: response.ok,
-    data: await response.json(),
-  };
+// --- upload -------------------------------------------------------------
+export function uploadFile(file, ownerId, description) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("ownerId", ownerId);
+  if (description) form.append("description", description);
+  return api.post(`/files/upload`, form);
 }
 
-export async function loadSharedWithMe(user) {
-  const response = await fetch(
-    `${API_BASE_URL}/files/shared-with-me`,
-    {
-      headers: authHeaders(user?.token),
-    }
-  );
-
-  return {
-    ok: response.ok,
-    data: await response.json(),
-  };
+// --- preview / download (return raw bytes) ------------------------------
+// Preview returns the file body; for the text files this app manages we read it as text.
+export async function previewFile(fileId) {
+  const res = await api.raw(`/files/preview/${fileId}`);
+  return res.text();
 }
 
-export async function searchFiles(user, searchName) {
-  const response = await fetch(
-    `${API_BASE_URL}/files/search?ownerId=${user.userId}&name=${encodeURIComponent(searchName)}`,
-    {
-      headers: authHeaders(user?.token),
-    }
-  );
-
-  return {
-    ok: response.ok,
-    data: await response.json(),
-  };
+export async function downloadFile(fileId, fallbackName) {
+  const res = await api.raw(`/files/download/${fileId}`);
+  const blob = await res.blob();
+  let fileName = fallbackName || `file-${fileId}`;
+  const disposition = res.headers.get("Content-Disposition");
+  if (disposition) {
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    if (match?.[1]) fileName = match[1];
+  }
+  return { blob, fileName };
 }
 
-export async function downloadFile(user, fileId) {
-    const response = await fetch(
-      `${API_BASE_URL}/files/download/${fileId}`, 
-      {
-        headers: authHeaders(user?.token)
-      });
+// --- mutations ----------------------------------------------------------
+export const deleteFile = (fileId, userId) => api.del(`/files/${fileId}?userId=${userId}`);
 
-      const blob = await response.blob();
-      const disposition = response.headers.get("Content-Disposition");
+export const updateVisibility = (fileId, visibility) =>
+  api.patch(`/files/${fileId}/visibility?visibility=${visibility}`);
 
-      let fileName = `file-${fileId}.txt`;
+export const updateFileContent = (fileId, content) =>
+  api.put(`/files/${fileId}/content`, { content });
 
-      if (disposition) {
-        const match = disposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) {
-          fileName = match[1];
-        }
-      }
+export const renameFile = (fileId, newFileName) =>
+  api.put(`/files/${fileId}/rename`, { newFileName });
 
-      return{
-        blob,
-        fileName,
-      };
-}
+export const updateFileDescription = (fileId, description) =>
+  api.put(`/files/${fileId}/description`, { description });
 
-export async function deleteFile(
-  user,
-  fileId
-) {
-  return fetch(
-    `${API_BASE_URL}/files/${fileId}?userId=${user.userId}`,
-    {
-      method: "DELETE",
-      headers: authHeaders(user?.token),
-    }
-  );
-}
+// --- sharing ------------------------------------------------------------
+// permissionType is one of the codes in the backend (e.g. VIEW / EDIT / DOWNLOAD)
+export const shareFile = (fileId, targetUserEmail, permissionType) =>
+  api.post(`/files/share`, { fileId, targetUserEmail, permissionType });
 
-export async function toggleVisibility(
-  user,
-  file
-) {
-  const nextVisibility =
-    file.visibility === "PUBLIC"
-      ? "PRIVATE"
-      : "PUBLIC";
+export const removeSharedFileFromMyList = (fileId) =>
+  api.del(`/files/shared-with-me/${fileId}`);
 
-  const response = await fetch(
-    `${API_BASE_URL}/files/${file.fileId}/visibility?visibility=${nextVisibility}`,
-    {
-      method: "PATCH",
-      headers: authHeaders(user?.token),
-    }
-  );
+export const removeSharedPermission = (permissionId) =>
+  api.del(`/files/shared-with-me/permission/${permissionId}`);
 
-  return {
-    response,
-    nextVisibility,
-    data: await response.json().catch(() => null),
-  };
-}
+export const removeSharedEntry = (fileId) =>
+  api.del(`/files/remove-shared-entry/${fileId}`);
 
-export async function updateFileContent(user, fileId, content) {
-  console.log("TOKEN:", user?.token);
-  
-  const response = await fetch(
-    `${API_BASE_URL}/files/${fileId}/content`,
-    {
-      method: "PUT",
-      headers: {
-        ...authHeaders(user?.token),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content }),
-    }
-  );
-
-  return {
-    ok: response.ok,
-    data: await response.json().catch(() => null),
-  };
-}
+export { API_BASE_URL };

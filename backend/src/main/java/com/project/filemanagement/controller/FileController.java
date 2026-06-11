@@ -24,6 +24,7 @@ import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.dto.UpdateFileContentRequest;
 import com.project.filemanagement.dto.UpdateFileContentResponse;
+import com.project.filemanagement.dto.UpdateFileDescriptionRequest;
 import com.project.filemanagement.service.FileService;
 
 @RestController
@@ -180,6 +181,24 @@ public ResponseEntity<String> renameFile(
     );
 
     return ResponseEntity.ok("File renamed successfully");
+}
+
+@PutMapping("/{fileId}/description")
+public ResponseEntity<String> updateDescription(
+        @PathVariable Long fileId,
+        @RequestBody UpdateFileDescriptionRequest request,
+        Authentication authentication
+) {
+
+    fileService.updateFileDescription(
+            fileId,
+            authentication.getName(),
+            request.getDescription()
+    );
+
+    return ResponseEntity.ok(
+            "Description updated successfully"
+    );
 }
 
 }
