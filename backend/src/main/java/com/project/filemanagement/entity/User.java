@@ -45,12 +45,12 @@ public class User {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @JsonIgnore
-    @Column(name = "reset_token")
-    private String resetToken;
+    @Column(name = "otp", length = 6 )
+    private String otp;
 
     @JsonIgnore
-    @Column(name = "reset_token_expiry")
-    private LocalDateTime resetTokenExpiry;
+    @Column(name = "otp_expiry")
+    private LocalDateTime otpExpiry;
 
     public User(String fullName, String email, String passwordHash) {
         this.fullName = fullName;

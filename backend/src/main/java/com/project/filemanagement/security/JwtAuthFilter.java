@@ -32,7 +32,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             JwtUtil jwtUtil,
             UserRepository userRepository,
             RbacService rbacService) {
-
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.rbacService = rbacService;
@@ -74,8 +73,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-
-            // Legacy role authority (keep for compatibility)
 
             // RBAC permissions
             rbacService.getPermissionCodesForUser(user)

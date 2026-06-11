@@ -54,8 +54,7 @@ public class RbacService {
 
     return getRolesForUser(user)
             .stream()
-            .flatMap(role ->
-                    getPermissionCodesForRole(role).stream())
+            .flatMap(role -> getPermissionCodesForRole(role).stream())
             .distinct()
             .toList();
     }

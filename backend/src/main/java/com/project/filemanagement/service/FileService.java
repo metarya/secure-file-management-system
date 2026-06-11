@@ -883,4 +883,96 @@ fileRepository.save(file);
 
 }
 
+public void renameFile(
+        Long fileId,
+        String userEmail,
+        String newFileName
+) {
+
+    if (fileId == null) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "File ID is required"
+        );
+    }
+
+    if (newFileName == null || newFileName.isBlank()) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "New file name is required"
+        );
+    }
+
+    FileEntity file = fileRepository.findById(fileId)
+            .orElseThrow(() ->
+                    new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "File not found"
+                    ));
+
+    User user = userRepository.findByEmail(userEmail)
+            .orElseThrow(() ->
+                    new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "User not found"
+                    ));
+
+    boolean isOwner =
+            file.getOwner().getId().equals(user.getId());
+
+    boolean isEditor =
+            filePermissionRepository
+                    .findByFileAndSharedWithUser(file, user)
+                    .map(permission ->
+                            "EDITOR".equalsIgnoreCase(
+                                    permission.getPermissionType().getCode()
+                            ))
+                    .orElse(false);
+
+    if (!isOwner && !isEditor) {
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only Owner or Editor can rename this file"
+        );
+    }
+
+    String oldName = file.getFileName();
+
+    String newName = newFileName.trim();
+
+if (!newName.toLowerCase().endsWith(".txt")) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "File name must keep .txt extension"
+    );
+}
+
+if (newName.length() > 255) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "File name is too long"
+    );
+}
+
+if (!newName.matches("^[a-zA-Z0-9._ -]+\\.txt$")) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Invalid file name"
+    );
+}
+
+file.setFileName(newName);
+
+    fileRepository.save(file);
+
+    auditLogService.logAction(
+            "FILE_RENAMED",
+            user.getEmail(),
+            "Renamed file from "
+                    + oldName
+                    + " to "
+                    + newFileName
+    );
+}
+
 }

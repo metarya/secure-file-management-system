@@ -12,31 +12,40 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
-    public void sendResetPasswordEmail(String toEmail, String resetCode) {
+    public void sendOtpEmail(String toEmail, String otp) {
 
-    try {
+        try {
 
-        SimpleMailMessage message = new SimpleMailMessage();
+            SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setFrom("metaryajain07@gmail.com");
+            message.setFrom("metaryajain07@gmail.com");
 
-        message.setTo(toEmail);
+            message.setTo(toEmail);
 
-        message.setSubject("Reset Your Password");
+            message.setSubject("Password Reset OTP");
 
-        message.setText(
-                "Password Reset Code:\n\n"
-                        + resetCode
-        );
+            message.setText(
+                    """
+                    Secure File Management System
 
-        mailSender.send(message);
+                    Your password reset OTP is:
 
-        System.out.println("EMAIL SENT SUCCESSFULLY");
+                    %s
+
+                    This OTP is valid for 5 minutes.
+
+                    If you did not request a password reset, please ignore this email.
+                    """.formatted(otp)
+            );
+
+            mailSender.send(message);
+
+            System.out.println("OTP EMAIL SENT SUCCESSFULLY");
 
         } catch (MailException exception) {
 
             throw new RuntimeException(
-                    "Failed to send reset password email"
+                    "Failed to send OTP email"
             );
         }
     }

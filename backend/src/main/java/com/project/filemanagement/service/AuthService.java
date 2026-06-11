@@ -2,6 +2,7 @@ package com.project.filemanagement.service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -11,15 +12,15 @@ import com.project.filemanagement.dto.AdminResetPasswordResponse;
 import com.project.filemanagement.dto.LoginRequest;
 import com.project.filemanagement.dto.LoginResponse;
 import com.project.filemanagement.dto.RegisterRequest;
+import com.project.filemanagement.entity.RoleEntity;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.entity.UserRoleEntity;
+import com.project.filemanagement.entity.UserRoleId;
 import com.project.filemanagement.entity.UserStatus;
+import com.project.filemanagement.repository.RoleRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.repository.UserRoleRepository;
 import com.project.filemanagement.security.JwtUtil;
-import com.project.filemanagement.entity.RoleEntity;
-import com.project.filemanagement.entity.UserRoleEntity;
-import com.project.filemanagement.entity.UserRoleId;
-import com.project.filemanagement.repository.RoleRepository;
 
 
 @Service
@@ -146,56 +147,54 @@ return "User registered successfully";
             );
     }
 
-    public String forgotPassword(String email) {
+public String forgotPassword(String email) {
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getResetToken() != null &&
-                user.getResetTokenExpiry() != null &&
-                user.getResetTokenExpiry().isAfter(LocalDateTime.now())) {
+    if (user.getOtp() != null &&
+            user.getOtpExpiry() != null &&
+            user.getOtpExpiry().isAfter(LocalDateTime.now())) {
 
-            return "Code already sent. Check your email.";
-        }
-
-        String token = UUID.randomUUID().toString();
-
-        user.setResetToken(token);
-
-        user.setResetTokenExpiry(
-                LocalDateTime.now().plusMinutes(10));
-
-        userRepository.save(user);
-
-        String resetLink = token;
-
-        emailService.sendResetPasswordEmail(
-                user.getEmail(),
-                resetLink);
-
-        return "Check your email for reset code.";
+        return "OTP already sent. Check your email.";
     }
 
-    public String resetPassword(String token, String newPassword) {
+    String otp = String.format("%06d",
+            new Random().nextInt(1000000));
 
-        User user = userRepository.findByResetToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid token"));
+    user.setOtp(otp);
 
-        if (user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Token expired");
-        }
+    user.setOtpExpiry(
+            LocalDateTime.now().plusMinutes(5));
 
-        user.setPasswordHash(
-                passwordEncoder.encode(newPassword));
+    userRepository.save(user);
 
-        user.setResetToken(null);
+    emailService.sendOtpEmail(
+            user.getEmail(),
+            otp);
 
-        user.setResetTokenExpiry(null);
+    return "OTP sent successfully.";
+}
 
-        userRepository.save(user);
+public String resetPassword(String otp, String newPassword) {
 
-        return "Password reset successful";
+    User user = userRepository.findByOtp(otp)
+            .orElseThrow(() -> new RuntimeException("Invalid OTP"));
+
+    if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+        throw new RuntimeException("OTP expired");
     }
+
+    user.setPasswordHash(
+            passwordEncoder.encode(newPassword));
+
+    user.setOtp(null);
+    user.setOtpExpiry(null);
+
+    userRepository.save(user);
+
+    return "Password reset successful";
+}
 
     public AdminResetPasswordResponse adminResetPassword(
             String email) {

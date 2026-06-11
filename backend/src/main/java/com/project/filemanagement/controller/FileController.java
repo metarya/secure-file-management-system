@@ -18,12 +18,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
+import com.project.filemanagement.dto.RenameFileRequest;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
-import com.project.filemanagement.service.FileService;
 import com.project.filemanagement.dto.UpdateFileContentRequest;
 import com.project.filemanagement.dto.UpdateFileContentResponse;
+import com.project.filemanagement.service.FileService;
 
 @RestController
 @RequestMapping("/api/files")
@@ -164,4 +165,21 @@ public ResponseEntity<UpdateFileContentResponse> updateFileContent(
             )
     );
 }
+
+@PutMapping("/{fileId}/rename")
+public ResponseEntity<String> renameFile(
+        @PathVariable Long fileId,
+        @RequestBody RenameFileRequest request,
+        Authentication authentication
+) {
+
+    fileService.renameFile(
+            fileId,
+            authentication.getName(),
+            request.getNewFileName()
+    );
+
+    return ResponseEntity.ok("File renamed successfully");
+}
+
 }

@@ -8,11 +8,9 @@ import com.project.filemanagement.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // Find user by email for login
     Optional<User> findByEmail(String email);
 
-    Optional<User> findByResetToken(String resetToken);
+    Optional<User> findByOtp(String otp);
 
-    // Check if email already exists during registration
     boolean existsByEmail(String email);
 }
