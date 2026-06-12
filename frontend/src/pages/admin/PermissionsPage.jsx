@@ -12,7 +12,6 @@ import { initials, avatarColor } from "../../utils/format";
 import { getMyPermissions, getUserPermissions } from "../../api/rbacApi";
 import { getAllUsers } from "../../api/adminApi";
 
-// Friendly descriptions for known permission codes.
 const DESCRIPTIONS = {
   "USER:VIEW": "View users and their details",
   "USER:ROLE_ASSIGN": "Assign roles to users",
@@ -32,12 +31,25 @@ function groupByResource(codes) {
   return groups;
 }
 
+// Chip colour is now theme-aware: dark purple text on light bg, soft lavender on dark bg
 function PermissionChip({ code }) {
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+  const chipSx = isDark
+    ? { bgcolor: "rgba(129,140,248,0.14)", color: "#c7d2fe", border: "1px solid rgba(129,140,248,0.32)" }
+    : { bgcolor: "rgba(79,70,229,0.10)", color: "#3730a3", border: "1px solid rgba(79,70,229,0.28)" };
+
   return (
     <Chip
       label={code}
       title={DESCRIPTIONS[code] || code}
-      sx={{ bgcolor: "rgba(129,140,248,0.12)", color: "#c7d2fe", border: "1px solid rgba(129,140,248,0.3)", fontWeight: 600, fontFamily: tokens.display, fontSize: "0.74rem", mb: 1, mr: 1 }}
+      sx={{
+        ...chipSx,
+        fontWeight: 700,
+        fontFamily: tokens.display,
+        fontSize: "0.74rem",
+        mb: 1,
+        mr: 1,
+      }}
     />
   );
 }
@@ -85,6 +97,10 @@ export default function PermissionsPage() {
   const userGroups = useMemo(() => (userPerms ? groupByResource(userPerms) : {}), [userPerms]);
   const selectedUser = users.find((u) => String(u.id) === String(selectedId));
 
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+  const iconBg = isDark ? "rgba(129,140,248,0.16)" : "rgba(79,70,229,0.12)";
+  const infoBg = isDark ? "rgba(56,189,248,0.14)" : "rgba(2,132,199,0.10)";
+
   return (
     <AppShell>
       <PageHeader eyebrow="Administration" title="Permissions" subtitle="Role-based access control across the system" />
@@ -93,7 +109,9 @@ export default function PermissionsPage() {
         {/* Your access */}
         <Paper sx={{ p: 3, borderRadius: "18px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 2.5 }}>
-            <Box sx={{ width: 38, height: 38, borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(129,140,248,0.16)", color: tokens.accent }}><ShieldRounded sx={{ fontSize: 20 }} /></Box>
+            <Box sx={{ width: 38, height: 38, borderRadius: "11px", display: "grid", placeItems: "center", background: iconBg, color: tokens.accent }}>
+              <ShieldRounded sx={{ fontSize: 20 }} />
+            </Box>
             <Box>
               <Typography variant="h6" sx={{ color: tokens.text, lineHeight: 1.1 }}>Your access</Typography>
               <Typography sx={{ color: tokens.textFaint, fontSize: "0.8rem" }}>Authorities granted to your session</Typography>
@@ -117,7 +135,9 @@ export default function PermissionsPage() {
         {/* Inspect a user */}
         <Paper sx={{ p: 3, borderRadius: "18px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 2.5 }}>
-            <Box sx={{ width: 38, height: 38, borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(56,189,248,0.14)", color: tokens.info }}><PersonSearchRounded sx={{ fontSize: 20 }} /></Box>
+            <Box sx={{ width: 38, height: 38, borderRadius: "11px", display: "grid", placeItems: "center", background: infoBg, color: tokens.info }}>
+              <PersonSearchRounded sx={{ fontSize: 20 }} />
+            </Box>
             <Box>
               <Typography variant="h6" sx={{ color: tokens.text, lineHeight: 1.1 }}>Inspect a user</Typography>
               <Typography sx={{ color: tokens.textFaint, fontSize: "0.8rem" }}>See what another account can do</Typography>
@@ -145,7 +165,7 @@ export default function PermissionsPage() {
           ) : (
             <>
               {selectedUser && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 2, p: 1.5, borderRadius: "12px", border: `1px solid ${tokens.border}`, background: "rgba(255,255,255,0.02)" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 2, p: 1.5, borderRadius: "12px", border: `1px solid ${tokens.border}`, background: tokens.surface }}>
                   <Avatar sx={{ width: 32, height: 32, bgcolor: avatarColor(selectedUser.email), fontSize: "0.74rem", fontWeight: 700 }}>{initials(selectedUser.fullName, selectedUser.email)}</Avatar>
                   <Box>
                     <Typography sx={{ color: tokens.text, fontWeight: 600, fontSize: "0.86rem" }}>{selectedUser.fullName}</Typography>

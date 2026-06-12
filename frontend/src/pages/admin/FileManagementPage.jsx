@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
-  Box, Typography, IconButton, Menu, MenuItem, Dialog, DialogContent, Button, CircularProgress, Divider,
+  Box, Typography, IconButton, Menu, MenuItem, Dialog, DialogContent, Button, CircularProgress, Divider, Tooltip,
 } from "@mui/material";
 import MoreVertRounded from "@mui/icons-material/MoreVertRounded";
 import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
@@ -9,6 +9,7 @@ import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import RestoreRounded from "@mui/icons-material/RestoreRounded";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
+import RefreshRounded from "@mui/icons-material/RefreshRounded";
 
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
@@ -33,6 +34,7 @@ export default function FileManagementPage() {
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [perms, setPerms] = useState([]);
 
@@ -47,8 +49,9 @@ export default function FileManagementPage() {
 
   const can = (code) => perms.length === 0 || perms.includes(code);
 
-  async function fetchFiles() {
-    setLoading(true);
+  const fetchFiles = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     try {
       const data = await getAllFiles();
       setFiles(Array.isArray(data) ? data : []);
@@ -56,13 +59,14 @@ export default function FileManagementPage() {
       toast(e.message || "Couldn't load files.", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     fetchFiles();
     getMyPermissions().then((p) => setPerms(Array.isArray(p) ? p : [])).catch(() => {});
-  }, []); // eslint-disable-line
+  }, [fetchFiles]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -120,7 +124,7 @@ export default function FileManagementPage() {
       await adminRestoreFile(restoreTarget.fileId);
       toast("File restored.", "success");
       setRestoreTarget(null);
-      await fetchFiles();
+      await fetchFiles(true);
     } catch (e) {
       toast(e.message || "Couldn't restore the file.", "error");
     } finally {
@@ -166,9 +170,32 @@ export default function FileManagementPage() {
     },
   ];
 
+  const refreshButton = (
+    <Tooltip title="Refresh table">
+      <IconButton
+        onClick={() => fetchFiles(true)}
+        disabled={refreshing || loading}
+        sx={{
+          color: tokens.textDim,
+          border: `1px solid ${tokens.border}`,
+          borderRadius: "10px",
+          "&:hover": { borderColor: tokens.borderStrong, color: tokens.text },
+          animation: refreshing ? "spin 0.7s linear infinite" : "none",
+          "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
+        }}
+      >
+        <RefreshRounded fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+
   return (
     <AppShell>
-      <PageHeader eyebrow="Administration" title="Files" subtitle={loading ? "Loading…" : `${files.length} file${files.length === 1 ? "" : "s"} across all users`} />
+      <PageHeader
+        eyebrow="Administration" title="Files"
+        subtitle={loading ? "Loading…" : `${files.length} file${files.length === 1 ? "" : "s"} across all users`}
+        actions={refreshButton}
+      />
 
       <DataTable
         columns={columns}

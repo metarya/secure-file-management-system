@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
       subtitle={step === 1 ? "We'll email you a one-time code" : `Sent to ${email}`}
     >
       {step === 1 ? (
-        <Stack spacing={2.5} onKeyDown={(e) => e.key === "Enter" && requestOtp()}>
+        <Stack component="form" spacing={2.5} onSubmit={(e) => { e.preventDefault(); requestOtp(); }}>
           <Box>
             <FieldLabel>Email</FieldLabel>
             <TextField fullWidth size="small" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -71,37 +71,37 @@ export default function ForgotPasswordPage() {
           {feedback.text && (
             <Alert severity={feedback.type === "success" ? "success" : "error"} sx={{ borderRadius: "12px", fontSize: "0.85rem", py: 0.5 }}>{feedback.text}</Alert>
           )}
-          <Button variant="contained" fullWidth onClick={requestOtp} disabled={loading} startIcon={!loading && <MarkEmailReadRounded />} sx={{ height: 48 }}>
+          <Button type="submit" variant="contained" fullWidth disabled={loading} startIcon={!loading && <MarkEmailReadRounded />} sx={{ height: 48 }}>
             {loading ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Send reset code"}
           </Button>
         </Stack>
       ) : (
-        <Stack spacing={2.25} onKeyDown={(e) => e.key === "Enter" && submitReset()}>
+        <Stack component="form" spacing={2.25} onSubmit={(e) => { e.preventDefault(); submitReset(); }}>
           <Box>
             <FieldLabel>Reset code</FieldLabel>
-            <TextField fullWidth size="small" placeholder="6-digit code" value={otp} onChange={(e) => setOtp(e.target.value)} inputProps={{ style: { letterSpacing: "0.3em" } }} />
+            <TextField fullWidth size="small" placeholder="6-digit code" value={otp} onChange={(e) => setOtp(e.target.value)} slotProps={{ htmlInput: { style: { letterSpacing: "0.3em" } } }} />
           </Box>
           <Box>
             <FieldLabel>New password</FieldLabel>
             <TextField
               fullWidth size="small" type={showPw ? "text" : "password"} placeholder="At least 6 characters"
               value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-              InputProps={{ endAdornment: (
+              slotProps={{ input: { endAdornment: (
                 <InputAdornment position="end">
                   <IconButton onClick={() => setShowPw((p) => !p)} edge="end" sx={{ color: tokens.textFaint }}>
                     {showPw ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                   </IconButton>
                 </InputAdornment>
-              ) }}
+              ) } }}
             />
           </Box>
           {feedback.text && (
             <Alert severity={feedback.type === "success" ? "success" : "error"} sx={{ borderRadius: "12px", fontSize: "0.85rem", py: 0.5 }}>{feedback.text}</Alert>
           )}
-          <Button variant="contained" fullWidth onClick={submitReset} disabled={loading} sx={{ height: 48 }}>
+          <Button type="submit" variant="contained" fullWidth disabled={loading} sx={{ height: 48 }}>
             {loading ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Update password"}
           </Button>
-          <Button variant="text" onClick={() => { setStep(1); setFeedback({ type: "", text: "" }); }} startIcon={<ArrowBackRounded />} sx={{ alignSelf: "center" }}>
+          <Button type="button" variant="text" onClick={() => { setStep(1); setFeedback({ type: "", text: "" }); }} startIcon={<ArrowBackRounded />} sx={{ alignSelf: "center" }}>
             Use a different email
           </Button>
         </Stack>

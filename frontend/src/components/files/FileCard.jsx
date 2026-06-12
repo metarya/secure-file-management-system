@@ -72,8 +72,9 @@ export default function FileCard({
         background: tokens.surface,
         border: `1px solid ${tokens.border}`,
         backdropFilter: "blur(14px)",
+        boxShadow: tokens.shadow,
         transition:
-          "border-color 0.18s, transform 0.18s",
+          "border-color 0.18s, transform 0.18s, box-shadow 0.18s",
         cursor: "pointer",
         display: "flex",
         flexDirection: "column",
@@ -81,6 +82,7 @@ export default function FileCard({
         "&:hover": {
           borderColor: tokens.borderStrong,
           transform: "translateY(-2px)",
+          boxShadow: tokens.shadowHover,
         },
       }}
       onClick={() => onOpen?.(file)}
@@ -123,9 +125,9 @@ export default function FileCard({
               px: 0.5,
               py: 0.1,
               borderRadius: "5px",
-              background: "#0d1321",
-              border: `1px solid ${tokens.border}`,
-              color: tokens.textDim,
+              background: "rgba(99,102,241,0.16)",
+              border: "1px solid rgba(99,102,241,0.30)",
+              color: tokens.accent,
             }}
           >
             {fileTypeLabel(file.fileName)}

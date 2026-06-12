@@ -45,7 +45,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout title="Create your account" subtitle="Start managing your files securely">
-      <Stack spacing={2.25} onKeyDown={(e) => e.key === "Enter" && submit()}>
+      <Stack component="form" spacing={2.25} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Box>
           <FieldLabel>Full name</FieldLabel>
           <TextField fullWidth size="small" placeholder="Jane Cooper" value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -59,13 +59,13 @@ export default function RegisterPage() {
           <TextField
             fullWidth size="small" type={showPw ? "text" : "password"} placeholder="At least 6 characters"
             value={password} onChange={(e) => setPassword(e.target.value)}
-            InputProps={{ endAdornment: (
+            slotProps={{ input: { endAdornment: (
               <InputAdornment position="end">
                 <IconButton onClick={() => setShowPw((p) => !p)} edge="end" sx={{ color: tokens.textFaint }}>
                   {showPw ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                 </IconButton>
               </InputAdornment>
-            ) }}
+            ) } }}
           />
         </Box>
 
@@ -79,7 +79,7 @@ export default function RegisterPage() {
           </Alert>
         )}
 
-        <Button variant="contained" fullWidth onClick={submit} disabled={loading} sx={{ height: 48, mt: 0.5 }}>
+        <Button type="submit" variant="contained" fullWidth disabled={loading} sx={{ height: 48, mt: 0.5 }}>
           {loading ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Create account"}
         </Button>
 

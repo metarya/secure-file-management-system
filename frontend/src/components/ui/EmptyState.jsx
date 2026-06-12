@@ -9,7 +9,7 @@ export default function EmptyState({ icon, title, description, action }) {
           sx={{
             width: 64, height: 64, borderRadius: "18px", mx: "auto", mb: 2.5,
             display: "grid", placeItems: "center",
-            background: "rgba(255,255,255,0.04)", border: `1px solid ${tokens.border}`,
+            background: tokens.surfaceHover, border: `1px solid ${tokens.border}`,
             color: tokens.textFaint,
           }}
         >

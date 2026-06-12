@@ -1,11 +1,15 @@
 import { Box, Container, Typography } from "@mui/material";
 import FolderOpenRounded from "@mui/icons-material/FolderOpenRounded";
 import { tokens } from "../../theme/theme";
+import ThemeToggle from "./ThemeToggle";
 
 // Shared centered scaffold for login / register / reset screens.
 export default function AuthLayout({ title, subtitle, children, width = "xs" }) {
   return (
     <Box sx={{ minHeight: "100dvh", background: tokens.bgGradient, display: "flex", alignItems: "center", justifyContent: "center", px: 2, py: 5, position: "relative", overflow: "hidden" }}>
+      <Box sx={{ position: "absolute", top: 18, right: 18, zIndex: 2 }}>
+        <ThemeToggle />
+      </Box>
       <Box sx={{ position: "absolute", top: "-12%", right: "-6%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.16), transparent 70%)", pointerEvents: "none" }} />
       <Box sx={{ position: "absolute", bottom: "-12%", left: "-6%", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle, rgba(56,189,248,0.1), transparent 70%)", pointerEvents: "none" }} />
 
@@ -20,7 +24,7 @@ export default function AuthLayout({ title, subtitle, children, width = "xs" }) 
           <Typography sx={{ color: tokens.textFaint, fontSize: "0.85rem", mt: 0.5 }}>Secure file management</Typography>
         </Box>
 
-        <Box className="fv-rise" sx={{ borderRadius: "24px", background: "rgba(255,255,255,0.04)", border: `1px solid ${tokens.border}`, backdropFilter: "blur(20px)", p: { xs: 3, sm: 4 }, animationDelay: "0.05s" }}>
+        <Box className="fv-rise" sx={{ borderRadius: "24px", background: tokens.card, border: `1px solid ${tokens.border}`, backdropFilter: "blur(20px)", boxShadow: tokens.shadow, p: { xs: 3, sm: 4 }, animationDelay: "0.05s" }}>
           {title && <Typography sx={{ color: tokens.text, fontWeight: 700, fontSize: "1.4rem", mb: subtitle ? 0.5 : 3 }}>{title}</Typography>}
           {subtitle && <Typography sx={{ color: tokens.textFaint, fontSize: "0.9rem", mb: 3.5 }}>{subtitle}</Typography>}
           {children}

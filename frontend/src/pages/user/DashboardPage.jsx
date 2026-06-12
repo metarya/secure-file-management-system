@@ -48,6 +48,8 @@ function triggerDownload(blob, fileName) {
 export default function DashboardPage() {
   const user = loadStoredUser();
   const toast = useToast();
+  // Stable userId ref so fetchFiles doesn't get re-created on every render
+  const userIdRef = useRef(user?.userId);
 
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,42 +66,48 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
 
   const debounceRef = useRef();
+  const toastRef = useRef(toast);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
 
+  // fetchFiles is stable (no deps that change on re-render) — called only once on mount
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMyFiles(user.userId);
+      const data = await getMyFiles(userIdRef.current);
       setFiles(Array.isArray(data) ? data : []);
     } catch (e) {
-      toast(e.message || "Couldn't load your files.", "error");
+      toastRef.current(e.message || "Couldn't load your files.", "error");
     } finally {
       setLoading(false);
     }
-  }, [user.userId, toast]);
+  }, []); // empty deps — intentionally stable
 
+  // Mount-only fetch
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
-  // Server-side search when there's a query (uses /files/search), else full list.
+  // Debounced search — only runs when query changes
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      // Query cleared: reload full list (but only if we aren't already loading)
+      fetchFiles();
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchMyFiles(user.userId, query.trim());
+        const data = await searchMyFiles(userIdRef.current, query.trim());
         setFiles(Array.isArray(data) ? data : []);
       } catch (e) {
-        toast(e.message || "Search failed.", "error");
+        toastRef.current(e.message || "Search failed.", "error");
       }
     }, 320);
     return () => clearTimeout(debounceRef.current);
-  }, [query, user.userId, toast]);
-
-  useEffect(() => { if (!query.trim()) fetchFiles(); }, [query, fetchFiles]);
+  }, [query, fetchFiles]);
 
   async function handleUpload(file, description) {
     setUploading(true);
     try {
-      await uploadFile(file, user.userId, description);
+      await uploadFile(file, userIdRef.current, description);
       toast("File uploaded.", "success");
       setUploadOpen(false);
       await fetchFiles();
@@ -158,7 +166,7 @@ export default function DashboardPage() {
   async function confirmDelete() {
     setDeleting(true);
     try {
-      await deleteFile(deleteTarget.fileId, user.userId);
+      await deleteFile(deleteTarget.fileId, userIdRef.current);
       toast("File deleted.", "success");
       setFiles((prev) => prev.filter((f) => f.fileId !== deleteTarget.fileId));
       setDeleteTarget(null);
@@ -170,24 +178,15 @@ export default function DashboardPage() {
   }
 
   async function handleUpdateDescription(fileId, description) {
-  await updateFileDescription(fileId, description);
-
-  toast("Description updated.", "success");
-
-  setFiles((prev) =>
-    prev.map((f) =>
-      f.fileId === fileId
-        ? { ...f, description }
-        : f
-    )
-  );
-
-  setPreviewTarget((prev) =>
-    prev && prev.fileId === fileId
-      ? { ...prev, description }
-      : prev
-  );
-}
+    await updateFileDescription(fileId, description);
+    toast("Description updated.", "success");
+    setFiles((prev) =>
+      prev.map((f) => (f.fileId === fileId ? { ...f, description } : f))
+    );
+    setPreviewTarget((prev) =>
+      prev && prev.fileId === fileId ? { ...prev, description } : prev
+    );
+  }
 
   const cardActions = (file) => [
     { label: "Open", icon: <OpenInFullRounded />, onClick: () => setPreviewTarget(file) },
@@ -221,7 +220,7 @@ export default function DashboardPage() {
         <TextField
           fullWidth size="small" placeholder="Search your files…" value={query}
           onChange={(e) => setQuery(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded sx={{ color: tokens.textFaint, fontSize: 19 }} /></InputAdornment> }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRounded sx={{ color: tokens.textFaint, fontSize: 19 }} /></InputAdornment> } }}
         />
       </Box>
 

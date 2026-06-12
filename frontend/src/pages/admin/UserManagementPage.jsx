@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Avatar, IconButton, Menu, MenuItem, Dialog, DialogTitle, DialogContent,
-  DialogActions, Button, ToggleButtonGroup, ToggleButton,
+  DialogActions, Button, ToggleButtonGroup, ToggleButton, Tooltip,
 } from "@mui/material";
 import MoreVertRounded from "@mui/icons-material/MoreVertRounded";
 import AdminPanelSettingsRounded from "@mui/icons-material/AdminPanelSettingsRounded";
@@ -9,6 +10,7 @@ import BlockRounded from "@mui/icons-material/BlockRounded";
 import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
 import LockResetRounded from "@mui/icons-material/LockResetRounded";
 import ContentCopyRounded from "@mui/icons-material/ContentCopyRounded";
+import RefreshRounded from "@mui/icons-material/RefreshRounded";
 
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
@@ -20,11 +22,14 @@ import { tokens } from "../../theme/theme";
 import { initials, avatarColor, formatDateShort } from "../../utils/format";
 import { getAllUsers, updateUserRole, updateUserStatus, resetUserPassword } from "../../api/adminApi";
 import { getMyPermissions } from "../../api/rbacApi";
+import { loadStoredUser, storeUser } from "../../utils/auth";
 
 export default function UserManagementPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [perms, setPerms] = useState([]);
 
@@ -39,8 +44,9 @@ export default function UserManagementPage() {
 
   const can = (code) => perms.length === 0 || perms.includes(code);
 
-  async function fetchUsers() {
-    setLoading(true);
+  const fetchUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     try {
       const data = await getAllUsers();
       setUsers(Array.isArray(data) ? data : []);
@@ -48,13 +54,14 @@ export default function UserManagementPage() {
       toast(e.message || "Couldn't load users.", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     fetchUsers();
     getMyPermissions().then((p) => setPerms(Array.isArray(p) ? p : [])).catch(() => {});
-  }, []); // eslint-disable-line
+  }, [fetchUsers]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -69,8 +76,22 @@ export default function UserManagementPage() {
     try {
       await updateUserRole(roleDialog.id, roleDraft);
       toast(`Role updated to ${roleDraft}.`, "success");
-      setUsers((prev) => prev.map((u) => (u.id === roleDialog.id ? { ...u, role: roleDraft } : u)));
       setRoleDialog(null);
+
+      // If the changed user is the currently logged-in user, update their
+      // localStorage immediately so their session reflects the new role
+      // without needing a logout/login cycle.
+      const me = loadStoredUser();
+      if (String(me?.userId) === String(roleDialog.id)) {
+        storeUser({ ...me, role: roleDraft });
+        // If they were just demoted from ADMIN, redirect them out of admin panel
+        if (roleDraft !== "ADMIN") {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+      }
+
+      await fetchUsers(true);
     } catch (e) {
       toast(e.message || "Couldn't update the role.", "error");
     } finally {
@@ -84,8 +105,9 @@ export default function UserManagementPage() {
     try {
       await updateUserStatus(statusDialog.id, next);
       toast(`User ${next === "BLOCKED" ? "blocked" : "unblocked"}.`, "success");
-      setUsers((prev) => prev.map((u) => (u.id === statusDialog.id ? { ...u, status: next } : u)));
       setStatusDialog(null);
+      // Re-fetch from server immediately to confirm the real saved state
+      await fetchUsers(true);
     } catch (e) {
       toast(e.message || "Couldn't update status.", "error");
     } finally {
@@ -127,9 +149,32 @@ export default function UserManagementPage() {
     },
   ];
 
+  const refreshButton = (
+    <Tooltip title="Refresh table">
+      <IconButton
+        onClick={() => fetchUsers(true)}
+        disabled={refreshing || loading}
+        sx={{
+          color: tokens.textDim,
+          border: `1px solid ${tokens.border}`,
+          borderRadius: "10px",
+          "&:hover": { borderColor: tokens.borderStrong, color: tokens.text },
+          animation: refreshing ? "spin 0.7s linear infinite" : "none",
+          "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
+        }}
+      >
+        <RefreshRounded fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+
   return (
     <AppShell>
-      <PageHeader eyebrow="Administration" title="Users" subtitle={loading ? "Loading…" : `${users.length} registered ${users.length === 1 ? "account" : "accounts"}`} />
+      <PageHeader
+        eyebrow="Administration" title="Users"
+        subtitle={loading ? "Loading…" : `${users.length} registered ${users.length === 1 ? "account" : "accounts"}`}
+        actions={refreshButton}
+      />
 
       <DataTable
         columns={columns}

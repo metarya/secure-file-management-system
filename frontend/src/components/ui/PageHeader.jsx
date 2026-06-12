@@ -6,10 +6,12 @@ export default function PageHeader({ eyebrow, title, subtitle, actions }) {
   return (
     <Stack
       direction={{ xs: "column", sm: "row" }}
-      justifyContent="space-between"
-      alignItems={{ xs: "flex-start", sm: "flex-end" }}
       spacing={2}
-      sx={{ mb: 3.5 }}
+      sx={{
+        justifyContent: "space-between",
+        alignItems: { xs: "flex-start", sm: "flex-end" },
+        mb: 3.5,
+      }}
     >
       <Box>
         {eyebrow && (

@@ -56,7 +56,7 @@ export default function ShareDialog({ open, onClose, file, onShare, sharing }) {
                 sx={{
                   cursor: "pointer", p: 2, borderRadius: "14px",
                   border: `1px solid ${active ? "rgba(129,140,248,0.5)" : tokens.border}`,
-                  background: active ? "rgba(129,140,248,0.1)" : "rgba(255,255,255,0.02)",
+                  background: active ? "rgba(129,140,248,0.1)" : tokens.surfaceHover,
                   transition: "all 0.15s",
                 }}
               >

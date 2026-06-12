@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your account">
-      <Stack spacing={2.5} onKeyDown={(e) => e.key === "Enter" && submit()}>
+      <Stack component="form" spacing={2.5} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Box>
           <FieldLabel>Email</FieldLabel>
           <TextField fullWidth size="small" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -54,19 +54,19 @@ export default function LoginPage() {
           <TextField
             fullWidth size="small" type={showPw ? "text" : "password"} placeholder="••••••••"
             value={password} onChange={(e) => setPassword(e.target.value)}
-            InputProps={{ endAdornment: (
+            slotProps={{ input: { endAdornment: (
               <InputAdornment position="end">
                 <IconButton onClick={() => setShowPw((p) => !p)} edge="end" sx={{ color: tokens.textFaint }}>
                   {showPw ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
                 </IconButton>
               </InputAdornment>
-            ) }}
+            ) } }}
           />
         </Box>
 
         {error && <Alert severity="error" sx={{ borderRadius: "12px", fontSize: "0.85rem", py: 0.5 }}>{error}</Alert>}
 
-        <Button variant="contained" fullWidth onClick={submit} disabled={loading} sx={{ height: 48, mt: 0.5 }}>
+        <Button type="submit" variant="contained" fullWidth disabled={loading} sx={{ height: 48, mt: 0.5 }}>
           {loading ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Sign in"}
         </Button>
 

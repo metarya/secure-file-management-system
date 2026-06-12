@@ -22,7 +22,7 @@ export default function DataTable({
   const paged = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Paper sx={{ borderRadius: "18px", overflow: "hidden" }}>
+    <Paper sx={{ borderRadius: "18px", overflow: "hidden", boxShadow: tokens.shadow }}>
       {(searchable || toolbarRight) && (
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap", p: 2, borderBottom: `1px solid ${tokens.border}` }}>
           {searchable && (
@@ -32,12 +32,14 @@ export default function DataTable({
               value={searchValue}
               onChange={(e) => { onSearchChange?.(e.target.value); setPage(0); }}
               sx={{ flex: 1, minWidth: 220 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchRounded sx={{ color: tokens.textFaint, fontSize: 19 }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchRounded sx={{ color: tokens.textFaint, fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           )}
@@ -62,7 +64,7 @@ export default function DataTable({
                 <TableRow key={`sk-${i}`}>
                   {columns.map((c) => (
                     <TableCell key={c.key} align={c.align || "left"}>
-                      <Skeleton variant="text" sx={{ bgcolor: "rgba(255,255,255,0.06)" }} />
+                      <Skeleton variant="text" sx={{ bgcolor: tokens.surfaceHover }} />
                     </TableCell>
                   ))}
                 </TableRow>

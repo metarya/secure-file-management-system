@@ -42,7 +42,7 @@ export default function UploadDialog({ open, onClose, onUpload, uploading }) {
           sx={{
             cursor: "pointer", borderRadius: "16px", p: 4, textAlign: "center",
             border: `2px dashed ${dragging ? tokens.accentFrom : tokens.border}`,
-            background: dragging ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.02)",
+            background: dragging ? "rgba(99,102,241,0.08)" : tokens.surfaceHover,
             transition: "all 0.18s",
           }}
         >

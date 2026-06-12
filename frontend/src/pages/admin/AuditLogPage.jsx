@@ -8,14 +8,31 @@ import { tokens } from "../../theme/theme";
 import { formatDate } from "../../utils/format";
 import { getAuditLogs } from "../../api/adminApi";
 
-// Colour-code actions by what they touch.
+// Returns theme-aware colours — strong enough to read in both light and dark.
 function actionStyle(action = "") {
   const a = action.toUpperCase();
-  if (a.includes("DELETE") || a.includes("BLOCK")) return { bg: "rgba(248,113,113,0.14)", fg: "#fca5a5" };
-  if (a.includes("ROLE") || a.includes("PERMISSION")) return { bg: "rgba(129,140,248,0.16)", fg: "#a5b4fc" };
-  if (a.includes("RESTORE") || a.includes("ACTIVE") || a.includes("CREATE") || a.includes("UPLOAD")) return { bg: "rgba(52,211,153,0.14)", fg: "#6ee7b7" };
-  if (a.includes("STATUS") || a.includes("UPDATE") || a.includes("RESET")) return { bg: "rgba(251,191,36,0.14)", fg: "#fcd34d" };
-  return { bg: "rgba(255,255,255,0.06)", fg: "#cbd5e1" };
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+
+  if (a.includes("DELETE") || a.includes("BLOCK")) return isDark
+    ? { bg: "rgba(248,113,113,0.18)", fg: "#fca5a5", border: "rgba(248,113,113,0.35)" }
+    : { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
+
+  if (a.includes("ROLE") || a.includes("PERMISSION")) return isDark
+    ? { bg: "rgba(129,140,248,0.18)", fg: "#a5b4fc", border: "rgba(129,140,248,0.35)" }
+    : { bg: "rgba(79,70,229,0.10)", fg: "#3730a3", border: "rgba(79,70,229,0.30)" };
+
+  if (a.includes("RESTORE") || a.includes("ACTIVE") || a.includes("CREATE") || a.includes("UPLOAD")) return isDark
+    ? { bg: "rgba(52,211,153,0.16)", fg: "#6ee7b7", border: "rgba(52,211,153,0.30)" }
+    : { bg: "rgba(5,150,105,0.10)", fg: "#065f46", border: "rgba(5,150,105,0.28)" };
+
+  if (a.includes("STATUS") || a.includes("UPDATE") || a.includes("RESET")) return isDark
+    ? { bg: "rgba(251,191,36,0.16)", fg: "#fcd34d", border: "rgba(251,191,36,0.30)" }
+    : { bg: "rgba(217,119,6,0.10)", fg: "#92400e", border: "rgba(217,119,6,0.28)" };
+
+  // default / RENAMED / misc
+  return isDark
+    ? { bg: "rgba(255,255,255,0.07)", fg: "#cbd5e1", border: "rgba(255,255,255,0.12)" }
+    : { bg: "rgba(15,23,42,0.07)", fg: "#334155", border: "rgba(15,23,42,0.18)" };
 }
 
 export default function AuditLogPage() {
@@ -29,7 +46,6 @@ export default function AuditLogPage() {
       try {
         const data = await getAuditLogs();
         const list = Array.isArray(data) ? data : [];
-        // newest first
         list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setLogs(list);
       } catch (e) {
@@ -53,7 +69,20 @@ export default function AuditLogPage() {
       key: "action", label: "Action", width: 200,
       render: (l) => {
         const s = actionStyle(l.action);
-        return <Chip label={(l.action || "—").replace(/_/g, " ")} size="small" sx={{ bgcolor: s.bg, color: s.fg, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.02em" }} />;
+        return (
+          <Chip
+            label={(l.action || "—").replace(/_/g, " ")}
+            size="small"
+            sx={{
+              bgcolor: s.bg,
+              color: s.fg,
+              border: `1px solid ${s.border}`,
+              fontWeight: 700,
+              fontSize: "0.7rem",
+              letterSpacing: "0.02em",
+            }}
+          />
+        );
       },
     },
     { key: "performedBy", label: "By", render: (l) => <Typography sx={{ color: tokens.text, fontSize: "0.85rem", fontWeight: 500 }}>{l.performedBy || "—"}</Typography> },

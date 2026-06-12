@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Paper, Typography, LinearProgress } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import PeopleRounded from "@mui/icons-material/PeopleRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 import StorageRounded from "@mui/icons-material/StorageRounded";
@@ -30,6 +31,7 @@ function Bar({ label, value, total, color }) {
 export default function AdminDashboardPage() {
   const user = loadStoredUser();
   const toast = useToast();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [fileStats, setFileStats] = useState(null);
   const [health, setHealth] = useState(null);
@@ -57,10 +59,28 @@ export default function AdminDashboardPage() {
       />
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }} className="fv-rise">
-        <StatCard label="Total users" value={stats?.totalUsers ?? "—"} loading={loading} icon={<PeopleRounded />} accent="#6366f1" hint={`${stats?.totalAdmins ?? 0} admins · ${stats?.totalRegularUsers ?? 0} members`} />
-        <StatCard label="Files" value={fileStats?.totalFiles ?? "—"} loading={loading} icon={<InsertDriveFileRounded />} accent="#3b82f6" hint={`${fileStats?.publicFiles ?? 0} public · ${fileStats?.privateFiles ?? 0} private`} />
-        <StatCard label="Storage used" value={loading ? "—" : formatBytes(fileStats?.totalStorageBytes)} loading={loading} icon={<StorageRounded />} accent="#14b8a6" />
-        <StatCard label="Active users" value={health?.activeUsers ?? "—"} loading={loading} icon={<VerifiedUserRounded />} accent="#22c55e" hint={`${health?.blockedUsers ?? 0} blocked`} />
+        <StatCard
+          label="Total users" value={stats?.totalUsers ?? "—"} loading={loading}
+          icon={<PeopleRounded />} accent="#6366f1"
+          hint={`${stats?.totalAdmins ?? 0} admins · ${stats?.totalRegularUsers ?? 0} members`}
+          onClick={() => navigate("/admin/users")}
+        />
+        <StatCard
+          label="Files" value={fileStats?.totalFiles ?? "—"} loading={loading}
+          icon={<InsertDriveFileRounded />} accent="#3b82f6"
+          hint={`${fileStats?.publicFiles ?? 0} public · ${fileStats?.privateFiles ?? 0} private`}
+          onClick={() => navigate("/admin/files")}
+        />
+        <StatCard
+          label="Storage used" value={loading ? "—" : formatBytes(fileStats?.totalStorageBytes)}
+          loading={loading} icon={<StorageRounded />} accent="#14b8a6"
+        />
+        <StatCard
+          label="Active users" value={health?.activeUsers ?? "—"} loading={loading}
+          icon={<VerifiedUserRounded />} accent="#22c55e"
+          hint={`${health?.blockedUsers ?? 0} blocked`}
+          onClick={() => navigate("/admin/users")}
+        />
       </Box>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>

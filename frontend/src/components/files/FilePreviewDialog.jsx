@@ -143,15 +143,6 @@ export default function FilePreviewDialog({
       open={open}
   maxWidth="md"
   fullWidth
-  PaperProps={{
-  sx: {
-    backdropFilter: "blur(24px)",
-    background:
-      "rgba(15,23,42,0.92)",
-    border: `1px solid ${tokens.border}`,
-    borderRadius: "18px",
-  },
-}}
   onClose={(event, reason) => {
     if (
       reason === "backdropClick" ||
@@ -163,13 +154,21 @@ export default function FilePreviewDialog({
     onClose?.();
   }}
   slotProps={{
+    paper: {
+      sx: {
+        backdropFilter: "blur(24px)",
+        background: tokens.surfaceSolid,
+        border: `1px solid ${tokens.border}`,
+        borderRadius: "18px",
+      },
+    },
     backdrop: {
       sx: {
         backdropFilter: "blur(12px)",
         backgroundColor: "rgba(0,0,0,0.45)",
       },
     },
-      }}
+  }}
     >
       {/* Header */}
 

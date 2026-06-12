@@ -1,5 +1,73 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 
+/* ---- Theme tokens (dark is the default) -------------------------------- */
+:root {
+  --fv-bg: #0b1120;
+  --fv-bg-gradient:
+    radial-gradient(1200px 600px at 85% -10%, rgba(99,102,241,0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(56,189,248,0.08), transparent 55%),
+    linear-gradient(180deg, #0b1120 0%, #0e1526 100%);
+  --fv-surface: rgba(255,255,255,0.035);
+  --fv-surface-hover: rgba(255,255,255,0.06);
+  --fv-surface-solid: #121a2c;
+  --fv-card: rgba(255,255,255,0.04);
+  --fv-sidebar: rgba(13,19,33,0.72);
+  --fv-topbar: rgba(11,17,32,0.80);
+  --fv-input: rgba(255,255,255,0.04);
+  --fv-border: rgba(255,255,255,0.09);
+  --fv-border-strong: rgba(255,255,255,0.16);
+  --fv-accent: #818cf8;
+  --fv-accent-from: #6366f1;
+  --fv-accent-to: #3b82f6;
+  --fv-accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
+  --fv-text: #f1f5f9;
+  --fv-text-dim: rgba(241,245,249,0.62);
+  --fv-text-faint: rgba(241,245,249,0.40);
+  --fv-success: #34d399;
+  --fv-warning: #fbbf24;
+  --fv-danger: #f87171;
+  --fv-info: #38bdf8;
+  --fv-scroll-thumb: rgba(148,163,184,0.28);
+  --fv-scroll-thumb-hover: rgba(148,163,184,0.45);
+  --fv-shadow: none;
+  --fv-shadow-hover: none;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --fv-bg: #eaeefb;
+  --fv-bg-gradient:
+    radial-gradient(1100px 560px at 88% -12%, rgba(99,102,241,0.20), transparent 55%),
+    radial-gradient(1000px 620px at -8% 110%, rgba(56,189,248,0.18), transparent 55%),
+    radial-gradient(760px 520px at 55% 125%, rgba(168,85,247,0.12), transparent 60%),
+    linear-gradient(180deg, #eef1fe 0%, #e6ebfb 100%);
+  --fv-surface: rgba(255,255,255,0.86);
+  --fv-surface-hover: rgba(99,102,241,0.08);
+  --fv-surface-solid: #ffffff;
+  --fv-card: rgba(255,255,255,0.92);
+  --fv-sidebar: rgba(255,255,255,0.86);
+  --fv-topbar: rgba(255,255,255,0.82);
+  --fv-input: #eef1fb;
+  --fv-border: rgba(15,23,42,0.09);
+  --fv-border-strong: rgba(99,102,241,0.40);
+  --fv-accent: #4f46e5;
+  --fv-accent-from: #6366f1;
+  --fv-accent-to: #3b82f6;
+  --fv-accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
+  --fv-text: #0f172a;
+  --fv-text-dim: rgba(15,23,42,0.60);
+  --fv-text-faint: rgba(15,23,42,0.45);
+  --fv-success: #059669;
+  --fv-warning: #d97706;
+  --fv-danger: #dc2626;
+  --fv-info: #0284c7;
+  --fv-scroll-thumb: rgba(15,23,42,0.20);
+  --fv-scroll-thumb-hover: rgba(99,102,241,0.45);
+  --fv-shadow: 0 4px 16px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.05);
+  --fv-shadow-hover: 0 12px 30px rgba(79,70,229,0.16), 0 3px 10px rgba(15,23,42,0.07);
+  color-scheme: light;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root { height: 100%; }
@@ -7,10 +75,11 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: #0b1120;
-  color: #f1f5f9;
+  background: var(--fv-bg);
+  color: var(--fv-text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 h1, h2, h3, h4 { margin-top: 0; }
@@ -20,8 +89,8 @@ a { color: inherit; }
 /* Thin, on-brand scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.28); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.45); }
+::-webkit-scrollbar-thumb { background: var(--fv-scroll-thumb); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fv-scroll-thumb-hover); }
 
 /* Numerals & data read better in the display face */
 .tnum { font-family: "Space Grotesk", "Inter", sans-serif; font-variant-numeric: tabular-nums; }
@@ -36,10 +105,10 @@ a { color: inherit; }
 }
 
 /* Rich text rendered inside previews */
-.fv-rich :is(h1,h2,h3) { color: #f1f5f9; }
-.fv-rich a { color: #818cf8; }
+.fv-rich :is(h1,h2,h3) { color: var(--fv-text); }
+.fv-rich a { color: var(--fv-accent); }
 .fv-rich ul, .fv-rich ol { padding-left: 1.4em; }
 .fv-rich blockquote {
-  margin: 0; padding-left: 14px; border-left: 3px solid rgba(129,140,248,0.6);
-  color: rgba(241,245,249,0.7);
+  margin: 0; padding-left: 14px; border-left: 3px solid var(--fv-accent);
+  color: var(--fv-text-dim);
 }
