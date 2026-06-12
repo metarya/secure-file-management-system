@@ -10,7 +10,9 @@ import {
   TextField,
   Tooltip,
   Divider,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 
 import CloseRounded from "@mui/icons-material/CloseRounded";
 import DownloadRounded from "@mui/icons-material/DownloadRounded";
@@ -49,6 +51,9 @@ export default function FilePreviewDialog({
 
   sharedMeta,
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const [content, setContent] = useState("");
   const [draft, setDraft] = useState("");
 
@@ -106,6 +111,9 @@ export default function FilePreviewDialog({
 
       setContent(draft);
       setEditing(false);
+    } catch {
+      // The parent already surfaced the error via a toast — keep the editor
+      // open so the user's draft isn't lost.
     } finally {
       setSaving(false);
     }
@@ -125,6 +133,9 @@ export default function FilePreviewDialog({
     try {
       await onRename(file.fileId, next);
       setRenaming(false);
+    } catch {
+      // The parent already surfaced the error via a toast — keep the rename
+      // field open so the user can retry.
     } finally {
       setSaving(false);
     }
@@ -143,6 +154,7 @@ export default function FilePreviewDialog({
       open={open}
   maxWidth="md"
   fullWidth
+  fullScreen={isMobile}
   onClose={(event, reason) => {
     if (
       reason === "backdropClick" ||

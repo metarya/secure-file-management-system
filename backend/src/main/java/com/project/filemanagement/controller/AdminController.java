@@ -321,12 +321,15 @@ User user = userRepository.findById(id)
         .orElseThrow(() ->
                 new RuntimeException("User not found"));
 
+String oldRole = "UNKNOWN";
+
 RoleEntity newRole = roleRepository
         .findByName(request.getRole().toUpperCase())
         .orElseThrow(() ->
                 new RuntimeException("Role not found"));
 
 userRoleRepository.deleteByUser(user);
+userRoleRepository.flush();
 
 UserRoleEntity userRole = UserRoleEntity.builder()
         .id(new UserRoleId(
@@ -344,7 +347,9 @@ auditLogService.logAction(
         "ADMIN",
         "Changed user "
                 + user.getEmail()
-                + " role to "
+                + " role "
+                + oldRole
+                + " -> "
                 + newRole.getName()
 );
 

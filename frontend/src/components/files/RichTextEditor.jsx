@@ -428,8 +428,8 @@ export default function RichTextEditor({
         onInput={handleInput}
         onClick={(e) => e.stopPropagation()}
         sx={{
-          minHeight: 500,
-          maxHeight: 700,
+          minHeight: { xs: 300, sm: 500 },
+          maxHeight: { xs: "58vh", sm: 700 },
           overflowY: "auto",
 
           p: 3,

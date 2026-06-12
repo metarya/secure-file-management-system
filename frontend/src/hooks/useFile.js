@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-import authHeaders from "../utils/authHeaders";
+// NOTE: previously imported from "../utils/authHeaders", which does not exist
+// and broke the build whenever this hook was referenced. Inlined here so the
+// legacy hook is self-contained and safe to use.
+function authHeaders(token) {
+  const headers = { "ngrok-skip-browser-warning": "true" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:8080/api";

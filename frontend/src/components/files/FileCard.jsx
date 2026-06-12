@@ -57,6 +57,9 @@ export default function FileCard({
       );
 
       setDescAnchor(null);
+    } catch {
+      // The parent already surfaced the error via a toast — keep the popover
+      // open so the user's text isn't lost.
     } finally {
       setSavingDescription(false);
     }

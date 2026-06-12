@@ -152,15 +152,25 @@ export default function DashboardPage() {
   }
 
   async function handleRename(fileId, newName) {
-    await renameFile(fileId, newName);
-    toast("File renamed.", "success");
-    setFiles((prev) => prev.map((f) => (f.fileId === fileId ? { ...f, fileName: newName } : f)));
-    setPreviewTarget((p) => (p && p.fileId === fileId ? { ...p, fileName: newName } : p));
+    try {
+      await renameFile(fileId, newName);
+      toast("File renamed.", "success");
+      setFiles((prev) => prev.map((f) => (f.fileId === fileId ? { ...f, fileName: newName } : f)));
+      setPreviewTarget((p) => (p && p.fileId === fileId ? { ...p, fileName: newName } : p));
+    } catch (e) {
+      toast(e.message || "Couldn't rename the file.", "error");
+      throw e; // let the dialog keep the rename field open
+    }
   }
 
   async function handleSaveContent(fileId, html) {
-    await updateFileContent(fileId, html);
-    toast("Changes saved.", "success");
+    try {
+      await updateFileContent(fileId, html);
+      toast("Changes saved.", "success");
+    } catch (e) {
+      toast(e.message || "Couldn't save your changes.", "error");
+      throw e; // let the editor stay open with the draft intact
+    }
   }
 
   async function confirmDelete() {
@@ -178,14 +188,19 @@ export default function DashboardPage() {
   }
 
   async function handleUpdateDescription(fileId, description) {
-    await updateFileDescription(fileId, description);
-    toast("Description updated.", "success");
-    setFiles((prev) =>
-      prev.map((f) => (f.fileId === fileId ? { ...f, description } : f))
-    );
-    setPreviewTarget((prev) =>
-      prev && prev.fileId === fileId ? { ...prev, description } : prev
-    );
+    try {
+      await updateFileDescription(fileId, description);
+      toast("Description updated.", "success");
+      setFiles((prev) =>
+        prev.map((f) => (f.fileId === fileId ? { ...f, description } : f))
+      );
+      setPreviewTarget((prev) =>
+        prev && prev.fileId === fileId ? { ...prev, description } : prev
+      );
+    } catch (e) {
+      toast(e.message || "Couldn't update the description.", "error");
+      throw e; // let the description popover stay open
+    }
   }
 
   const cardActions = (file) => [

@@ -56,8 +56,13 @@ export default function SharedPage() {
   }
 
   async function handleSaveContent(fileId, html) {
-    await updateFileContent(fileId, html);
-    toast("Changes saved.", "success");
+    try {
+      await updateFileContent(fileId, html);
+      toast("Changes saved.", "success");
+    } catch (e) {
+      toast(e.message || "Couldn't save your changes.", "error");
+      throw e; // keep the editor open with the draft intact
+    }
   }
 
   async function confirmRemove() {

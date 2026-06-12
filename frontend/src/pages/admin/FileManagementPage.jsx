@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
-  Box, Typography, IconButton, Menu, MenuItem, Dialog, DialogContent, Button, CircularProgress, Divider, Tooltip,
+  Box, Typography, IconButton, Menu, MenuItem, Dialog, DialogContent, Button, CircularProgress, Divider, Tooltip, useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import MoreVertRounded from "@mui/icons-material/MoreVertRounded";
 import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
 import DownloadRounded from "@mui/icons-material/DownloadRounded";
@@ -31,6 +32,8 @@ function triggerDownload(blob, fileName) {
 }
 
 export default function FileManagementPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const toast = useToast();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +225,7 @@ export default function FileManagementPage() {
       </Menu>
 
       {/* Admin preview */}
-      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} maxWidth="md" fullWidth>
+      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, p: 3, pb: 2, borderBottom: `1px solid ${tokens.border}` }}>
           <Box sx={{ width: 42, height: 42, borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(129,140,248,0.16)", color: tokens.accent, flexShrink: 0 }}><InsertDriveFileRounded /></Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>

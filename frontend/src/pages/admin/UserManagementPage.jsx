@@ -9,6 +9,7 @@ import AdminPanelSettingsRounded from "@mui/icons-material/AdminPanelSettingsRou
 import BlockRounded from "@mui/icons-material/BlockRounded";
 import CheckCircleRounded from "@mui/icons-material/CheckCircleRounded";
 import LockResetRounded from "@mui/icons-material/LockResetRounded";
+import TuneRounded from "@mui/icons-material/TuneRounded";
 import ContentCopyRounded from "@mui/icons-material/ContentCopyRounded";
 import RefreshRounded from "@mui/icons-material/RefreshRounded";
 
@@ -193,6 +194,11 @@ export default function UserManagementPage() {
         {can("USER:ROLE_ASSIGN") && (
           <MenuItem onClick={() => { setRoleDialog(menuUser); setRoleDraft(menuUser?.role === "ADMIN" ? "ADMIN" : "USER"); closeMenu(); }} sx={{ gap: 1.25, fontSize: "0.86rem" }}>
             <AdminPanelSettingsRounded fontSize="small" /> Change role
+          </MenuItem>
+        )}
+        {can("USER:ROLE_ASSIGN") && (
+          <MenuItem onClick={() => { const id = menuUser?.id; closeMenu(); navigate(`/admin/permissions?userId=${id}`); }} sx={{ gap: 1.25, fontSize: "0.86rem" }}>
+            <TuneRounded fontSize="small" /> Manage permissions
           </MenuItem>
         )}
         {can("USER:DISABLE") && (

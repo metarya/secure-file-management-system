@@ -42,3 +42,13 @@ export async function adminDownloadFile(fileId, fallbackName) {
 
 // --- audit --------------------------------------------------------------
 export const getAuditLogs = () => api.get(`/admin/audit-logs`);
+
+// --- per-user permissions (RBAC) ---------------------------------------
+// Catalog of every permission that exists, so the UI can render each as a toggle.
+export const getPermissionCatalog = () => api.get(`/admin/permissions`);
+// One user's permissions, split into role-inherited vs. directly granted.
+export const getUserPermissionsDetail = (userId) =>
+  api.get(`/admin/users/${userId}/permissions`);
+// Replace a user's direct permission grants with exactly this set of codes.
+export const updateUserPermissions = (userId, permissions) =>
+  api.put(`/admin/users/${userId}/permissions`, { permissions });
