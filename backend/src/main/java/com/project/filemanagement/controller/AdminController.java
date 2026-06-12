@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -310,6 +311,7 @@ public List<AuditLogResponse> getAuditLogs() {
 
 @PreAuthorize("hasAuthority('USER:ROLE_ASSIGN')")
 @PatchMapping("/users/{id}/role")
+@Transactional
 public String updateUserRole(
         @PathVariable Long id,
         @RequestBody UpdateRoleRequest request
@@ -318,8 +320,6 @@ public String updateUserRole(
 User user = userRepository.findById(id)
         .orElseThrow(() ->
                 new RuntimeException("User not found"));
-
-String oldRole = "UNKNOWN";
 
 RoleEntity newRole = roleRepository
         .findByName(request.getRole().toUpperCase())
@@ -344,9 +344,7 @@ auditLogService.logAction(
         "ADMIN",
         "Changed user "
                 + user.getEmail()
-                + " role "
-                + oldRole
-                + " -> "
+                + " role to "
                 + newRole.getName()
 );
 
