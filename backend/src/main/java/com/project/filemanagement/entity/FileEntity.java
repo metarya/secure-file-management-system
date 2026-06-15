@@ -37,6 +37,9 @@ public class FileEntity {
     @Column(name = "file_type", nullable = false, length = 20)
     private String fileType;
 
+    @Column(name = "content_type", length = 255)
+    private String contentType;
+
     @Column(name = "description", length = 1000)
     private String description;
 

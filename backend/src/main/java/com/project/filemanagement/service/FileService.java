@@ -725,7 +725,10 @@ public class FileService {
     }
 
     private boolean isAllowedFileType(String fileType) {
-        return "txt".equals(fileType);
+        return switch (fileType.toLowerCase()){
+            case "txt","md","pdf","mp3","mp4","wav","m4a","webm","mov","avi","mkv" -> true;
+            default -> false;
+        };
     }
 
     private boolean isAllowedDetectedMimeType(String detectedMimeType) {
@@ -734,7 +737,11 @@ public class FileService {
             return false;
         }
 
-        return detectedMimeType.equalsIgnoreCase("text/plain");
+        return detectedMimeType.startsWith("video/")
+            || detectedMimeType.startsWith("audio/")
+            || detectedMimeType.equalsIgnoreCase("application/pdf")
+            || detectedMimeType.equalsIgnoreCase("text/plain")
+            || detectedMimeType.equalsIgnoreCase("text/markdown");
     }
 
     private boolean containsSuspiciousContent(String textContent) {

@@ -3,27 +3,57 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typogra
 import CloudUploadRounded from "@mui/icons-material/CloudUploadRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 import CloseRounded from "@mui/icons-material/CloseRounded";
+import DriveFileRenameOutlineRounded from "@mui/icons-material/DriveFileRenameOutlineRounded";
 import { tokens } from "../../theme/theme";
 import { formatBytes } from "../../utils/format";
+
+// Keep the original file's extension on the chosen name (the backend only
+// accepts .txt, so we must not let the extension get dropped).
+function ensureExtension(name, originalName) {
+  const dot = originalName.lastIndexOf(".");
+  if (dot === -1) return name; // original had no extension
+  const ext = originalName.slice(dot); // e.g. ".txt"
+  return name.toLowerCase().endsWith(ext.toLowerCase()) ? name : name + ext;
+}
+
+// Produce the file to actually upload: if the name was changed, wrap the bytes
+// in a new File so the backend stores the chosen name (it reads the multipart
+// filename). Strips any path separators for safety.
+function buildUploadFile(originalFile, desiredName) {
+  const trimmed = (desiredName || "").trim().replace(/[\\/]/g, "");
+  if (!trimmed || trimmed === originalFile.name) return originalFile;
+  const finalName = ensureExtension(trimmed, originalFile.name);
+  if (finalName === originalFile.name) return originalFile;
+  return new File([originalFile], finalName, {
+    type: originalFile.type,
+    lastModified: originalFile.lastModified,
+  });
+}
 
 export default function UploadDialog({ open, onClose, onUpload, uploading }) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
+  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dragging, setDragging] = useState(false);
 
-  function reset() { setFile(null); setDescription(""); setDragging(false); }
+  function pickFile(f) {
+    setFile(f);
+    setName(f ? f.name : ""); // prefill the name field with the file's name
+  }
+
+  function reset() { setFile(null); setName(""); setDescription(""); setDragging(false); }
   function close() { if (!uploading) { reset(); onClose(); } }
 
   function handleDrop(e) {
     e.preventDefault(); setDragging(false);
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped) setFile(dropped);
+    if (dropped) pickFile(dropped);
   }
 
   async function submit() {
     if (!file) return;
-    await onUpload(file, description.trim());
+    await onUpload(buildUploadFile(file, name), description.trim());
     reset();
   }
 
@@ -46,7 +76,7 @@ export default function UploadDialog({ open, onClose, onUpload, uploading }) {
             transition: "all 0.18s",
           }}
         >
-          <input ref={inputRef} type="file" hidden accept=".txt,text/plain" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          <input ref={inputRef} type="file" hidden accept=".txt,text/plain" onChange={(e) => pickFile(e.target.files?.[0] || null)} />
           {file ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, justifyContent: "center" }}>
               <Box sx={{ width: 44, height: 44, borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(129,140,248,0.16)", color: tokens.accent }}>
@@ -66,7 +96,23 @@ export default function UploadDialog({ open, onClose, onUpload, uploading }) {
           )}
         </Box>
 
-        <Typography sx={{ color: tokens.textDim, fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase", mt: 3, mb: 0.8 }}>
+        {/* File name — editable while uploading; prefilled from the selected file */}
+        {file && (
+          <>
+            <Typography sx={{ color: tokens.textDim, fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase", mt: 3, mb: 0.8 }}>
+              File name
+            </Typography>
+            <TextField
+              fullWidth size="small" placeholder={file.name}
+              value={name} onChange={(e) => setName(e.target.value)}
+              slotProps={{ input: { startAdornment: <DriveFileRenameOutlineRounded sx={{ color: tokens.textFaint, fontSize: 18, mr: 1 }} /> } }}
+              helperText="The .txt extension is kept automatically."
+              FormHelperTextProps={{ sx: { color: tokens.textFaint, fontSize: "0.72rem", ml: 0.5 } }}
+            />
+          </>
+        )}
+
+        <Typography sx={{ color: tokens.textDim, fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase", mt: 2.5, mb: 0.8 }}>
           Description (optional)
         </Typography>
         <TextField
