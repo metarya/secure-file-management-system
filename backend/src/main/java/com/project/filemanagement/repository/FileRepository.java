@@ -26,4 +26,9 @@ public interface FileRepository extends JpaRepository<FileEntity, Long> {
             User owner,
             String fileHash
     );
+
+    boolean existsByOwnerAndFileHashAndDeletedFalse(
+            User owner,
+            String fileHash
+    );
 }

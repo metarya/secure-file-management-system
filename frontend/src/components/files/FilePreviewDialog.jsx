@@ -64,6 +64,7 @@ export default function FilePreviewDialog({
 
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [previewData, setPreviewData] = useState(null);
 
   useEffect(() => {
     if (!open || !file) return;
@@ -79,11 +80,17 @@ export default function FilePreviewDialog({
       setLoading(true);
 
       try {
-        const text = await loadContent(file.fileId);
+        // Pass fileName so loadContent (previewFile) can pick a correct MIME
+        // when the server's Content-Type is generic.
+        const result = await loadContent(file.fileId, file.fileName);
+
+        if (result?.type === "text") {
+          setContent(result.content || "");
+          setDraft(result.content || "");
+        }
 
         if (!cancelled) {
-          setContent(text || "");
-          setDraft(text || "");
+          setPreviewData(result);
         }
       } catch {
         if (!cancelled) {
@@ -148,6 +155,18 @@ export default function FilePreviewDialog({
       )
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")}</pre>`;
+
+  // Detect the media kind from the content type, falling back to the file's
+  // extension (file.fileType) when the server sent a generic type.
+  const fileExt = (file.fileType || file.fileName?.split(".").pop() || "").toLowerCase();
+  const previewType = previewData?.contentType || "";
+
+  const isAudio =
+    previewType.startsWith("audio/") || ["mp3", "wav", "m4a"].includes(fileExt);
+  const isVideo =
+    previewType.startsWith("video/") ||
+    ["mp4", "webm", "mov", "avi", "mkv"].includes(fileExt);
+  const isPdf = previewType === "application/pdf" || fileExt === "pdf";
 
   return (
     <Dialog
@@ -366,7 +385,62 @@ export default function FilePreviewDialog({
           </Box>
         ) : (
           <>
-            {editing ? (
+            {previewData?.type === "binary" ? (
+              <>
+                {isAudio && (
+                  <audio
+                    controls
+                    controlsList="nodownload"
+                    style={{
+                      width: "100%",
+                    }}
+                  >
+                    <source
+                      src={previewData.url}
+                      type={previewData.contentType}
+                    />
+                  </audio>
+                )}
+                {isVideo && (
+                  <video
+                    controls
+                    controlsList="nodownload"
+                    style={{
+                      width: "100%",
+                      maxHeight: "500px",
+                    }}
+                  >
+                    <source
+                      src={previewData.url}
+                      type={previewData.contentType}
+                    />
+                  </video>
+                )}
+                {isPdf && (
+                  <iframe
+                    title="PDF Preview"
+                    src={previewData.url}
+                    width="100%"
+                    height="600"
+                    style={{
+                      border: "none",
+                    }}
+                  />
+                )}
+                {!isAudio && !isVideo && !isPdf && (
+                  <Typography
+                    sx={{
+                      color: tokens.textFaint,
+                      fontSize: "0.9rem",
+                      py: 4,
+                      textAlign: "center",
+                    }}
+                  >
+                    Preview isn't available for this file type. Use Download to open it.
+                  </Typography>
+                )}
+              </>
+            ) : editing ? (
               <RichTextEditor
                 initialValue={content}
                 onChange={setDraft}
@@ -413,7 +487,9 @@ export default function FilePreviewDialog({
           Download
         </Button>
 
-        {canEdit && !editing && (
+        {canEdit && 
+          ["txt", "md"].includes((file?.fileType || "").toLowerCase())
+          && !editing && (
           <Button
             variant="contained"
             startIcon={<EditRounded />}
@@ -426,7 +502,9 @@ export default function FilePreviewDialog({
           </Button>
         )}
 
-        {canEdit && editing && (
+        {canEdit && 
+          ["txt", "md"].includes((file?.fileType || "").toLowerCase())
+        && editing && (
           <>
             <Button
               variant="outlined"

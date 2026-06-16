@@ -67,11 +67,12 @@ public class FileValidationService {
             return false;
         }
 
-        return detectedMimeType.startsWith("video/")
-                || detectedMimeType.startsWith("audio/")
-                || detectedMimeType.equalsIgnoreCase("application/pdf")
-                || detectedMimeType.equalsIgnoreCase("text/plain")
-                || detectedMimeType.equalsIgnoreCase("text/markdown");
+        String mime = detectedMimeType.toLowerCase();
+
+        return mime.startsWith("video/")
+                || mime.startsWith("audio/")
+                || mime.startsWith("text/")
+                || mime.equals("application/pdf");
     }
 
     public boolean containsSuspiciousContent(String textContent) {

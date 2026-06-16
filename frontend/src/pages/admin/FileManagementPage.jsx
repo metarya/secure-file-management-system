@@ -20,7 +20,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/Toast";
 import { tokens } from "../../theme/theme";
 import { formatBytes, formatDateShort, fileTypeLabel, initials, avatarColor } from "../../utils/format";
-import { getAllFiles, adminPreviewFile, adminDownloadFile, adminDeleteFile, adminRestoreFile } from "../../api/adminApi";
+import { getAllFiles, adminPreviewFile, adminPreviewMedia, adminDownloadFile, adminDeleteFile, adminRestoreFile } from "../../api/adminApi";
 import { getMyPermissions } from "../../api/rbacApi";
 
 function triggerDownload(blob, fileName) {
@@ -87,8 +87,18 @@ export default function FileManagementPage() {
     setPreview({ loading: true });
     setPreviewLoading(true);
     try {
-      const data = await adminPreviewFile(f.fileId);
-      setPreview({ ...data, fileId: f.fileId, visibility: f.visibility, fileSize: f.fileSize });
+      const name = (f.fileName || "").toLowerCase();
+      const isBinary = /\.(mp4|webm|mov|avi|mkv|mp3|wav|m4a|pdf)$/.test(name);
+      // The admin preview endpoint is text-only JSON, so audio/video/pdf gets
+      // its bytes from the download endpoint (wrapped in an object URL);
+      // everything else uses the text preview.
+      const data = isBinary
+        ? await adminPreviewMedia(f.fileId, f.fileName)
+        : await adminPreviewFile(f.fileId);
+      // Spread the row first so fileName/owner/etc. are always present (the
+      // header and the media detection rely on fileName); the API payload
+      // (type/contentType/url/content) overrides where they overlap.
+      setPreview({ ...f, ...data, fileId: f.fileId, visibility: f.visibility, fileSize: f.fileSize });
     } catch (e) {
       toast(e.message || "Couldn't preview the file.", "error");
       setPreview(null);
@@ -192,6 +202,29 @@ export default function FileManagementPage() {
     </Tooltip>
   );
 
+  // Detect media by content type when the API provides it, falling back to the
+  // filename extension. Either signal is enough.
+  const previewFileName = preview?.fileName?.toLowerCase() || "";
+  const previewType = preview?.contentType || "";
+
+  const isVideo =
+    previewType.startsWith("video/") ||
+    previewFileName.endsWith(".mp4") ||
+    previewFileName.endsWith(".webm") ||
+    previewFileName.endsWith(".mov") ||
+    previewFileName.endsWith(".avi") ||
+    previewFileName.endsWith(".mkv");
+
+  const isAudio =
+    previewType.startsWith("audio/") ||
+    previewFileName.endsWith(".mp3") ||
+    previewFileName.endsWith(".wav") ||
+    previewFileName.endsWith(".m4a");
+
+  const isPdf =
+    previewType === "application/pdf" ||
+    previewFileName.endsWith(".pdf");
+
   return (
     <AppShell>
       <PageHeader
@@ -239,6 +272,20 @@ export default function FileManagementPage() {
         <DialogContent sx={{ p: 3 }}>
           {previewLoading || preview?.loading ? (
             <Box sx={{ display: "grid", placeItems: "center", py: 8 }}><CircularProgress size={26} /></Box>
+          ) : isAudio ? (
+            <audio controls controlsList="nodownload" style={{ width: "100%" }}>
+              <source src={preview?.url} type={preview?.contentType} />
+            </audio>
+          ) : isVideo ? (
+            <video controls controlsList="nodownload" style={{ width: "100%", maxHeight: 500 }}>
+              <source src={preview?.url} type={preview?.contentType} />
+            </video>
+          ) : isPdf ? (
+            <iframe
+              title="PDF preview"
+              src={preview?.url}
+              style={{ width: "100%", height: isMobile ? "70vh" : 600, border: "none", borderRadius: 8 }}
+            />
           ) : (
             <Box component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", color: tokens.text, fontSize: "0.9rem", lineHeight: 1.7, fontFamily: "inherit", m: 0, maxHeight: 460, overflowY: "auto" }}>
               {preview?.content || "This file has no readable content."}

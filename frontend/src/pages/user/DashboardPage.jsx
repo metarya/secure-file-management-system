@@ -26,7 +26,7 @@ import { loadStoredUser } from "../../utils/auth";
 import {
   getMyFiles,
   searchMyFiles,
-  uploadFile,
+  uploadFileWithProgress,
   downloadFile,
   deleteFile,
   updateVisibility,
@@ -104,10 +104,12 @@ export default function DashboardPage() {
     return () => clearTimeout(debounceRef.current);
   }, [query, fetchFiles]);
 
-  async function handleUpload(file, description) {
+  // The dialog calls onUpload(file, description, onProgress). onProgress is the
+  // dialog's setProgress — forward it as the 4th arg so the bar can move.
+  async function handleUpload(file, description, onProgress) {
     setUploading(true);
     try {
-      await uploadFile(file, userIdRef.current, description);
+      await uploadFileWithProgress(file, userIdRef.current, description, onProgress);
       toast("File uploaded.", "success");
       setUploadOpen(false);
       await fetchFiles();

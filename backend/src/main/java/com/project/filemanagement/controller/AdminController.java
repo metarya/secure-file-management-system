@@ -148,6 +148,13 @@ public class AdminController {
         return fileService.adminDownloadFile(fileId);
     }
 
+    @GetMapping("/files/{fileId}/stream")
+public ResponseEntity<byte[]> adminStreamFile(
+        @PathVariable Long fileId
+) {
+    return fileService.adminDownloadFile(fileId);
+}
+
     @PreAuthorize("hasAuthority('FILE:DELETE_ANY')")
     @DeleteMapping("/files/{fileId}")
 public String deleteFile(
