@@ -1,0 +1,52 @@
+# Maven build output
+target/
+backend/target/
+
+# Java compiled files
+*.class
+
+# Logs
+*.log
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment files
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Day 2 local test outputs
+Day_2_API_Test_Output.txt
+slot3_api_test_output.txt
+backend/Day_2_API_Test_Output.txt
+
+# Slot 5 upload test files
+backend/slot5-empty.txt
+backend/slot5-invalid.pdf
+backend/slot5-valid.txt
+
+# Slot 5 upload test files
+backend/slot5-empty.txt
+backend/slot5-invalid.pdf
+backend/slot5-valid.txt
+
+# Slot 6 byte-array test files
+backend/slot6-test.doc
+backend/.env
+backend/downloaded*.txt
+frontend/patch-*.cjs
+
+backend/.env
+# Local API test artifacts
+backend/owner-download-headers.txt
+backend/owner-downloaded.txt
+backend/slot10-test.txt
+
+# Local Netlify folder
+.netlify
+
+.vercel/
