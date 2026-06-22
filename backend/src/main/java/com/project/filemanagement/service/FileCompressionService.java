@@ -1,48 +1,41 @@
 package com.project.filemanagement.service;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import org.springframework.stereotype.Service;
 
+import com.project.filemanagement.service.compression.CompressionResult;
+import com.project.filemanagement.service.compression.CompressorFactory;
+import com.project.filemanagement.service.compression.FileCompressor;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class FileCompressionService {
 
-    public byte[] compressBytes(byte[] originalBytes) {
+    private final CompressorFactory compressorFactory;
 
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+    public CompressionResult compress(
+            File inputFile,
+            String extension
+    ) throws IOException {
 
-            gzipOutputStream.write(originalBytes);
-            gzipOutputStream.finish();
+        FileCompressor compressor =
+                compressorFactory.getCompressor(extension);
 
-            return byteArrayOutputStream.toByteArray();
-
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to compress uploaded file", e);
-        }
+        return compressor.compress(inputFile);
     }
 
-    public byte[] decompressBytes(byte[] compressedBytes) {
+    public File decompress(
+            File inputFile,
+            String extension
+    ) throws IOException {
 
-        try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(compressedBytes);
-             GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream);
-             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+        FileCompressor compressor =
+                compressorFactory.getCompressor(extension);
 
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-
-            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                byteArrayOutputStream.write(buffer, 0, bytesRead);
-            }
-
-            return byteArrayOutputStream.toByteArray();
-
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to decompress stored file", e);
-        }
+        return compressor.decompress(inputFile);
     }
 }

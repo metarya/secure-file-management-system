@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Box, Paper, Typography, LinearProgress, Tooltip, IconButton } from "@mui/material";
+import { useEffect, useState } from "react";
+import { Box, Paper, Typography, LinearProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import PeopleRounded from "@mui/icons-material/PeopleRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 import StorageRounded from "@mui/icons-material/StorageRounded";
 import VerifiedUserRounded from "@mui/icons-material/VerifiedUserRounded";
-import RefreshRounded from "@mui/icons-material/RefreshRounded";
 
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
@@ -15,9 +14,6 @@ import { tokens } from "../../theme/theme";
 import { loadStoredUser } from "../../utils/auth";
 import { formatBytes } from "../../utils/format";
 import { getAdminStats, getFileStats, getSystemHealth } from "../../api/adminApi";
-
-// How often the overview re-pulls from the DB while the tab is visible.
-const POLL_INTERVAL_MS = 20000;
 
 function Bar({ label, value, total, color }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
@@ -39,86 +35,20 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
   const [fileStats, setFileStats] = useState(null);
   const [health, setHealth] = useState(null);
-  const [loading, setLoading] = useState(true);      // first-load skeletons
-  const [refreshing, setRefreshing] = useState(false); // manual refresh spinner
-
-  // Keep toast in a ref so the loader stays stable and doesn't re-arm the
-  // interval/listeners on every render.
-  const toastRef = useRef(toast);
-  useEffect(() => { toastRef.current = toast; }, [toast]);
-
-  // Guards against overlapping fetches if a poll fires while one is in flight.
-  const inFlightRef = useRef(false);
-
-  // load():
-  //   skeleton     -> show the loading placeholders (first load only)
-  //   surfaceError -> toast on failure (first load + manual refresh; NOT polls)
-  // Background refreshes (poll / tab focus) pass neither, so they swap fresh
-  // numbers in silently without flashing skeletons or nagging.
-  const load = useCallback(async ({ skeleton = false, surfaceError = false } = {}) => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    if (skeleton) setLoading(true);
-    try {
-      const [s, f, h] = await Promise.all([getAdminStats(), getFileStats(), getSystemHealth()]);
-      setStats(s); setFileStats(f); setHealth(h);
-    } catch (e) {
-      if (surfaceError) toastRef.current(e.message || "Couldn't load dashboard data.", "error");
-    } finally {
-      inFlightRef.current = false;
-      if (skeleton) setLoading(false);
-    }
-  }, []);
-
-  async function handleManualRefresh() {
-    setRefreshing(true);
-    await load({ surfaceError: true });
-    setRefreshing(false);
-  }
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial load (with skeletons + error surfaced).
-    load({ skeleton: true, surfaceError: true });
-
-    // Poll on an interval — but only while the tab is visible, so we don't
-    // hammer the API from a backgrounded tab.
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") load();
-    }, POLL_INTERVAL_MS);
-
-    // Refetch the moment the user returns to the tab/window, so they see fresh
-    // numbers immediately instead of waiting for the next poll tick.
-    const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") load();
-    };
-    document.addEventListener("visibilitychange", refreshIfVisible);
-    window.addEventListener("focus", refreshIfVisible);
-
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
-      window.removeEventListener("focus", refreshIfVisible);
-    };
-  }, [load]);
-
-  const refreshButton = (
-    <Tooltip title="Refresh now">
-      <IconButton
-        onClick={handleManualRefresh}
-        disabled={refreshing}
-        sx={{
-          color: tokens.textDim,
-          border: `1px solid ${tokens.border}`,
-          borderRadius: "10px",
-          "&:hover": { borderColor: tokens.borderStrong, color: tokens.text },
-          animation: refreshing ? "spin 0.7s linear infinite" : "none",
-          "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
-        }}
-      >
-        <RefreshRounded fontSize="small" />
-      </IconButton>
-    </Tooltip>
-  );
+    (async () => {
+      try {
+        const [s, f, h] = await Promise.all([getAdminStats(), getFileStats(), getSystemHealth()]);
+        setStats(s); setFileStats(f); setHealth(h);
+      } catch (e) {
+        toast(e.message || "Couldn't load dashboard data.", "error");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [toast]);
 
   return (
     <AppShell>
@@ -126,7 +56,6 @@ export default function AdminDashboardPage() {
         eyebrow="Administration"
         title={`Welcome back, ${user?.fullName?.split(" ")[0] || "Admin"}`}
         subtitle="System overview and health at a glance"
-        actions={refreshButton}
       />
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }} className="fv-rise">

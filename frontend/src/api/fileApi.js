@@ -129,6 +129,19 @@ export async function downloadFile(fileId, fallbackName) {
 // --- mutations ----------------------------------------------------------
 export const deleteFile = (fileId, userId) => api.del(`/files/${fileId}?userId=${userId}`);
 
+// --- recycle bin --------------------------------------------------------
+// The owner's soft-deleted files (the recycle bin view).
+export const getDeletedFiles = (ownerId) =>
+  api.get(`/files/recycle-bin?ownerId=${ownerId}`);
+
+// Restore a soft-deleted file back to "My Files".
+export const restoreFile = (fileId, ownerId) =>
+  api.patch(`/files/${fileId}/restore?ownerId=${ownerId}`);
+
+// Permanently remove a file that is already in the recycle bin (irreversible).
+export const permanentlyDeleteFile = (fileId, ownerId) =>
+  api.del(`/files/${fileId}/permanent?ownerId=${ownerId}`);
+
 export const updateVisibility = (fileId, visibility) =>
   api.patch(`/files/${fileId}/visibility?visibility=${visibility}`);
 

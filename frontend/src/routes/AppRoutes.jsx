@@ -6,6 +6,7 @@ import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 
 import DashboardPage from "../pages/user/DashboardPage";
 import SharedPage from "../pages/user/SharedPage";
+import RecycleBinPage from "../pages/user/RecycleBinPage";
 
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import UserManagementPage from "../pages/admin/UserManagementPage";
@@ -29,6 +30,7 @@ export default function AppRoutes() {
         {/* User (protected) */}
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/shared" element={<ProtectedRoute><SharedPage /></ProtectedRoute>} />
+        <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBinPage /></ProtectedRoute>} />
         {/* Back-compat: the old /files route now lives at /dashboard */}
         <Route path="/files" element={<Navigate to="/dashboard" replace />} />
 
@@ -41,9 +43,11 @@ export default function AppRoutes() {
         <Route path="/admin/audit" element={<AdminRoute><AuditLogPage /></AdminRoute>} />
         <Route path="/admin/permissions" element={<AdminRoute><PermissionsPage /></AdminRoute>} />
 
-        {/* Defaults */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Defaults — the app's front door is the login page.
+            LoginPage forwards an already-signed-in user to their home,
+            so signed-in users still skip straight to the dashboard. */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

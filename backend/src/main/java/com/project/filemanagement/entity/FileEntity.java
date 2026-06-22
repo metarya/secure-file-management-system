@@ -58,6 +58,12 @@ public class FileEntity {
     @Column(name = "is_compressed")
     private Boolean compressed;
 
+    @Column(name = "compression_algorithm", length = 50)
+    private String compressionAlgorithm;
+
+    @Column(name = "requires_decompression")
+    private Boolean requiresDecompression = false;
+
     @Column(nullable = false, length = 20)
     private String visibility = "PRIVATE";
 
@@ -71,7 +77,14 @@ public class FileEntity {
     @Column(name = "is_deleted")
     private Boolean deleted = false;
 
-    public FileEntity(User owner, String fileName, String fileType, Long fileSize, String visibility, byte[] fileData) {
+    public FileEntity(
+            User owner,
+            String fileName,
+            String fileType,
+            Long fileSize,
+            String visibility,
+            byte[] fileData) {
+
         this.owner = owner;
         this.fileName = fileName;
         this.fileType = fileType;

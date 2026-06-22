@@ -12,6 +12,7 @@ import LockResetRounded from "@mui/icons-material/LockResetRounded";
 import TuneRounded from "@mui/icons-material/TuneRounded";
 import ContentCopyRounded from "@mui/icons-material/ContentCopyRounded";
 import RefreshRounded from "@mui/icons-material/RefreshRounded";
+import PersonRemoveRounded from "@mui/icons-material/PersonRemoveRounded";
 
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
@@ -21,7 +22,7 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/Toast";
 import { tokens } from "../../theme/theme";
 import { initials, avatarColor, formatDateShort } from "../../utils/format";
-import { getAllUsers, updateUserRole, updateUserStatus, resetUserPassword } from "../../api/adminApi";
+import { getAllUsers, updateUserRole, updateUserStatus, resetUserPassword, deleteUser } from "../../api/adminApi";
 import { getMyPermissions } from "../../api/rbacApi";
 import { loadStoredUser, storeUser } from "../../utils/auth";
 
@@ -40,10 +41,15 @@ export default function UserManagementPage() {
   const [roleDialog, setRoleDialog] = useState(null);
   const [roleDraft, setRoleDraft] = useState("USER");
   const [statusDialog, setStatusDialog] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState(null);
   const [busy, setBusy] = useState(false);
   const [tempPassword, setTempPassword] = useState(null);
 
   const can = (code) => perms.length === 0 || perms.includes(code);
+
+  // The currently signed-in admin, so we can hide "Delete user" on their own row
+  // (the backend also blocks self-deletion, but hiding it avoids a dead action).
+  const myId = loadStoredUser()?.userId;
 
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -111,6 +117,21 @@ export default function UserManagementPage() {
       await fetchUsers(true);
     } catch (e) {
       toast(e.message || "Couldn't update status.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDeleteUser() {
+    setBusy(true);
+    try {
+      await deleteUser(deleteDialog.id);
+      toast("User deleted.", "success");
+      // Drop them from the table immediately.
+      setUsers((prev) => prev.filter((u) => u.id !== deleteDialog.id));
+      setDeleteDialog(null);
+    } catch (e) {
+      toast(e.message || "Couldn't delete the user.", "error");
     } finally {
       setBusy(false);
     }
@@ -211,6 +232,11 @@ export default function UserManagementPage() {
             <LockResetRounded fontSize="small" /> Reset password
           </MenuItem>
         )}
+        {can("USER:DELETE") && String(menuUser?.id) !== String(myId) && (
+          <MenuItem onClick={() => { setDeleteDialog(menuUser); closeMenu(); }} sx={{ gap: 1.25, fontSize: "0.86rem", color: tokens.danger }}>
+            <PersonRemoveRounded fontSize="small" /> Delete user
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Change role */}
@@ -245,6 +271,19 @@ export default function UserManagementPage() {
         icon={statusDialog?.status === "ACTIVE" ? <BlockRounded /> : <CheckCircleRounded />}
         onConfirm={confirmStatus}
         onClose={() => setStatusDialog(null)}
+      />
+
+      {/* Delete user — hard delete (removes their files, shares and permissions too) */}
+      <ConfirmDialog
+        open={Boolean(deleteDialog)}
+        title="Delete user"
+        message={`${deleteDialog?.fullName || deleteDialog?.email} will be permanently deleted, along with their files, shared access and permissions. This can't be undone.`}
+        confirmLabel="Delete user"
+        destructive
+        loading={busy}
+        icon={<PersonRemoveRounded />}
+        onConfirm={confirmDeleteUser}
+        onClose={() => setDeleteDialog(null)}
       />
 
       {/* Temporary password reveal */}

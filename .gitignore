@@ -50,3 +50,6 @@ backend/slot10-test.txt
 .netlify
 
 .vercel/
+
+.vercel
+.env*

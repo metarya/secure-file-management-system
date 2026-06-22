@@ -16,6 +16,9 @@ export const updateUserStatus = (userId, status) =>
 // returns { email, temporaryPassword }
 export const resetUserPassword = (email) =>
   api.post(`/admin/users/reset-password?email=${encodeURIComponent(email)}`);
+// Permanently delete a user account, along with their files, shares and
+// permission grants. Irreversible. Requires the USER:DELETE authority.
+export const deleteUser = (userId) => api.del(`/admin/users/${userId}`);
 
 // --- activity / summaries ----------------------------------------------
 export const getUserFileSummary = () => api.get(`/admin/user-file-summary`);

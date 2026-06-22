@@ -1,15 +1,18 @@
 package com.project.filemanagement.service;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.apache.tika.Tika;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
@@ -23,6 +26,7 @@ import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FilePermissionRepository;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.service.compression.CompressionResult;
 
 /**
  * Core file service: upload, listing/search, metadata (rename, description,
@@ -158,15 +162,60 @@ public class FileService {
             );
         }
 
-        // 9. gzip helps text; PDFs/audio/video are already compressed, so for
-        //    binary types we store raw bytes (gzip there just burns CPU and
-        //    blocks range streaming).
-        byte[] storedBytes = isText
-                ? fileCompressionService.compressBytes(originalBytes)
-                : originalBytes;
+        Path tempInputPath = null;
+        File compressedFile = null;
+        byte[] storedBytes;
+        CompressionResult compressionResult;
 
-        Long originalFileSize = (long) originalBytes.length;
-        Long storedFileSize = (long) storedBytes.length;
+try {
+
+    tempInputPath = Files.createTempFile("sfms-upload-", "-" + originalFileName);
+
+    Files.write(tempInputPath, originalBytes);
+
+    compressionResult =
+            fileCompressionService.compress(tempInputPath.toFile(),fileType);
+
+            System.out.println("========== Compression ==========");
+System.out.println("Extension = " + fileType);
+System.out.println("Algorithm = " + compressionResult.getAlgorithm());
+System.out.println("Requires = " + compressionResult.isRequiresDecompression());
+System.out.println("Original = " + compressionResult.getOriginalSize());
+System.out.println("Compressed = " + compressionResult.getCompressedSize());
+System.out.println("================================");
+
+            compressedFile = compressionResult.getCompressedFile();
+
+    storedBytes =
+            Files.readAllBytes(
+                    compressionResult.getCompressedFile().toPath()
+            );
+
+} catch (IOException e) {
+
+    throw new RuntimeException(
+            "Unable to compress uploaded file",
+            e
+    );
+
+} 
+
+finally {
+
+    try {
+
+        if (tempInputPath != null) {
+            Files.deleteIfExists(tempInputPath);
+        }
+
+        if (compressedFile != null) {
+            Files.deleteIfExists(compressedFile.toPath());
+        }
+
+    } catch (IOException ignored) {
+    }
+}
+
 
         // 10. Persist metadata + bytes.
         FileEntity fileEntity = new FileEntity();
@@ -177,9 +226,21 @@ public class FileService {
         fileEntity.setDescription(fileValidationService.cleanDescription(description));
         fileEntity.setFileSize(file.getSize());
         fileEntity.setFileHash(fileHash);
-        fileEntity.setOriginalFileSize(originalFileSize);
-        fileEntity.setCompressedFileSize(storedFileSize);
-        fileEntity.setCompressed(isText);
+        fileEntity.setOriginalFileSize(
+        compressionResult.getOriginalSize());
+
+fileEntity.setCompressedFileSize(
+        compressionResult.getCompressedSize());
+
+fileEntity.setCompressed(
+        compressionResult.getCompressedSize()
+                < compressionResult.getOriginalSize());
+
+fileEntity.setCompressionAlgorithm(
+        compressionResult.getAlgorithm());
+
+fileEntity.setRequiresDecompression(
+        compressionResult.isRequiresDecompression());
         fileEntity.setVisibility("PRIVATE");
         fileEntity.setFileData(storedBytes);
 
@@ -560,13 +621,43 @@ public class FileService {
         }
 
         byte[] updatedData = content.getBytes(StandardCharsets.UTF_8);
-        byte[] compressedData = fileCompressionService.compressBytes(updatedData);
 
-        file.setFileData(compressedData);
-        file.setFileSize((long) updatedData.length);
-        file.setOriginalFileSize((long) updatedData.length);
-        file.setCompressedFileSize((long) compressedData.length);
-        file.setCompressed(true);
+        Path tempInputPath = null;
+        File compressedFile = null;
+        CompressionResult compressionResult;
+
+        try {
+
+            tempInputPath = Files.createTempFile("sfms-edit-", "." + type);
+
+            Files.write(tempInputPath, updatedData);
+
+            compressionResult = fileCompressionService.compress(tempInputPath.toFile(), type);
+
+            compressedFile = compressionResult.getCompressedFile();
+
+            file.setFileData(Files.readAllBytes(compressedFile.toPath()));
+            file.setFileSize((long) updatedData.length);
+            file.setOriginalFileSize(compressionResult.getOriginalSize());
+            file.setCompressedFileSize(compressionResult.getCompressedSize());
+            file.setCompressed(
+                    compressionResult.getCompressedSize() < compressionResult.getOriginalSize());
+            file.setCompressionAlgorithm(compressionResult.getAlgorithm());
+            file.setRequiresDecompression(compressionResult.isRequiresDecompression());
+
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to update file content", e);
+        } finally {
+            try {
+                if (tempInputPath != null) {
+                    Files.deleteIfExists(tempInputPath);
+                }
+                if (compressedFile != null) {
+                    Files.deleteIfExists(compressedFile.toPath());
+                }
+            } catch (IOException ignored) {
+            }
+        }
 
         fileRepository.save(file);
     }

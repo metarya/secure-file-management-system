@@ -1,6 +1,9 @@
 package com.project.filemanagement.service;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,6 +17,8 @@ import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.service.compression.CompressorFactory;
+import com.project.filemanagement.service.compression.FileCompressor;
 
 /**
  * Serves file bytes for preview/download and exposes helpers used by the
@@ -27,17 +32,21 @@ public class FileContentService {
     private final UserRepository userRepository;
     private final FileCompressionService fileCompressionService;
     private final FileSharingService fileSharingService;
+    private final CompressorFactory compressorFactory;
 
     public FileContentService(
             FileRepository fileRepository,
             UserRepository userRepository,
             FileCompressionService fileCompressionService,
-            FileSharingService fileSharingService
+            FileSharingService fileSharingService,
+            CompressorFactory compressorFactory
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
         this.fileCompressionService = fileCompressionService;
         this.fileSharingService = fileSharingService;
+        this.compressorFactory = compressorFactory;
+
     }
 
     public ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
@@ -126,16 +135,79 @@ private FileEntity authorize(Long fileId, String userEmail, boolean downloadMode
 
 
 
-    private byte[] decompressedBytes(FileEntity file) {
-        byte[] storedBytes = file.getFileData();
-        if (storedBytes == null) {
-            return new byte[0];
-        }
-        return Boolean.TRUE.equals(file.getCompressed())
-                ? fileCompressionService.decompressBytes(storedBytes)
-                : storedBytes;
+private byte[] decompressedBytes(FileEntity file) {
+
+    byte[] storedBytes = file.getFileData();
+
+    if (storedBytes == null) {
+        return new byte[0];
     }
 
+    boolean shouldDecompress =
+        Boolean.TRUE.equals(file.getRequiresDecompression())
+        || Boolean.TRUE.equals(file.getCompressed())
+        || "GZIP".equalsIgnoreCase(file.getCompressionAlgorithm());
+
+
+    if (!shouldDecompress) {
+        return storedBytes;
+    }
+
+    File tempCompressedFile = null;
+    File decompressedFile = null;
+
+    try {
+
+        String extension = file.getFileType();
+
+        tempCompressedFile =
+                File.createTempFile(
+                        "sfms-download-",
+                        "." + extension
+                );
+
+        Files.write(
+                tempCompressedFile.toPath(),
+                storedBytes
+        );
+
+        FileCompressor compressor =
+                compressorFactory.getCompressor(extension);
+
+        decompressedFile =
+                compressor.decompress(tempCompressedFile);
+
+        return Files.readAllBytes(
+                decompressedFile.toPath()
+        );
+
+    } catch (IOException e) {
+
+        throw new RuntimeException(
+                "Unable to decompress file",
+                e
+        );
+
+    } finally {
+
+        try {
+
+            if (tempCompressedFile != null) {
+                Files.deleteIfExists(
+                        tempCompressedFile.toPath()
+                );
+            }
+
+            if (decompressedFile != null) {
+                Files.deleteIfExists(
+                        decompressedFile.toPath()
+                );
+            }
+
+        } catch (IOException ignored) {
+        }
+    }
+}
     /**
      * Resolves the response Content-Type. Prefers the MIME stored at upload
      * time; falls back to an extension guess for legacy rows that predate the

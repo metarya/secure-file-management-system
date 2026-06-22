@@ -17,6 +17,7 @@ import ShieldRounded from "@mui/icons-material/ShieldRounded";
 import LogoutRounded from "@mui/icons-material/LogoutRounded";
 import MenuRounded from "@mui/icons-material/MenuRounded";
 import FolderOpenRounded from "@mui/icons-material/FolderOpenRounded";
+import RestoreFromTrashRounded from "@mui/icons-material/RestoreFromTrashRounded";
 
 import { tokens } from "../../theme/theme";
 import ThemeToggle from "./ThemeToggle";
@@ -30,6 +31,7 @@ const RETRACT_DELAY = 4000;
 const userNav = [
   { label: "My Files", to: "/dashboard", icon: <FolderRounded /> },
   { label: "Shared with me", to: "/shared", icon: <ShareRounded /> },
+  { label: "Recycle Bin", to: "/recycle-bin", icon: <RestoreFromTrashRounded /> },
 ];
 
 const adminNav = [
