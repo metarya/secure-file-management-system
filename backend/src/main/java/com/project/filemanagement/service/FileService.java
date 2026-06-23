@@ -27,6 +27,7 @@ import com.project.filemanagement.repository.FilePermissionRepository;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.compression.CompressionResult;
+import com.project.filemanagement.service.streaming.HlsService;
 
 /**
  * Core file service: upload, listing/search, metadata (rename, description,
@@ -48,6 +49,7 @@ public class FileService {
     private final FileStreamingService fileStreamingService;
     private final MarkdownService markdownService;
     private final Tika tika;
+    private final HlsService hlsService;
 
     public FileService(
             FileRepository fileRepository,
@@ -60,7 +62,8 @@ public class FileService {
             FileContentService fileContentService,
             FileSharingService fileSharingService,
             FileStreamingService fileStreamingService,
-            MarkdownService markdownService
+            MarkdownService markdownService,
+            HlsService hlsService
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
@@ -73,6 +76,7 @@ public class FileService {
         this.fileSharingService = fileSharingService;
         this.fileStreamingService = fileStreamingService;
         this.markdownService = markdownService;
+        this.hlsService = hlsService;
         this.tika = new Tika();
     }
 
@@ -208,10 +212,6 @@ finally {
             Files.deleteIfExists(tempInputPath);
         }
 
-        if (compressedFile != null) {
-            Files.deleteIfExists(compressedFile.toPath());
-        }
-
     } catch (IOException ignored) {
     }
 }
@@ -244,15 +244,56 @@ fileEntity.setRequiresDecompression(
         fileEntity.setVisibility("PRIVATE");
         fileEntity.setFileData(storedBytes);
 
-        FileEntity savedFile = fileRepository.save(fileEntity);
+FileEntity savedFile = fileRepository.save(fileEntity);
 
-        return new FileUploadResponse(
-                "File uploaded successfully",
-                savedFile.getId(),
-                savedFile.getFileName(),
-                savedFile.getFileType(),
-                savedFile.getFileSize()
+try {
+
+    if ("FFMPEG_VIDEO".equals(compressionResult.getAlgorithm())) {
+
+        hlsService.generateHls(
+                compressionResult.getCompressedFile(),
+                savedFile.getId()
         );
+
+        savedFile.setHlsFolder(
+                "uploads/hls/" + savedFile.getId()
+        );
+
+        savedFile.setHlsPlaylist(
+                "uploads/hls/" + savedFile.getId() + "/master.m3u8"
+        );
+
+        savedFile.setHlsGenerated(true);
+
+        fileRepository.save(savedFile);
+    }
+
+} catch (Exception e) {
+
+    e.printStackTrace();
+
+}
+
+finally {
+
+    try {
+
+        if (compressedFile != null) {
+            Files.deleteIfExists(compressedFile.toPath());
+        }
+
+    } catch (IOException ignored) {
+    }
+
+}
+
+return new FileUploadResponse(
+        "File uploaded successfully",
+        savedFile.getId(),
+        savedFile.getFileName(),
+        savedFile.getFileType(),
+        savedFile.getFileSize()
+);
     }
 
     // ----------------------------------------------------------------------
@@ -652,12 +693,10 @@ fileEntity.setRequiresDecompression(
                 if (tempInputPath != null) {
                     Files.deleteIfExists(tempInputPath);
                 }
-                if (compressedFile != null) {
-                    Files.deleteIfExists(compressedFile.toPath());
-                }
             } catch (IOException ignored) {
             }
         }
+
 
         fileRepository.save(file);
     }

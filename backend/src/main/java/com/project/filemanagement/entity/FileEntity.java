@@ -64,6 +64,15 @@ public class FileEntity {
     @Column(name = "requires_decompression")
     private Boolean requiresDecompression = false;
 
+    @Column(name = "hls_folder", length = 255)
+    private String hlsFolder;
+
+    @Column(name = "hls_playlist", length = 255)
+    private String hlsPlaylist;
+
+    @Column(name = "hls_generated")
+    private Boolean hlsGenerated = false;
+
     @Column(nullable = false, length = 20)
     private String visibility = "PRIVATE";
 

@@ -23,6 +23,8 @@ import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 
 import RichTextEditor from "./RichTextEditor";
 import StatusChip from "../ui/StatusChip";
+import HlsVideoPlayer from "./HlsVideoPlayer";
+import { loadStoredUser } from "../../utils/auth";
 
 import { tokens } from "../../theme/theme";
 import {
@@ -402,19 +404,10 @@ export default function FilePreviewDialog({
                   </audio>
                 )}
                 {isVideo && (
-                  <video
-                    controls
-                    controlsList="nodownload"
-                    style={{
-                      width: "100%",
-                      maxHeight: "500px",
-                    }}
-                  >
-                    <source
-                      src={previewData.url}
-                      type={previewData.contentType}
-                    />
-                  </video>
+                  <HlsVideoPlayer
+                  fileId={file.fileId}
+                  token={loadStoredUser()?.token}
+                  />
                 )}
                 {isPdf && (
                   <iframe
