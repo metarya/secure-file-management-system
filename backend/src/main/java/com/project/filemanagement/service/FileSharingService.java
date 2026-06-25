@@ -19,10 +19,6 @@ import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.PermissionTypeRepository;
 import com.project.filemanagement.repository.UserRepository;
 
-/**
- * Owns the file-sharing domain: granting/updating permissions, listing files
- * shared with a user, and revoking shared access. Extracted from FileService.
- */
 @Service
 public class FileSharingService {
 

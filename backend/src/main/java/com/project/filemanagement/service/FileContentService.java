@@ -14,44 +14,39 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
 import com.project.filemanagement.entity.FileEntity;
-import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
-import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.compression.CompressorFactory;
 import com.project.filemanagement.service.compression.FileCompressor;
 
 /**
  * Serves file bytes for preview/download and exposes helpers used by the
- * preview/streaming layer. Permission checks are delegated to
- * FileSharingService so access rules are defined in one place.
+ * preview/streaming layer. Object-level access checks are delegated to
+ * FileAccessService so access rules are defined in one place.
  */
 @Service
 public class FileContentService {
 
     private final FileRepository fileRepository;
-    private final UserRepository userRepository;
     private final FileCompressionService fileCompressionService;
-    private final FileSharingService fileSharingService;
+    private final FileAccessService fileAccessService;
     private final CompressorFactory compressorFactory;
 
     public FileContentService(
             FileRepository fileRepository,
-            UserRepository userRepository,
             FileCompressionService fileCompressionService,
-            FileSharingService fileSharingService,
+            FileAccessService fileAccessService,
             CompressorFactory compressorFactory
     ) {
         this.fileRepository = fileRepository;
-        this.userRepository = userRepository;
         this.fileCompressionService = fileCompressionService;
-        this.fileSharingService = fileSharingService;
+        this.fileAccessService = fileAccessService;
         this.compressorFactory = compressorFactory;
 
     }
 
     public ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
 
-        FileEntity file = authorize(fileId, userEmail, downloadMode);
+        FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
         byte[] outputBytes = decompressedBytes(file);
         String disposition = downloadMode ? "attachment" : "inline";
@@ -69,68 +64,9 @@ public class FileContentService {
      * Used by the Markdown preview renderer.
      */
     public String loadDecompressedText(Long fileId, String userEmail) {
-        FileEntity file = authorize(fileId, userEmail, false);
+        FileEntity file = fileAccessService.authorize(fileId, userEmail);
         return new String(decompressedBytes(file), StandardCharsets.UTF_8);
     }
-
-    /**
-     * Validates the request, resolves the user/file and enforces access.
-     * downloadMode currently shares the same VIEWER/EDITOR rule as preview;
-     * kept as a parameter so the two messages stay distinct.
-     */
-private FileEntity authorize(Long fileId, String userEmail, boolean downloadMode) {
-
-    if (fileId == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
-    }
-
-    if (userEmail == null || userEmail.isBlank()) {
-        throw new ResponseStatusException(
-                HttpStatus.UNAUTHORIZED,
-                "Authenticated user email is required"
-        );
-    }
-
-    User user = userRepository.findByEmail(userEmail.trim())
-            .orElseThrow(() -> new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Authenticated user not found"
-            ));
-
-    FileEntity file = fileRepository.findById(fileId)
-            .orElseThrow(() -> new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "File not found"
-            ));
-
-    // Soft-deleted files should not be accessible to normal users
-    if (Boolean.TRUE.equals(file.getDeleted())) {
-        throw new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "File not found"
-        );
-    }
-
-    boolean isOwner = file.getOwner().getId().equals(user.getId());
-    boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
-    boolean hasAccess = fileSharingService.hasSharedPermission(
-            file,
-            user,
-            "VIEWER",
-            "EDITOR"
-    );
-
-    if (!(isOwner || isPublic || hasAccess)) {
-        throw new ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                downloadMode
-                        ? "You only have view access. Download is not allowed."
-                        : "You are not allowed to preview this file"
-        );
-    }
-
-    return file;
-}
 
 
 

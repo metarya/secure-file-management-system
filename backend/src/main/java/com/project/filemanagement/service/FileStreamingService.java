@@ -10,12 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.project.filemanagement.entity.FileEntity;
-import com.project.filemanagement.entity.User;
-import com.project.filemanagement.repository.FileRepository;
-import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.compression.CompressorFactory;
 import com.project.filemanagement.service.compression.FileCompressor;
 
@@ -26,59 +22,28 @@ import com.project.filemanagement.service.compression.FileCompressor;
  * loaded and decompressed once, then the requested byte range is sliced out.
  * Returns 206 Partial Content for range requests and advertises Accept-Ranges
  * on full responses.
+ *
+ * Object-level access is delegated to FileAccessService so the rule lives in
+ * exactly one place.
  */
 @Service
 public class FileStreamingService {
 
-    private final FileRepository fileRepository;
-    private final UserRepository userRepository;
-    private final FileSharingService fileSharingService;
+    private final FileAccessService fileAccessService;
     private final CompressorFactory compressorFactory;
 
     public FileStreamingService(
-            FileRepository fileRepository,
-            UserRepository userRepository,
-            FileSharingService fileSharingService,
+            FileAccessService fileAccessService,
             CompressorFactory compressorFactory
     ) {
-        this.fileRepository = fileRepository;
-        this.userRepository = userRepository;
-        this.fileSharingService = fileSharingService;
+        this.fileAccessService = fileAccessService;
         this.compressorFactory = compressorFactory;
     }
 
     public ResponseEntity<byte[]> streamFile(Long fileId, String userEmail, String rangeHeader) {
 
-        if (fileId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
-        }
+        FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
-        if (userEmail == null || userEmail.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
-        }
-
-        User user = userRepository.findByEmail(userEmail.trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
-
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-
-        if (Boolean.TRUE.equals(file.getDeleted())) {
-    throw new ResponseStatusException(
-            HttpStatus.NOT_FOUND,
-            "File not found"
-    );
-
-        }
-
-        boolean isOwner = file.getOwner().getId().equals(user.getId());
-        boolean isPublic = "PUBLIC".equalsIgnoreCase(file.getVisibility());
-        boolean hasViewPermission = fileSharingService.hasSharedPermission(file, user, "VIEWER", "EDITOR");
-
-        if (!(isOwner || isPublic || hasViewPermission)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to stream this file");
-        }
-        
         byte[] data = loadStreamingBytes(file);
 
         long fileLength = data.length;
@@ -164,11 +129,6 @@ public class FileStreamingService {
     if (storedBytes == null) {
         return new byte[0];
     }
-
-    boolean shouldDecompress =
-        Boolean.TRUE.equals(file.getRequiresDecompression())
-        || Boolean.TRUE.equals(file.getCompressed())
-        || "GZIP".equalsIgnoreCase(file.getCompressionAlgorithm());
 
     if (!Boolean.TRUE.equals(file.getRequiresDecompression())) {
         return storedBytes;
