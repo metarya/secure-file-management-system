@@ -38,8 +38,18 @@ public class HlsController {
 
         try {
 
-            Path playlist =
-                    Paths.get("uploads", "hls", id.toString(), "master.m3u8");
+            Path baseDir =
+                    Paths.get("uploads", "hls", id.toString())
+                            .toAbsolutePath()
+                            .normalize();
+
+            Path playlist = baseDir.resolve("master.m3u8").normalize();
+
+            // Defence in depth: ensure the resolved path stays inside this
+            // file's HLS directory before any filesystem access.
+            if (!playlist.startsWith(baseDir)) {
+                return ResponseEntity.notFound().build();
+            }
 
             System.out.println("=================================");
             System.out.println("Playlist path : " + playlist.toAbsolutePath());
@@ -82,8 +92,19 @@ public class HlsController {
 
         try {
 
-            Path segmentFile =
-                    Paths.get("uploads", "hls", id.toString(), segment);
+            Path baseDir =
+                    Paths.get("uploads", "hls", id.toString())
+                            .toAbsolutePath()
+                            .normalize();
+
+            Path segmentFile = baseDir.resolve(segment).normalize();
+
+            // Defence in depth: the .ts segment name is attacker-controlled, so
+            // ensure the resolved path stays inside this file's HLS directory
+            // before any filesystem access (blocks ../ traversal).
+            if (!segmentFile.startsWith(baseDir)) {
+                return ResponseEntity.notFound().build();
+            }
 
             System.out.println("=================================");
             System.out.println("Segment path : " + segmentFile.toAbsolutePath());
