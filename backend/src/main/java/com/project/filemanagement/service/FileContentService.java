@@ -49,14 +49,33 @@ public class FileContentService {
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
         byte[] outputBytes = decompressedBytes(file);
-        String disposition = downloadMode ? "attachment" : "inline";
         MediaType mediaType = resolveMediaType(file.getContentType(), file.getFileType());
+
+        // Defence in depth against stored XSS: HTML content must never render
+        // inline in the browser, so force it to download regardless of preview
+        // mode. PDFs, audio and video keep their existing inline preview.
+        boolean forceAttachment = downloadMode || isHtml(mediaType, file.getContentType());
+        String disposition = forceAttachment ? "attachment" : "inline";
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.getFileName() + "\"")
+                .header("X-Content-Type-Options", "nosniff")
                 .contentType(mediaType)
                 .contentLength(outputBytes.length)
                 .body(outputBytes);
+    }
+
+    /** True when the response would carry HTML, which must never render inline. */
+    private static boolean isHtml(MediaType mediaType, String storedContentType) {
+
+        if (mediaType != null
+                && "text".equalsIgnoreCase(mediaType.getType())
+                && "html".equalsIgnoreCase(mediaType.getSubtype())) {
+            return true;
+        }
+
+        return storedContentType != null
+                && storedContentType.toLowerCase().contains("html");
     }
 
     /**

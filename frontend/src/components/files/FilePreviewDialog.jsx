@@ -34,8 +34,6 @@ import {
   avatarColor,
 } from "../../utils/format";
 
-const looksLikeHtml = (s = "") => /<[a-z][\s\S]*>/i.test(s);
-
 
 export default function FilePreviewDialog({
   open,
@@ -149,14 +147,6 @@ export default function FilePreviewDialog({
       setSaving(false);
     }
   }
-
-  const renderedHtml = looksLikeHtml(content)
-    ? content
-    : `<pre style="white-space:pre-wrap;font-family:inherit;margin:0">${(
-        content || ""
-      )
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")}</pre>`;
 
   // Detect the media kind from the content type, falling back to the file's
   // extension (file.fileType) when the server sent a generic type.
@@ -449,11 +439,13 @@ export default function FilePreviewDialog({
                   maxHeight: 460,
                   overflowY: "auto",
                   p: 0.5,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily: "inherit",
                 }}
-                dangerouslySetInnerHTML={{
-                  __html: renderedHtml,
-                }}
-              />
+              >
+                {content}
+              </Box>
             )}
           </>
         )}
