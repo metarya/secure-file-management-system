@@ -8,17 +8,33 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project.filemanagement.service.FileAccessService;
+
 @RestController
 @RequestMapping("/api/files")
 public class HlsController {
 
+    private final FileAccessService fileAccessService;
+
+    public HlsController(FileAccessService fileAccessService) {
+        this.fileAccessService = fileAccessService;
+    }
+
     @GetMapping("/{id}/master.m3u8")
-    public ResponseEntity<?> getPlaylist(@PathVariable Long id) {
+    public ResponseEntity<?> getPlaylist(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        // Object-level authorization (single source of truth). Runs before any
+        // filesystem access and outside the try/catch, so an unauthorized caller
+        // receives the proper status from FileAccessService rather than a 500.
+        fileAccessService.authorize(id, authentication.getName());
 
         try {
 
@@ -56,7 +72,13 @@ public class HlsController {
     @GetMapping("/{id}/{segment:.+\\.ts}")
     public ResponseEntity<?> getSegment(
             @PathVariable Long id,
-            @PathVariable String segment) {
+            @PathVariable String segment,
+            Authentication authentication) {
+
+        // Object-level authorization (single source of truth). Runs before any
+        // filesystem access and outside the try/catch, so an unauthorized caller
+        // receives the proper status from FileAccessService rather than a 500.
+        fileAccessService.authorize(id, authentication.getName());
 
         try {
 
