@@ -53,3 +53,7 @@ backend/slot10-test.txt
 
 .vercel
 .env*
+
+
+# Runtime uploads and generated HLS output
+backend/uploads/

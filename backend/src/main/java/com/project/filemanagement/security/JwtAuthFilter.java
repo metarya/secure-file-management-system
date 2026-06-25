@@ -64,10 +64,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         User user = userRepository.findByEmail(email)
                 .orElse(null);
 
-        System.out.println("JWT EMAIL = " + email);
-        System.out.println("DB USER = "
-                + (user != null ? user.getEmail() : "NOT FOUND"));
-
         if (email != null
                 && user != null
                 && SecurityContextHolder.getContext().getAuthentication() == null) {

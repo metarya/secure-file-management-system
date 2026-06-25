@@ -1,8 +1,8 @@
 package com.project.filemanagement.service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -17,6 +17,8 @@ import com.project.filemanagement.entity.User;
 import com.project.filemanagement.entity.UserRoleEntity;
 import com.project.filemanagement.entity.UserRoleId;
 import com.project.filemanagement.entity.UserStatus;
+import com.project.filemanagement.exception.BadRequestException;
+import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.repository.RoleRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.repository.UserRoleRepository;
@@ -25,6 +27,9 @@ import com.project.filemanagement.security.JwtUtil;
 
 @Service
 public class AuthService {
+
+    // Cryptographically secure RNG for OTP generation (reused across calls).
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
@@ -150,7 +155,7 @@ return "User registered successfully";
 public String forgotPassword(String email) {
 
     User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
     if (user.getOtp() != null &&
             user.getOtpExpiry() != null &&
@@ -160,7 +165,7 @@ public String forgotPassword(String email) {
     }
 
     String otp = String.format("%06d",
-            new Random().nextInt(1000000));
+            SECURE_RANDOM.nextInt(1000000));
 
     user.setOtp(otp);
 
@@ -176,13 +181,26 @@ public String forgotPassword(String email) {
     return "OTP sent successfully.";
 }
 
-public String resetPassword(String otp, String newPassword) {
+public String resetPassword(String email, String otp, String newPassword) {
 
-    User user = userRepository.findByOtp(otp)
-            .orElseThrow(() -> new RuntimeException("Invalid OTP"));
+    if (email == null || email.isBlank()) {
+        throw new BadRequestException("Invalid OTP");
+    }
 
-    if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-        throw new RuntimeException("OTP expired");
+    if (otp == null || otp.isBlank()) {
+        throw new BadRequestException("Invalid OTP");
+    }
+
+    // Bind the OTP to the intended account: look up by email AND OTP together,
+    // never by OTP alone, so a code can only reset the user it was issued to.
+    User user = userRepository.findByEmailAndOtp(email.trim(), otp)
+            .orElseThrow(() -> new BadRequestException("Invalid OTP"));
+
+    // A missing expiry means there is no valid pending OTP — treat it the same
+    // as an expired one rather than dereferencing null.
+    if (user.getOtpExpiry() == null
+            || user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+        throw new BadRequestException("OTP expired");
     }
 
     user.setPasswordHash(
@@ -200,7 +218,7 @@ public String resetPassword(String otp, String newPassword) {
             String email) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String temporaryPassword = UUID.randomUUID()
                 .toString()

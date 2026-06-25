@@ -4,16 +4,16 @@ import { API_BASE_URL } from "../config";
 import { loadStoredUser } from "../utils/auth";
 
 // --- listing / search ---------------------------------------------------
-export const getMyFiles = (ownerId) => api.get(`/files/my-files?ownerId=${ownerId}`);
-export const searchMyFiles = (ownerId, name) =>
-  api.get(`/files/search?ownerId=${ownerId}&name=${encodeURIComponent(name)}`);
+// The backend derives the owner from the JWT; no ownerId is sent.
+export const getMyFiles = () => api.get(`/files/my-files`);
+export const searchMyFiles = (name) =>
+  api.get(`/files/search?name=${encodeURIComponent(name)}`);
 export const getSharedWithMe = () => api.get(`/files/shared-with-me`);
 
 // --- upload -------------------------------------------------------------
-export function uploadFile(file, ownerId, description) {
+export function uploadFile(file, description) {
   const form = new FormData();
   form.append("file", file);
-  form.append("ownerId", ownerId);
   if (description) form.append("description", description);
   return api.post(`/files/upload`, form);
 }
@@ -21,10 +21,9 @@ export function uploadFile(file, ownerId, description) {
 // Same as uploadFile, but reports upload progress. fetch() has no upload
 // progress event, so this uses XMLHttpRequest, which fires upload.onprogress
 // as the request body is sent. `onProgress` receives an integer 0–100.
-export function uploadFileWithProgress(file, ownerId, description, onProgress) {
+export function uploadFileWithProgress(file, description, onProgress) {
   const form = new FormData();
   form.append("file", file);
-  form.append("ownerId", ownerId);
   if (description) form.append("description", description);
 
   return new Promise((resolve, reject) => {
@@ -127,20 +126,19 @@ export async function downloadFile(fileId, fallbackName) {
 }
 
 // --- mutations ----------------------------------------------------------
-export const deleteFile = (fileId, userId) => api.del(`/files/${fileId}?userId=${userId}`);
+export const deleteFile = (fileId) => api.del(`/files/${fileId}`);
 
 // --- recycle bin --------------------------------------------------------
-// The owner's soft-deleted files (the recycle bin view).
-export const getDeletedFiles = (ownerId) =>
-  api.get(`/files/recycle-bin?ownerId=${ownerId}`);
+// The owner's soft-deleted files (the recycle bin view). Owner is JWT-derived.
+export const getDeletedFiles = () => api.get(`/files/recycle-bin`);
 
 // Restore a soft-deleted file back to "My Files".
-export const restoreFile = (fileId, ownerId) =>
-  api.patch(`/files/${fileId}/restore?ownerId=${ownerId}`);
+export const restoreFile = (fileId) =>
+  api.patch(`/files/${fileId}/restore`);
 
 // Permanently remove a file that is already in the recycle bin (irreversible).
-export const permanentlyDeleteFile = (fileId, ownerId) =>
-  api.del(`/files/${fileId}/permanent?ownerId=${ownerId}`);
+export const permanentlyDeleteFile = (fileId) =>
+  api.del(`/files/${fileId}/permanent`);
 
 export const updateVisibility = (fileId, visibility) =>
   api.patch(`/files/${fileId}/visibility?visibility=${visibility}`);

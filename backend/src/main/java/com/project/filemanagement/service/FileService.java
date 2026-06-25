@@ -23,17 +23,23 @@ import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.exception.BadRequestException;
+import com.project.filemanagement.exception.ForbiddenException;
+import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.repository.FilePermissionRepository;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.compression.CompressionResult;
 import com.project.filemanagement.service.streaming.HlsService;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Core file service: upload, listing/search, metadata (rename, description,
  * visibility, content edit) and admin file actions. Sharing, content serving,
  * streaming and markdown rendering are delegated to dedicated services.
  */
+@Slf4j
 @Service
 public class FileService {
 
@@ -180,14 +186,6 @@ try {
     compressionResult =
             fileCompressionService.compress(tempInputPath.toFile(),fileType);
 
-            System.out.println("========== Compression ==========");
-System.out.println("Extension = " + fileType);
-System.out.println("Algorithm = " + compressionResult.getAlgorithm());
-System.out.println("Requires = " + compressionResult.isRequiresDecompression());
-System.out.println("Original = " + compressionResult.getOriginalSize());
-System.out.println("Compressed = " + compressionResult.getCompressedSize());
-System.out.println("================================");
-
             compressedFile = compressionResult.getCompressedFile();
 
     storedBytes =
@@ -270,7 +268,7 @@ try {
 
 } catch (Exception e) {
 
-    e.printStackTrace();
+    log.error("HLS generation failed for file {}", savedFile.getId(), e);
 
 }
 
@@ -631,10 +629,10 @@ return new FileUploadResponse(
     public void updateFileContent(Long fileId, String userEmail, String content) {
 
         FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
 
         User owner = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         boolean isOwner = file.getOwner().getId().equals(owner.getId());
 
@@ -644,13 +642,13 @@ return new FileUploadResponse(
                 .orElse(false);
 
         if (!isOwner && !isEditor) {
-            throw new RuntimeException("Only Owner or Editor can edit this file");
+            throw new ForbiddenException("Only Owner or Editor can edit this file");
         }
 
         String type = file.getFileType() == null ? "" : file.getFileType().toLowerCase();
 
         if (!type.equals("txt") && !type.equals("md")) {
-            throw new RuntimeException("Only text files (.txt, .md) can be edited");
+            throw new BadRequestException("Only text files (.txt, .md) can be edited");
         }
 
         if (content == null || content.isBlank()) {

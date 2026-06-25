@@ -4,18 +4,23 @@ import java.nio.file.Path;
 
 import org.springframework.stereotype.Component;
 
-import com.github.kokorin.jaffree.ffmpeg.FFmpeg;
 import com.github.kokorin.jaffree.ffmpeg.UrlInput;
 import com.github.kokorin.jaffree.ffmpeg.UrlOutput;
 
 @Component
 public class FFmpegExecutor {
 
+    private final FFmpegLocator ffmpegLocator;
+
+    public FFmpegExecutor(FFmpegLocator ffmpegLocator) {
+        this.ffmpegLocator = ffmpegLocator;
+    }
+
     public void generateHls(Path inputFile, Path outputFolder) {
 
         Path playlistPath = outputFolder.resolve("master.m3u8");
 
-        FFmpeg.atPath()
+        ffmpegLocator.newFFmpeg()
                 .addInput(UrlInput.fromPath(inputFile))
                 .addArguments("-c:v", "copy")
                 .addArguments("-c:a", "copy")

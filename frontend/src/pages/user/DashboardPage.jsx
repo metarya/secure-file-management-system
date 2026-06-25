@@ -22,7 +22,6 @@ import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/Toast";
 import { TextField, InputAdornment } from "@mui/material";
 import { tokens } from "../../theme/theme";
-import { loadStoredUser } from "../../utils/auth";
 import {
   getMyFiles,
   searchMyFiles,
@@ -46,10 +45,7 @@ function triggerDownload(blob, fileName) {
 }
 
 export default function DashboardPage() {
-  const user = loadStoredUser();
   const toast = useToast();
-  // Stable userId ref so fetchFiles doesn't get re-created on every render
-  const userIdRef = useRef(user?.userId);
 
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +69,7 @@ export default function DashboardPage() {
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMyFiles(userIdRef.current);
+      const data = await getMyFiles();
       setFiles(Array.isArray(data) ? data : []);
     } catch (e) {
       toastRef.current(e.message || "Couldn't load your files.", "error");
@@ -95,7 +91,7 @@ export default function DashboardPage() {
     }
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchMyFiles(userIdRef.current, query.trim());
+        const data = await searchMyFiles(query.trim());
         setFiles(Array.isArray(data) ? data : []);
       } catch (e) {
         toastRef.current(e.message || "Search failed.", "error");
@@ -109,7 +105,7 @@ export default function DashboardPage() {
   async function handleUpload(file, description, onProgress) {
     setUploading(true);
     try {
-      await uploadFileWithProgress(file, userIdRef.current, description, onProgress);
+      await uploadFileWithProgress(file, description, onProgress);
       toast("File uploaded.", "success");
       setUploadOpen(false);
       await fetchFiles();
@@ -178,7 +174,7 @@ export default function DashboardPage() {
   async function confirmDelete() {
     setDeleting(true);
     try {
-      await deleteFile(deleteTarget.fileId, userIdRef.current);
+      await deleteFile(deleteTarget.fileId);
       toast("File deleted.", "success");
       setFiles((prev) => prev.filter((f) => f.fileId !== deleteTarget.fileId));
       setDeleteTarget(null);

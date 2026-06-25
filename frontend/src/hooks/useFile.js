@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../config";
 
 // NOTE: previously imported from "../utils/authHeaders", which does not exist
 // and broke the build whenever this hook was referenced. Inlined here so the
@@ -8,10 +9,6 @@ function authHeaders(token) {
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:8080/api";
 
 export default function useFiles() {
   const [files, setFiles] = useState([]);
@@ -27,7 +24,7 @@ async function loadMyFiles(user) {
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/files/my-files?ownerId=${user.userId}`,
+      `${API_BASE_URL}/files/my-files`,
       {
         headers: authHeaders(user?.token),
       }
@@ -60,37 +57,28 @@ async function loadSharedFiles(user) {
     return;
   }
 
-  const possibleUrls = [
-    `${API_BASE_URL}/files/shared-with-me`,
-    `${API_BASE_URL}/files/shared-with-me?userId=${user.userId}`,
-  ];
+  // Recipient is derived from the JWT on the backend; no userId is sent.
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/files/shared-with-me`,
+      {
+        headers: authHeaders(user?.token),
+      }
+    );
 
-  for (const url of possibleUrls) {
-    try {
-      const response = await fetch(
-        url,
-        {
-          headers: authHeaders(
-            user?.token
-          ),
-        }
+    if (response.ok) {
+      const data = await response.json();
+
+      setSharedFiles(
+        Array.isArray(data)
+          ? data
+          : []
       );
 
-      if (response.ok) {
-        const data =
-          await response.json();
-
-        setSharedFiles(
-          Array.isArray(data)
-            ? data
-            : []
-        );
-
-        return;
-      }
-    } catch {
-      // Try next endpoint
+      return;
     }
+  } catch {
+    // fall through to clearing the list
   }
 
   setSharedFiles([]);

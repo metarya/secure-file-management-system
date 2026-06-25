@@ -29,6 +29,7 @@ import com.project.filemanagement.dto.AuditLogResponse;
 import com.project.filemanagement.dto.UpdateRoleRequest;
 import com.project.filemanagement.dto.UpdateUserStatusRequest;
 import com.project.filemanagement.entity.FileEntity;
+import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.entity.RoleEntity;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.entity.UserRoleEntity;
@@ -139,6 +140,7 @@ public class AdminController {
                 .toList();
     }
 
+    @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/files/{fileId}/preview")
     public AdminFilePreviewResponse previewFile(
             @PathVariable Long fileId
@@ -146,6 +148,7 @@ public class AdminController {
         return fileService.adminPreviewFile(fileId);
     }
 
+    @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/files/{fileId}/download")
     public ResponseEntity<byte[]> adminDownloadFile(
             @PathVariable Long fileId
@@ -153,6 +156,7 @@ public class AdminController {
         return fileService.adminDownloadFile(fileId);
     }
 
+    @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/files/{fileId}/stream")
 public ResponseEntity<byte[]> adminStreamFile(
         @PathVariable Long fileId
@@ -204,6 +208,7 @@ public String deleteFile(
     }
 
     
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/user-file-summary")
     public List<AdminUserFileSummaryResponse> getUserFileSummary() {
 
@@ -234,6 +239,7 @@ public String deleteFile(
                 .toList();
     }
 
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/user-activity")
     public List<AdminUserActivityResponse> getUserActivity() {
 
@@ -271,6 +277,7 @@ public String deleteFile(
                 .toList();
     }
 
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/system-health")
 public AdminSystemHealthResponse getSystemHealth() {
 
@@ -316,6 +323,7 @@ public AdminResetPasswordResponse resetUserPassword(
     return authService.adminResetPassword(email);
 }
 
+@PreAuthorize("hasAuthority('USER:VIEW')")
 @GetMapping("/audit-logs")
 public List<AuditLogResponse> getAuditLogs() {
     return auditLogService.getAllLogs();
@@ -331,14 +339,14 @@ public String updateUserRole(
 
 User user = userRepository.findById(id)
         .orElseThrow(() ->
-                new RuntimeException("User not found"));
+                new ResourceNotFoundException("User not found"));
 
 String oldRole = "UNKNOWN";
 
 RoleEntity newRole = roleRepository
         .findByName(request.getRole().toUpperCase())
         .orElseThrow(() ->
-                new RuntimeException("Role not found"));
+                new ResourceNotFoundException("Role not found"));
 
 userRoleRepository.deleteByUser(user);
 userRoleRepository.flush();
@@ -377,7 +385,7 @@ public String updateUserStatus(
 
     User user = userRepository.findById(id)
             .orElseThrow(() ->
-                    new RuntimeException("User not found"));
+                    new ResourceNotFoundException("User not found"));
 
     UserStatus oldStatus = user.getStatus();
 

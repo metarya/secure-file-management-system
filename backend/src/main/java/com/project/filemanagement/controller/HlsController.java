@@ -8,27 +8,51 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project.filemanagement.service.FileAccessService;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/files")
 public class HlsController {
 
+    private final FileAccessService fileAccessService;
+
+    public HlsController(FileAccessService fileAccessService) {
+        this.fileAccessService = fileAccessService;
+    }
+
     @GetMapping("/{id}/master.m3u8")
-    public ResponseEntity<?> getPlaylist(@PathVariable Long id) {
+    public ResponseEntity<?> getPlaylist(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        // Object-level authorization (single source of truth). Runs before any
+        // filesystem access and outside the try/catch, so an unauthorized caller
+        // receives the proper status from FileAccessService rather than a 500.
+        fileAccessService.authorize(id, authentication.getName());
 
         try {
 
-            Path playlist =
-                    Paths.get("uploads", "hls", id.toString(), "master.m3u8");
+            Path baseDir =
+                    Paths.get("uploads", "hls", id.toString())
+                            .toAbsolutePath()
+                            .normalize();
 
-            System.out.println("=================================");
-            System.out.println("Playlist path : " + playlist.toAbsolutePath());
-            System.out.println("Exists        : " + Files.exists(playlist));
-            System.out.println("=================================");
+            Path playlist = baseDir.resolve("master.m3u8").normalize();
+
+            // Defence in depth: ensure the resolved path stays inside this
+            // file's HLS directory before any filesystem access.
+            if (!playlist.startsWith(baseDir)) {
+                return ResponseEntity.notFound().build();
+            }
 
             if (!Files.exists(playlist)) {
                 return ResponseEntity.notFound().build();
@@ -46,27 +70,38 @@ public class HlsController {
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            log.error("Failed to serve HLS playlist for file {}", id, e);
 
-            return ResponseEntity.internalServerError()
-                    .body(e.getMessage());
+            return ResponseEntity.internalServerError().build();
         }
     }
 
     @GetMapping("/{id}/{segment:.+\\.ts}")
     public ResponseEntity<?> getSegment(
             @PathVariable Long id,
-            @PathVariable String segment) {
+            @PathVariable String segment,
+            Authentication authentication) {
+
+        // Object-level authorization (single source of truth). Runs before any
+        // filesystem access and outside the try/catch, so an unauthorized caller
+        // receives the proper status from FileAccessService rather than a 500.
+        fileAccessService.authorize(id, authentication.getName());
 
         try {
 
-            Path segmentFile =
-                    Paths.get("uploads", "hls", id.toString(), segment);
+            Path baseDir =
+                    Paths.get("uploads", "hls", id.toString())
+                            .toAbsolutePath()
+                            .normalize();
 
-            System.out.println("=================================");
-            System.out.println("Segment path : " + segmentFile.toAbsolutePath());
-            System.out.println("Exists       : " + Files.exists(segmentFile));
-            System.out.println("=================================");
+            Path segmentFile = baseDir.resolve(segment).normalize();
+
+            // Defence in depth: the .ts segment name is attacker-controlled, so
+            // ensure the resolved path stays inside this file's HLS directory
+            // before any filesystem access (blocks ../ traversal).
+            if (!segmentFile.startsWith(baseDir)) {
+                return ResponseEntity.notFound().build();
+            }
 
             if (!Files.exists(segmentFile)) {
                 return ResponseEntity.notFound().build();
@@ -81,10 +116,9 @@ public class HlsController {
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            log.error("Failed to serve HLS segment {} for file {}", segment, id, e);
 
-            return ResponseEntity.internalServerError()
-                    .body(e.getMessage());
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

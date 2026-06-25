@@ -18,17 +18,8 @@ public interface FileRepository extends JpaRepository<FileEntity, Long> {
             String fileName
     );
 
-    List<FileEntity> findByVisibility(String visibility);
-
-    List<FileEntity> findByDeletedFalse();
-
     // Recycle bin: a single owner's soft-deleted files.
     List<FileEntity> findByOwnerAndDeletedTrue(User owner);
-
-    boolean existsByOwnerAndFileHash(
-            User owner,
-            String fileHash
-    );
 
     boolean existsByOwnerAndFileHashAndDeletedFalse(
             User owner,

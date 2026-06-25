@@ -48,11 +48,11 @@ export async function forgotPassword(email) {
 }
 
 // POST /api/auth/reset-password -> plain string message (or JSON error)
-export async function resetPassword(otp, newPassword) {
+export async function resetPassword(email, otp, newPassword) {
   const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ otp, newPassword }),
+    body: JSON.stringify({ email, otp, newPassword }),
   });
   return { ok: res.ok, message: await readMessage(res) };
 }

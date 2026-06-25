@@ -1,6 +1,7 @@
 package com.project.filemanagement.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -12,13 +13,16 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Value("${mail.from}")
+    private String mailFrom;
+
     public void sendOtpEmail(String toEmail, String otp) {
 
         try {
 
             SimpleMailMessage message = new SimpleMailMessage();
 
-            message.setFrom("metaryajain07@gmail.com");
+            message.setFrom(mailFrom);
 
             message.setTo(toEmail);
 
@@ -39,8 +43,6 @@ public class EmailService {
             );
 
             mailSender.send(message);
-
-            System.out.println("OTP EMAIL SENT SUCCESSFULLY");
 
         } catch (MailException exception) {
 

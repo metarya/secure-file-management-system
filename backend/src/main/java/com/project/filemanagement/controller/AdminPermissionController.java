@@ -14,6 +14,7 @@ import com.project.filemanagement.dto.PermissionResponse;
 import com.project.filemanagement.dto.UpdateUserPermissionsRequest;
 import com.project.filemanagement.dto.UserPermissionsResponse;
 import com.project.filemanagement.entity.User;
+import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.RbacService;
@@ -61,7 +62,7 @@ public class AdminPermissionController {
             @PathVariable Long id
     ) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return new UserPermissionsResponse(
                 user.getId(),
@@ -78,7 +79,7 @@ public class AdminPermissionController {
             @RequestBody UpdateUserPermissionsRequest request
     ) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         rbacService.setDirectPermissions(user, request.getPermissions());
 

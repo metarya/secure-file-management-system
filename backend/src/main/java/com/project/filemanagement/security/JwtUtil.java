@@ -52,14 +52,6 @@ public class JwtUtil {
         return extractAllClaims(token).getSubject();
     }
 
-    public String extractFullName(String token) {
-        return extractAllClaims(token).get("name", String.class);
-    }
-
-    public String extractRole(String token) {
-        return extractAllClaims(token).get("role", String.class);
-    }
-
     public boolean isTokenExpired(String token) {
         return extractAllClaims(token).getExpiration().before(new Date());
     }
