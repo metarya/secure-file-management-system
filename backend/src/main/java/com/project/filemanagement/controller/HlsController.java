@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.project.filemanagement.service.FileAccessService;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/files")
 public class HlsController {
@@ -51,11 +54,6 @@ public class HlsController {
                 return ResponseEntity.notFound().build();
             }
 
-            System.out.println("=================================");
-            System.out.println("Playlist path : " + playlist.toAbsolutePath());
-            System.out.println("Exists        : " + Files.exists(playlist));
-            System.out.println("=================================");
-
             if (!Files.exists(playlist)) {
                 return ResponseEntity.notFound().build();
             }
@@ -72,10 +70,9 @@ public class HlsController {
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            log.error("Failed to serve HLS playlist for file {}", id, e);
 
-            return ResponseEntity.internalServerError()
-                    .body(e.getMessage());
+            return ResponseEntity.internalServerError().build();
         }
     }
 
@@ -106,11 +103,6 @@ public class HlsController {
                 return ResponseEntity.notFound().build();
             }
 
-            System.out.println("=================================");
-            System.out.println("Segment path : " + segmentFile.toAbsolutePath());
-            System.out.println("Exists       : " + Files.exists(segmentFile));
-            System.out.println("=================================");
-
             if (!Files.exists(segmentFile)) {
                 return ResponseEntity.notFound().build();
             }
@@ -124,10 +116,9 @@ public class HlsController {
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            log.error("Failed to serve HLS segment {} for file {}", segment, id, e);
 
-            return ResponseEntity.internalServerError()
-                    .body(e.getMessage());
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

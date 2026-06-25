@@ -16,73 +16,90 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // Typed domain exceptions -> their dedicated HTTP status.
+    @ExceptionHandler({
+            ResourceNotFoundException.class,
+            UnauthorizedException.class,
+            ForbiddenException.class,
+            BadRequestException.class,
+            ConflictException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleApiException(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = statusFor(exception);
+        return buildResponse(status, exception.getMessage(), request);
+    }
+
+    private HttpStatus statusFor(RuntimeException exception) {
+        if (exception instanceof ResourceNotFoundException) {
+            return HttpStatus.NOT_FOUND;
+        }
+        if (exception instanceof UnauthorizedException) {
+            return HttpStatus.UNAUTHORIZED;
+        }
+        if (exception instanceof ForbiddenException) {
+            return HttpStatus.FORBIDDEN;
+        }
+        if (exception instanceof ConflictException) {
+            return HttpStatus.CONFLICT;
+        }
+        // BadRequestException
+        return HttpStatus.BAD_REQUEST;
+    }
+
+    // ResponseStatusException already carries its own status — honour it.
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatusException(
             ResponseStatusException exception,
             HttpServletRequest request
     ) {
-        int statusCode = exception.getStatusCode().value();
-        String error = HttpStatus.valueOf(statusCode).getReasonPhrase();
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", statusCode);
-        body.put("error", error);
-        body.put("message", exception.getReason());
-        body.put("path", request.getRequestURI());
-
-        return ResponseEntity.status(statusCode).body(body);
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+        return buildResponse(status, exception.getReason(), request);
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(
-            RuntimeException exception,
+    // Bean-validation failures on @Valid request bodies.
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationException(
+            MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
-        body.put("message", exception.getMessage());
-        body.put("path", request.getRequestURI());
+        String message = exception
+                .getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
     }
 
+    // Anything not handled above is an unexpected server error. The internal
+    // message is logged-but-not-leaked; the client gets a generic 500.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(
             Exception exception,
             HttpServletRequest request
     ) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        body.put("error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase());
-        body.put("message", "Unexpected server error");
-        body.put("path", request.getRequestURI());
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Unexpected server error",
+                request
+        );
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-public ResponseEntity<Map<String, Object>> handleValidationException(
-        MethodArgumentNotValidException exception,
-        HttpServletRequest request
-) {
+    private ResponseEntity<Map<String, Object>> buildResponse(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", status.value());
+        body.put("error", status.getReasonPhrase());
+        body.put("message", message);
+        body.put("path", request.getRequestURI());
 
-    String message = exception
-            .getBindingResult()
-            .getFieldErrors()
-            .stream()
-            .map(error ->
-                    error.getField() + ": " + error.getDefaultMessage())
-            .collect(Collectors.joining(", "));
-
-    Map<String, Object> body = new LinkedHashMap<>();
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", HttpStatus.BAD_REQUEST.getReasonPhrase());
-    body.put("message", message);
-    body.put("path", request.getRequestURI());
-
-    return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(body);
-}
+        return ResponseEntity.status(status).body(body);
+    }
 }

@@ -2,19 +2,24 @@ package com.project.filemanagement.service.compression;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 
 import org.springframework.stereotype.Component;
 
-import com.github.kokorin.jaffree.ffmpeg.FFmpeg;
 import com.github.kokorin.jaffree.ffmpeg.UrlInput;
 import com.github.kokorin.jaffree.ffmpeg.UrlOutput;
+import com.project.filemanagement.service.ffmpeg.FFmpegLocator;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
 public class VideoCompressor implements FileCompressor {
+
+    private final FFmpegLocator ffmpegLocator;
+
+    public VideoCompressor(FFmpegLocator ffmpegLocator) {
+        this.ffmpegLocator = ffmpegLocator;
+    }
 
     @Override
     public CompressionResult compress(File inputFile) throws IOException {
@@ -30,11 +35,7 @@ public class VideoCompressor implements FileCompressor {
 
         try {
 
-            FFmpeg.atPath(
-                    Paths.get(
-                            "C:\\ffmpeg\\ffmpeg-8.1.1-essentials_build\\bin"
-                    )
-            )
+            ffmpegLocator.newFFmpeg()
                     .addInput(
                             UrlInput.fromPath(inputFile.toPath())
                     )

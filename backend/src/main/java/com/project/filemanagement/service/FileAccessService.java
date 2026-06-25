@@ -7,7 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.repository.FileRepository;
-import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.security.AuthenticatedUserService;
 
 /**
  * Single source of truth for object-level file authorization.
@@ -22,16 +22,16 @@ import com.project.filemanagement.repository.UserRepository;
 @Service
 public class FileAccessService {
 
-    private final UserRepository userRepository;
+    private final AuthenticatedUserService authenticatedUserService;
     private final FileRepository fileRepository;
     private final FileSharingService fileSharingService;
 
     public FileAccessService(
-            UserRepository userRepository,
+            AuthenticatedUserService authenticatedUserService,
             FileRepository fileRepository,
             FileSharingService fileSharingService
     ) {
-        this.userRepository = userRepository;
+        this.authenticatedUserService = authenticatedUserService;
         this.fileRepository = fileRepository;
         this.fileSharingService = fileSharingService;
     }
@@ -47,18 +47,9 @@ public class FileAccessService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
 
-        if (userEmail == null || userEmail.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authenticated user email is required"
-            );
-        }
-
-        User user = userRepository.findByEmail(userEmail.trim())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Authenticated user not found"
-                ));
+        // Resolve the authenticated caller through the single shared service
+        // (401 if the email is missing, 404 if the user no longer exists).
+        User user = authenticatedUserService.requireUser(userEmail);
 
         FileEntity file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(

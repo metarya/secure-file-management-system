@@ -28,6 +28,7 @@ import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.dto.UpdateFileContentRequest;
 import com.project.filemanagement.dto.UpdateFileContentResponse;
 import com.project.filemanagement.dto.UpdateFileDescriptionRequest;
+import com.project.filemanagement.security.AuthenticatedUserService;
 import com.project.filemanagement.service.FileService;
 
 @RestController
@@ -35,29 +36,38 @@ import com.project.filemanagement.service.FileService;
 public class FileController {
 
     private final FileService fileService;
+    private final AuthenticatedUserService authenticatedUserService;
 
-    public FileController(FileService fileService) {
+    public FileController(
+            FileService fileService,
+            AuthenticatedUserService authenticatedUserService) {
         this.fileService = fileService;
+        this.authenticatedUserService = authenticatedUserService;
     }
 
     @PostMapping("/upload")
     public ResponseEntity<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("ownerId") Long ownerId,
-            @RequestParam(value = "description", required = false) String description) {
+            @RequestParam(value = "description", required = false) String description,
+            Authentication authentication) {
+
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
 
         return ResponseEntity.ok(fileService.uploadFile(file, ownerId, description));
     }
 
     @GetMapping("/my-files")
-    public ResponseEntity<List<FileListResponse>> getMyFiles(@RequestParam Long ownerId) {
+    public ResponseEntity<List<FileListResponse>> getMyFiles(Authentication authentication) {
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
         return ResponseEntity.ok(fileService.getMyFiles(ownerId));
     }
 
     @GetMapping("/search")
     public ResponseEntity<List<FileListResponse>> searchMyFiles(
-            @RequestParam Long ownerId,
-            @RequestParam String name) {
+            @RequestParam String name,
+            Authentication authentication) {
+
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
 
         return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
     }
@@ -109,21 +119,26 @@ public class FileController {
     @DeleteMapping("/{fileId}")
     public ResponseEntity<String> deleteFile(
             @PathVariable Long fileId,
-            @RequestParam Long userId) {
+            Authentication authentication) {
+
+        Long userId = authenticatedUserService.requireUserId(authentication);
 
         return ResponseEntity.ok(fileService.deleteFile(fileId, userId));
     }
 
     // --- Recycle bin (owner-scoped) ------------------------------------
     @GetMapping("/recycle-bin")
-    public ResponseEntity<List<FileListResponse>> getRecycleBin(@RequestParam Long ownerId) {
+    public ResponseEntity<List<FileListResponse>> getRecycleBin(Authentication authentication) {
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
         return ResponseEntity.ok(fileService.getDeletedFiles(ownerId));
     }
 
     @PatchMapping("/{fileId}/restore")
     public ResponseEntity<String> restoreFile(
             @PathVariable Long fileId,
-            @RequestParam Long ownerId) {
+            Authentication authentication) {
+
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
 
         return ResponseEntity.ok(fileService.restoreOwnedFile(fileId, ownerId));
     }
@@ -131,7 +146,9 @@ public class FileController {
     @DeleteMapping("/{fileId}/permanent")
     public ResponseEntity<String> permanentlyDeleteFile(
             @PathVariable Long fileId,
-            @RequestParam Long ownerId) {
+            Authentication authentication) {
+
+        Long ownerId = authenticatedUserService.requireUserId(authentication);
 
         return ResponseEntity.ok(fileService.permanentlyDeleteFile(fileId, ownerId));
     }

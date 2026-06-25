@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
     if (newPassword.length < 6) { setFeedback({ type: "error", text: "Use at least 6 characters." }); return; }
     setLoading(true); setFeedback({ type: "", text: "" });
     try {
-      const { ok, message } = await resetPassword(otp.trim(), newPassword);
+      const { ok, message } = await resetPassword(email.trim(), otp.trim(), newPassword);
       if (ok) {
         setFeedback({ type: "success", text: "Password updated. Redirecting to sign in…" });
         setTimeout(() => navigate("/login"), 1300);

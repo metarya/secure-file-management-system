@@ -75,6 +75,7 @@ public class AuthController {
 
             String response =
                 authService.resetPassword(
+                        request.getEmail(),
                         request.getOtp(),
                         request.getNewPassword()
                 );

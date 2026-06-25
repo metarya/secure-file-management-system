@@ -53,7 +53,7 @@ export default function RecycleBinPage() {
     }
     setLoading(true);
     try {
-      const data = await getDeletedFiles(ownerId);
+      const data = await getDeletedFiles();
       setFiles(Array.isArray(data) ? data : []);
     } catch (e) {
       toast(e.message || "Couldn't load the recycle bin.", "error");
@@ -69,7 +69,7 @@ export default function RecycleBinPage() {
   async function confirmRestore() {
     setBusy(true);
     try {
-      await restoreFile(restoreTarget.fileId, userIdRef.current);
+      await restoreFile(restoreTarget.fileId);
       toast("File restored.", "success");
       // It's no longer deleted, so drop it from the recycle-bin list.
       setFiles((prev) => prev.filter((f) => f.fileId !== restoreTarget.fileId));
@@ -84,7 +84,7 @@ export default function RecycleBinPage() {
   async function confirmDelete() {
     setBusy(true);
     try {
-      await permanentlyDeleteFile(deleteTarget.fileId, userIdRef.current);
+      await permanentlyDeleteFile(deleteTarget.fileId);
       toast("File permanently deleted.", "success");
       setFiles((prev) => prev.filter((f) => f.fileId !== deleteTarget.fileId));
       setDeleteTarget(null);
