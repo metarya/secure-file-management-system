@@ -1,0 +1,22 @@
+-- =============================================================================
+-- V2__add_index_files_file_hash.sql
+-- -----------------------------------------------------------------------------
+-- Adds a secondary index on files.file_hash to speed up duplicate-file
+-- detection. FileRepository.existsByOwnerAndFileHashAndDeletedFalse(...) filters
+-- on owner_id + file_hash; owner_id is already indexed via the fk_file_owner
+-- foreign key, but file_hash had no index before this migration.
+--
+-- Safety:
+--   * Index-only change: adds/removes no columns, touches no rows, and changes
+--     no application behaviour (query results are identical).
+--   * Invisible to JPA: Hibernate `validate` checks tables/columns/types, not
+--     indexes, so this does not require any entity change.
+--   * Existing data is fully preserved. Reversible via:
+--       DROP INDEX idx_files_file_hash ON files;
+--
+-- Idempotency note: MySQL does not support `CREATE INDEX IF NOT EXISTS`, but
+-- Flyway guarantees each versioned migration runs exactly once, which provides
+-- the same guarantee in practice.
+-- =============================================================================
+
+CREATE INDEX idx_files_file_hash ON files (file_hash);
