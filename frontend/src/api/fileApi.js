@@ -2,6 +2,7 @@
 import { api } from "../lib/apiClient";
 import { API_BASE_URL } from "../config";
 import { loadStoredUser } from "../utils/auth";
+import { htmlToText } from "../utils/htmlToText";
 
 // --- listing / search ---------------------------------------------------
 // The backend derives the owner from the JWT; no ownerId is sent.
@@ -115,14 +116,38 @@ export async function previewFile(fileId, fileName) {
 
 export async function downloadFile(fileId, fallbackName) {
   const res = await api.raw(`/files/download/${fileId}`);
-  const blob = await res.blob();
+
   let fileName = fallbackName || `file-${fileId}`;
+
   const disposition = res.headers.get("Content-Disposition");
   if (disposition) {
     const match = disposition.match(/filename="?([^"]+)"?/);
-    if (match?.[1]) fileName = match[1];
+    if (match?.[1]) {
+      fileName = match[1];
+    }
   }
-  return { blob, fileName };
+
+  // Convert only .txt files from stored HTML to plain text
+  if (/\.txt$/i.test(fileName)) {
+    const html = await res.text();
+
+    const text = htmlToText(html);
+
+    return {
+      blob: new Blob([text], {
+        type: "text/plain;charset=utf-8",
+      }),
+      fileName,
+    };
+  }
+
+  // All other files remain unchanged
+  const blob = await res.blob();
+
+  return {
+    blob,
+    fileName,
+  };
 }
 
 // --- mutations ----------------------------------------------------------
