@@ -25,6 +25,7 @@ import RichTextEditor from "./RichTextEditor";
 import StatusChip from "../ui/StatusChip";
 import HlsVideoPlayer from "./HlsVideoPlayer";
 import { loadStoredUser } from "../../utils/auth";
+import { toPreviewHtml } from "../../utils/previewText";
 
 import { tokens } from "../../theme/theme";
 import {
@@ -147,6 +148,9 @@ export default function FilePreviewDialog({
       setSaving(false);
     }
   }
+
+  // Same render the download reuses — single source of truth in previewText.js.
+  const renderedHtml = toPreviewHtml(content);
 
   // Detect the media kind from the content type, falling back to the file's
   // extension (file.fileType) when the server sent a generic type.
@@ -439,13 +443,11 @@ export default function FilePreviewDialog({
                   maxHeight: 460,
                   overflowY: "auto",
                   p: 0.5,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily: "inherit",
                 }}
-              >
-                {content}
-              </Box>
+                dangerouslySetInnerHTML={{
+                  __html: renderedHtml,
+                }}
+              />
             )}
           </>
         )}

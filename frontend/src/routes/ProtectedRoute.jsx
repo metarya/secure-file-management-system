@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { loadStoredUser, storeUser, isAuthenticated, isAdmin } from "../utils/auth";
+import { loadStoredUser, storeUser, isAuthenticated } from "../utils/auth";
 import { getAllUsers } from "../api/adminApi";
 
 // On mount, silently re-validate the current user's role from the server.

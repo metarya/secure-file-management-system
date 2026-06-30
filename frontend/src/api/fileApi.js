@@ -2,6 +2,7 @@
 import { api } from "../lib/apiClient";
 import { API_BASE_URL } from "../config";
 import { loadStoredUser } from "../utils/auth";
+import { htmlToReadableText } from "../utils/previewText";
 
 // --- listing / search ---------------------------------------------------
 // The backend derives the owner from the JWT; no ownerId is sent.
@@ -115,13 +116,32 @@ export async function previewFile(fileId, fileName) {
 
 export async function downloadFile(fileId, fallbackName) {
   const res = await api.raw(`/files/download/${fileId}`);
-  const blob = await res.blob();
+
+  // Resolve the filename first (the response body can only be read once).
   let fileName = fallbackName || `file-${fileId}`;
   const disposition = res.headers.get("Content-Disposition");
   if (disposition) {
     const match = disposition.match(/filename="?([^"]+)"?/);
     if (match?.[1]) fileName = match[1];
   }
+
+  // .txt documents are stored as the rich-text editor's HTML. Export them as the
+  // exact text the Preview dialog shows — reusing the same render path
+  // (htmlToReadableText) so the file matches the preview, never raw markup.
+  //
+  // .md and all binary types (pdf, images, audio/video, …) are downloaded
+  // unchanged. (.md is left as-is so it can later be exported as proper Markdown
+  // via Turndown without losing formatting to a plain-text conversion now.)
+  if (/\.txt$/i.test(fileName)) {
+    const stored = await res.text();
+    const text = htmlToReadableText(stored);
+    return {
+      blob: new Blob([text], { type: "text/plain;charset=utf-8" }),
+      fileName,
+    };
+  }
+
+  const blob = await res.blob();
   return { blob, fileName };
 }
 

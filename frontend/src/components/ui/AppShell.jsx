@@ -44,68 +44,6 @@ const adminNav = [
   { label: "Permissions", to: "/admin/permissions", icon: <ShieldRounded /> },
 ];
 
-function Brand() {
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, px: 2.5, py: 2.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Box sx={{
-          width: 40, height: 40, borderRadius: "12px", display: "grid", placeItems: "center",
-          background: tokens.accentGradient, boxShadow: "0 8px 22px rgba(99,102,241,0.4)",
-        }}>
-          <FolderOpenRounded sx={{ color: "#fff", fontSize: 22 }} />
-        </Box>
-        <Box>
-          <Typography sx={{ fontFamily: tokens.display, fontWeight: 700, fontSize: "1.15rem", color: tokens.text, lineHeight: 1 }}>
-            FileVault
-          </Typography>
-          <Typography sx={{ color: tokens.textFaint, fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Secure storage
-          </Typography>
-        </Box>
-      </Box>
-      <ThemeToggle />
-    </Box>
-  );
-}
-
-function NavList({ items, pathname, onNavigate }) {
-  return (
-    <List sx={{ px: 1.5, flex: 1 }}>
-      {items.map((item) => {
-        const active = pathname === item.to || pathname.startsWith(item.to + "/");
-        return (
-          <ListItemButton
-            key={item.to}
-            component={Link}
-            to={item.to}
-            onClick={onNavigate}
-            sx={{
-              borderRadius: "12px", mb: 0.5, px: 1.75, py: 1.1,
-              // Use accent color text when active so it's visible in both light and dark
-              color: active ? tokens.accent : tokens.textDim,
-              background: active ? "rgba(99,102,241,0.12)" : "transparent",
-              border: active ? `1px solid rgba(99,102,241,0.30)` : "1px solid transparent",
-              "&:hover": {
-                background: active ? "rgba(99,102,241,0.18)" : tokens.surfaceHover,
-                color: tokens.text,
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 38, color: active ? tokens.accent : tokens.textFaint }}>
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText
-              slotProps={{ primary: { style: { fontSize: "0.92rem", fontWeight: active ? 700 : 500 } } }}
-            >
-              {item.label}
-            </ListItemText>
-          </ListItemButton>
-        );
-      })}
-    </List>
-  );
-}
-
 export default function AppShell({ children }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));

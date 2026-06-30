@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, CircularProgress } from "@mui/material";
 import CloudUploadRounded from "@mui/icons-material/CloudUploadRounded";
 import FolderRounded from "@mui/icons-material/FolderRounded";
@@ -213,8 +213,6 @@ export default function DashboardPage() {
     { label: "Rename", icon: <DriveFileRenameOutlineRounded />, onClick: () => setPreviewTarget(file) },
     { label: "Delete", icon: <DeleteOutlineRounded />, onClick: () => setDeleteTarget(file), danger: true },
   ];
-
-  const totalSize = useMemo(() => files.reduce((s, f) => s + (f.fileSize || 0), 0), [files]);
 
   return (
     <AppShell>

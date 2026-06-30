@@ -5,7 +5,6 @@ import { api } from "../lib/apiClient";
 export const getAdminStats = () => api.get(`/admin/stats`);              // users / admins / regular
 export const getFileStats = () => api.get(`/admin/file-stats`);          // counts + storage
 export const getSystemHealth = () => api.get(`/admin/system-health`);    // active / blocked / files / storage
-export const adminTest = () => api.get(`/admin/test`);
 
 // --- users --------------------------------------------------------------
 export const getAllUsers = () => api.get(`/admin/users`);
@@ -21,7 +20,6 @@ export const resetUserPassword = (email) =>
 export const deleteUser = (userId) => api.del(`/admin/users/${userId}`);
 
 // --- activity / summaries ----------------------------------------------
-export const getUserFileSummary = () => api.get(`/admin/user-file-summary`);
 export const getUserActivity = () => api.get(`/admin/user-activity`);
 
 // --- files (admin oversight) -------------------------------------------

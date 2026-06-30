@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Box, Typography, Chip } from "@mui/material";
+import { Typography, Chip } from "@mui/material";
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
