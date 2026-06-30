@@ -21,10 +21,11 @@ import SaveRounded from "@mui/icons-material/SaveRounded";
 import DriveFileRenameOutlineRounded from "@mui/icons-material/DriveFileRenameOutlineRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 
-import RichTextEditor from "./RichTextEditor";
+import FileEditor, { isEditableType } from "./editors/FileEditor";
 import StatusChip from "../ui/StatusChip";
 import HlsVideoPlayer from "./HlsVideoPlayer";
 import { loadStoredUser } from "../../utils/auth";
+import { renderMarkdown } from "../../api/markdownApi";
 
 import { tokens } from "../../theme/theme";
 import {
@@ -65,6 +66,7 @@ export default function FilePreviewDialog({
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [previewData, setPreviewData] = useState(null);
+  const [renderedMd, setRenderedMd] = useState("");
 
   useEffect(() => {
     if (!open || !file) return;
@@ -107,6 +109,28 @@ export default function FilePreviewDialog({
       cancelled = true;
     };
   }, [open, file, loadContent]);
+
+  // Markdown read-mode preview: render the stored Markdown to sanitized HTML via
+  // the backend MarkdownService (never client-rendered). Only runs for .md while
+  // not editing.
+  useEffect(() => {
+    const isMd = (file?.fileType || "").toLowerCase() === "md";
+    if (!open || !file || editing || !isMd || previewData?.type !== "text") {
+      setRenderedMd("");
+      return;
+    }
+    let cancelled = false;
+    renderMarkdown(content)
+      .then((html) => {
+        if (!cancelled) setRenderedMd(typeof html === "string" ? html : "");
+      })
+      .catch(() => {
+        if (!cancelled) setRenderedMd("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, file, editing, content, previewData]);
 
   if (!file) return null;
 
@@ -152,6 +176,7 @@ export default function FilePreviewDialog({
   // extension (file.fileType) when the server sent a generic type.
   const fileExt = (file.fileType || file.fileName?.split(".").pop() || "").toLowerCase();
   const previewType = previewData?.contentType || "";
+  const isMarkdownFile = fileExt === "md";
 
   const isAudio =
     previewType.startsWith("audio/") || ["mp3", "wav", "m4a"].includes(fileExt);
@@ -424,9 +449,26 @@ export default function FilePreviewDialog({
                 )}
               </>
             ) : editing ? (
-              <RichTextEditor
-                initialValue={content}
+              <FileEditor
+                fileType={file.fileType}
+                value={draft}
                 onChange={setDraft}
+              />
+            ) : isMarkdownFile ? (
+              <Box
+                className="fv-rich"
+                // Trusted, server-sanitized HTML from MarkdownService only.
+                dangerouslySetInnerHTML={{ __html: renderedMd }}
+                sx={{
+                  color: tokens.text,
+                  fontSize: "0.95rem",
+                  lineHeight: 1.7,
+                  minHeight: 160,
+                  maxHeight: 460,
+                  overflowY: "auto",
+                  overflowWrap: "anywhere",
+                  p: 0.5,
+                }}
               />
             ) : (
               <Box
@@ -440,7 +482,9 @@ export default function FilePreviewDialog({
                   overflowY: "auto",
                   p: 0.5,
                   whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  minWidth: 0,
+                  maxWidth: "100%",
                   fontFamily: "inherit",
                 }}
               >
@@ -472,9 +516,7 @@ export default function FilePreviewDialog({
           Download
         </Button>
 
-        {canEdit && 
-          ["txt", "md"].includes((file?.fileType || "").toLowerCase())
-          && !editing && (
+        {canEdit && isEditableType(file?.fileType) && !editing && (
           <Button
             variant="contained"
             startIcon={<EditRounded />}
@@ -487,9 +529,7 @@ export default function FilePreviewDialog({
           </Button>
         )}
 
-        {canEdit && 
-          ["txt", "md"].includes((file?.fileType || "").toLowerCase())
-        && editing && (
+        {canEdit && isEditableType(file?.fileType) && editing && (
           <>
             <Button
               variant="outlined"

@@ -30,17 +30,20 @@ public class FileContentService {
     private final FileCompressionService fileCompressionService;
     private final FileAccessService fileAccessService;
     private final CompressorFactory compressorFactory;
+    private final LegacyTextMigrationService legacyTextMigrationService;
 
     public FileContentService(
             FileRepository fileRepository,
             FileCompressionService fileCompressionService,
             FileAccessService fileAccessService,
-            CompressorFactory compressorFactory
+            CompressorFactory compressorFactory,
+            LegacyTextMigrationService legacyTextMigrationService
     ) {
         this.fileRepository = fileRepository;
         this.fileCompressionService = fileCompressionService;
         this.fileAccessService = fileAccessService;
         this.compressorFactory = compressorFactory;
+        this.legacyTextMigrationService = legacyTextMigrationService;
 
     }
 
@@ -48,7 +51,9 @@ public class FileContentService {
 
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
-        byte[] outputBytes = decompressedBytes(file);
+        // Self-heal legacy .txt files that still hold HTML: convert to plain text
+        // (and persist) before serving, so preview and download are native text.
+        byte[] outputBytes = legacyTextMigrationService.migrateTxtIfHtml(file, decompressedBytes(file));
         MediaType mediaType = resolveMediaType(file.getContentType(), file.getFileType());
 
         // Defence in depth against stored XSS: HTML content must never render
@@ -84,7 +89,8 @@ public class FileContentService {
      */
     public String loadDecompressedText(Long fileId, String userEmail) {
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
-        return new String(decompressedBytes(file), StandardCharsets.UTF_8);
+        byte[] bytes = legacyTextMigrationService.migrateTxtIfHtml(file, decompressedBytes(file));
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
 
