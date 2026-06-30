@@ -150,10 +150,15 @@ export const getActivityLogs = (params) =>
 export const getActivityDetail = (id) =>
   api.get(`/admin/activity-logs/${id}`);
 
-// "View Changes" for a file-edit activity. Phase 1 returns the recorded
-// version references plus a status message (diff rendering arrives in Phase 2).
+// "View Changes" version references for a file-edit activity (lightweight).
 export const getActivityChanges = (id) =>
   api.get(`/admin/activity-logs/${id}/changes`);
+
+// GitHub-style diff for a file-edit activity. Generated on demand by the
+// backend; returns TEXT_DIFF (line-by-line) or BINARY_METADATA. Called only
+// when the admin clicks "View Changes".
+export const getActivityDiff = (id) =>
+  api.get(`/admin/activity-logs/${id}/diff`);
 
 // --- permissions --------------------------------------------------------
 export const getPermissionCatalog = () =>

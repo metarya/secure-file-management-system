@@ -63,7 +63,7 @@ export default function FileManagementPage() {
   const fetchFiles = useCallback((params) => getAllFiles(params), []);
   const {
     rows: files, meta, loading, refreshing,
-    sort, search, handleSort, setSearch, goToPage, refresh,
+    sort, search, size, handleSort, setSearch, goToPage, setPageSize, refresh,
   } = usePaginatedQuery(fetchFiles, {
     initialSort: "uploadedAt",
     initialDirection: "desc",
@@ -257,7 +257,7 @@ export default function FileManagementPage() {
         serverMode
         empty={null}
       />
-      <Pagination {...meta} onPageChange={goToPage} />
+      <Pagination {...meta} size={size} onPageChange={goToPage} onRowsPerPageChange={setPageSize} />
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}
         transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>

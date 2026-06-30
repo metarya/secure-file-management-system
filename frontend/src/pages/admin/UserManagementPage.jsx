@@ -53,7 +53,7 @@ export default function UserManagementPage() {
   const fetchUsers = useCallback((params) => getUsersPage(params), []);
   const {
     rows: users, meta, loading, refreshing,
-    sort, search, handleSort, setSearch, goToPage, refresh,
+    sort, search, size, handleSort, setSearch, goToPage, setPageSize, refresh,
   } = usePaginatedQuery(fetchUsers, {
     initialSort: "createdAt",
     initialDirection: "desc",
@@ -203,7 +203,7 @@ export default function UserManagementPage() {
         serverMode
         empty={null}
       />
-      <Pagination {...meta} onPageChange={goToPage} />
+      <Pagination {...meta} size={size} onPageChange={goToPage} onRowsPerPageChange={setPageSize} />
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}
         transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>

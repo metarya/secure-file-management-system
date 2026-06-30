@@ -34,6 +34,9 @@ import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.service.compression.CompressionResult;
 import com.project.filemanagement.service.streaming.HlsService;
+import com.project.filemanagement.storage.StorageContext;
+import com.project.filemanagement.storage.StorageProviderRegistry;
+import com.project.filemanagement.storage.StorageProviderType;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,6 +64,8 @@ public class FileService {
     private final MarkdownService markdownService;
     private final Tika tika;
     private final HlsService hlsService;
+    private final UserStorageSettingsService storageSettingsService;
+    private final StorageProviderRegistry storageRegistry;
 
     public FileService(
             FileRepository fileRepository,
@@ -76,7 +81,9 @@ public class FileService {
             FileSharingService fileSharingService,
             FileStreamingService fileStreamingService,
             MarkdownService markdownService,
-            HlsService hlsService
+            HlsService hlsService,
+            UserStorageSettingsService storageSettingsService,
+            StorageProviderRegistry storageRegistry
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
@@ -92,6 +99,8 @@ public class FileService {
         this.fileStreamingService = fileStreamingService;
         this.markdownService = markdownService;
         this.hlsService = hlsService;
+        this.storageSettingsService = storageSettingsService;
+        this.storageRegistry = storageRegistry;
         this.tika = new Tika();
     }
 
@@ -249,7 +258,24 @@ fileEntity.setCompressionAlgorithm(
 fileEntity.setRequiresDecompression(
         compressionResult.isRequiresDecompression());
         fileEntity.setVisibility("PRIVATE");
-        fileEntity.setFileData(storedBytes);
+
+        // Storage routing: the user's chosen provider decides where the bytes go.
+        // LOCAL keeps the existing DB-blob behavior (stores the compressed bytes
+        // in file_data) so all existing flows are unchanged. Cloud providers store
+        // the raw bytes externally and we record only the provider + storage key.
+        StorageProviderType providerType = storageSettingsService.resolveProviderType(owner);
+        if (providerType == StorageProviderType.LOCAL) {
+            fileEntity.setFileData(storedBytes);
+            fileEntity.setStorageProvider(StorageProviderType.LOCAL.name());
+            fileEntity.setStorageKey(null);
+        } else {
+            StorageContext ctx = storageSettingsService.contextFor(owner, providerType);
+            String key = storageRegistry.get(providerType)
+                    .upload(ctx, originalFileName, originalBytes, detectedMimeType);
+            fileEntity.setFileData(null);
+            fileEntity.setStorageProvider(providerType.name());
+            fileEntity.setStorageKey(key);
+        }
 
 FileEntity savedFile = fileRepository.save(fileEntity);
 
@@ -729,6 +755,18 @@ return new FileUploadResponse(
         // FK would block the row delete.
         filePermissionRepository.deleteAllByFile(file);
 
+        // Best-effort: remove the bytes from a cloud provider too (LOCAL bytes
+        // are in the DB row being deleted). Never let this block the delete.
+        StorageProviderType delProvider = StorageProviderType.fromString(file.getStorageProvider());
+        if (delProvider != StorageProviderType.LOCAL && file.getStorageKey() != null) {
+            try {
+                StorageContext ctx = storageSettingsService.contextFor(owner, delProvider);
+                storageRegistry.get(delProvider).delete(ctx, file.getStorageKey());
+            } catch (Exception ignored) {
+                // Orphaned remote object is acceptable; the DB record is the source of truth.
+            }
+        }
+
         String fileName = file.getFileName();
         fileRepository.delete(file);
 
@@ -864,6 +902,18 @@ return new FileUploadResponse(
             }
         }
 
+
+        // Storage routing: for cloud-backed files, push the edited bytes to the
+        // provider and repoint the storage key (LOCAL keeps the DB-blob written
+        // above). Keeps the served content in sync with the edit on every backend.
+        StorageProviderType editProvider = StorageProviderType.fromString(file.getStorageProvider());
+        if (editProvider != StorageProviderType.LOCAL) {
+            StorageContext ctx = storageSettingsService.contextFor(owner, editProvider);
+            String key = storageRegistry.get(editProvider)
+                    .upload(ctx, file.getFileName(), updatedData, file.getContentType());
+            file.setStorageKey(key);
+            file.setFileData(null);
+        }
 
         fileRepository.save(file);
 

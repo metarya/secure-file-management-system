@@ -17,6 +17,8 @@ import LogoutRounded from "@mui/icons-material/LogoutRounded";
 import MenuRounded from "@mui/icons-material/MenuRounded";
 import FolderOpenRounded from "@mui/icons-material/FolderOpenRounded";
 import RestoreFromTrashRounded from "@mui/icons-material/RestoreFromTrashRounded";
+import CloudQueueRounded from "@mui/icons-material/CloudQueueRounded";
+import SettingsRounded from "@mui/icons-material/SettingsRounded";
 
 import { tokens } from "../../theme/theme";
 import ThemeToggle from "./ThemeToggle";
@@ -32,6 +34,7 @@ const userNav = [
   { label: "My Files", to: "/dashboard", icon: <FolderRounded /> },
   { label: "Shared with me", to: "/shared", icon: <ShareRounded /> },
   { label: "Recycle Bin", to: "/recycle-bin", icon: <RestoreFromTrashRounded /> },
+  { label: "Storage", to: "/settings/storage", icon: <SettingsRounded /> },
 ];
 
 const adminNav = [
@@ -40,6 +43,7 @@ const adminNav = [
   { label: "Users", to: "/admin/users", icon: <PeopleRounded /> },
   { label: "Files", to: "/admin/files", icon: <InsertDriveFileRounded /> },
   { label: "Activity Logs", to: "/admin/activity", icon: <ReceiptLongRounded /> },
+  { label: "Storage", to: "/admin/storage", icon: <CloudQueueRounded /> },
   { label: "Permissions", to: "/admin/permissions", icon: <ShieldRounded /> },
 ];
 

@@ -7,9 +7,10 @@ import HistoryRounded from "@mui/icons-material/HistoryRounded";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 
 import StatusChip from "../ui/StatusChip";
+import DiffViewer from "./DiffViewer";
 import { tokens } from "../../theme/theme";
 import { formatDate } from "../../utils/format";
-import { getActivityDetail, getActivityChanges } from "../../api/adminApi";
+import { getActivityDetail, getActivityDiff } from "../../api/adminApi";
 
 // One label/value line in the detail grid.
 function Field({ label, value, mono = false }) {
@@ -40,8 +41,8 @@ export default function ActivityDetailDialog({ id, open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [changes, setChanges] = useState(null);
-  const [changesLoading, setChangesLoading] = useState(false);
+  const [diff, setDiff] = useState(null);
+  const [diffLoading, setDiffLoading] = useState(false);
 
   // Load the record whenever the dialog opens for a new id.
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function ActivityDetailDialog({ id, open, onClose }) {
     setLoading(true);
     setError("");
     setDetail(null);
-    setChanges(null);
+    setDiff(null);
     getActivityDetail(id)
       .then((d) => { if (active) setDetail(d); })
       .catch((e) => { if (active) setError(e.message || "Couldn't load this activity."); })
@@ -58,12 +59,13 @@ export default function ActivityDetailDialog({ id, open, onClose }) {
     return () => { active = false; };
   }, [open, id]);
 
-  function loadChanges() {
-    setChangesLoading(true);
-    getActivityChanges(id)
-      .then(setChanges)
-      .catch((e) => setChanges({ mode: "UNAVAILABLE", message: e.message || "Couldn't load changes." }))
-      .finally(() => setChangesLoading(false));
+  // Diffs are generated on demand only — never while the activity table loads.
+  function loadDiff() {
+    setDiffLoading(true);
+    getActivityDiff(id)
+      .then(setDiff)
+      .catch((e) => setDiff({ mode: "UNAVAILABLE", message: e.message || "Couldn't load changes." }))
+      .finally(() => setDiffLoading(false));
   }
 
   return (
@@ -104,27 +106,20 @@ export default function ActivityDetailDialog({ id, open, onClose }) {
               <Field label="Details" value={detail.details} />
             </Box>
 
-            {detail.hasVersions && (
+            {/* "View Changes" appears only for file-edit events. */}
+            {detail.action === "FILE_EDIT" && (
               <Box sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
                 <Divider sx={{ borderColor: tokens.border, my: 1 }} />
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
                   <Typography sx={{ color: tokens.textDim, fontSize: "0.85rem", fontWeight: 600 }}>
-                    File edit — version references recorded
+                    File edit — compare versions
                   </Typography>
-                  <Button size="small" variant="outlined" startIcon={<HistoryRounded />} onClick={loadChanges} disabled={changesLoading}>
-                    {changesLoading ? "Loading…" : "View Changes"}
+                  <Button size="small" variant="outlined" startIcon={<HistoryRounded />} onClick={loadDiff} disabled={diffLoading}>
+                    {diffLoading ? "Loading…" : "View Changes"}
                   </Button>
                 </Box>
 
-                {changes && (
-                  <Box sx={{ mt: 1.5, p: 1.5, borderRadius: "12px", border: `1px solid ${tokens.border}`, background: tokens.surfaceHover }}>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5, mb: 1 }}>
-                      <Field label="Previous Version" value={changes.versionBefore} mono />
-                      <Field label="Current Version" value={changes.versionAfter} mono />
-                    </Box>
-                    <Alert severity="info" sx={{ fontSize: "0.82rem" }}>{changes.message}</Alert>
-                  </Box>
-                )}
+                {diff && <DiffViewer diff={diff} />}
               </Box>
             )}
           </Box>

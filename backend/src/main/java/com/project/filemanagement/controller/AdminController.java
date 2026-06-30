@@ -43,9 +43,11 @@ import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.RoleRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.repository.UserRoleRepository;
+import com.project.filemanagement.dto.AdminUserStorageResponse;
 import com.project.filemanagement.service.ActivityLogService;
 import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.AuthService;
+import com.project.filemanagement.service.UserStorageSettingsService;
 import com.project.filemanagement.service.FileService;
 import com.project.filemanagement.service.UserService;
 import com.project.filemanagement.util.PageRequests;
@@ -63,6 +65,7 @@ public class AdminController {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserService userService;
+    private final UserStorageSettingsService userStorageSettingsService;
 
     public AdminController(
             UserRepository userRepository,
@@ -73,7 +76,8 @@ public class AdminController {
             ActivityLogService activityLogService,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
-            UserService userService
+            UserService userService,
+            UserStorageSettingsService userStorageSettingsService
     ) {
         this.userRepository = userRepository;
         this.fileRepository = fileRepository;
@@ -84,6 +88,15 @@ public class AdminController {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.userService = userService;
+        this.userStorageSettingsService = userStorageSettingsService;
+    }
+
+    // Read-only: which storage provider each user uses. Administrators may VIEW
+    // this but can never change another user's storage configuration.
+    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @GetMapping("/user-storage")
+    public List<AdminUserStorageResponse> getUserStorage() {
+        return userStorageSettingsService.adminListUserStorage(userRepository.findAll());
     }
 
     @PreAuthorize("hasAuthority('USER:VIEW')")

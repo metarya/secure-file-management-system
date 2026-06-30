@@ -48,7 +48,7 @@ export default function SystemActivityLogPage() {
   const fetchLogs = useCallback((params) => getActivityLogs(params), []);
   const {
     rows: logs, meta, loading,
-    sort, search, handleSort, setSearch, goToPage,
+    sort, search, size, handleSort, setSearch, goToPage, setPageSize,
   } = usePaginatedQuery(fetchLogs, {
     initialSort: "timestamp",
     initialDirection: "desc",
@@ -132,7 +132,7 @@ export default function SystemActivityLogPage() {
         serverMode
         empty={null}
       />
-      <Pagination {...meta} onPageChange={goToPage} />
+      <Pagination {...meta} size={size} onPageChange={goToPage} onRowsPerPageChange={setPageSize} />
 
       <ActivityDetailDialog
         id={selectedId}

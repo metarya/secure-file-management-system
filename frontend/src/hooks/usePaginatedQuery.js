@@ -26,12 +26,14 @@ export default function usePaginatedQuery(fetcher, options = {}) {
   const {
     initialSort = null,
     initialDirection = "desc",
-    size = 10,
+    size: initialSize = 10,
     debounceMs = 320,
     onError,
   } = options;
 
   const [page, setPage] = useState(0);
+  // Page size is state so the "Rows per page" selector can change it at runtime.
+  const [size, setSize] = useState(initialSize);
   const [sort, setSort] = useState({ field: initialSort, direction: initialDirection });
   const [search, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -112,6 +114,12 @@ export default function usePaginatedQuery(fetcher, options = {}) {
 
   const goToPage = useCallback((next) => setPage(Math.max(0, next)), []);
 
+  // Changing rows-per-page resets to the first page so the new-sized page 1 shows.
+  const setPageSize = useCallback((nextSize) => {
+    setSize(Math.max(1, nextSize));
+    setPage(0);
+  }, []);
+
   return {
     // data
     rows: data.content,
@@ -128,10 +136,12 @@ export default function usePaginatedQuery(fetcher, options = {}) {
     // state
     sort,
     search,
+    size,
     // handlers
     handleSort,
     setSearch,
     goToPage,
+    setPageSize,
     refresh: () => load(true),
     reload: () => load(false),
   };

@@ -11,9 +11,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.filemanagement.dto.ActivityChangesResponse;
+import com.project.filemanagement.dto.ActivityDiffResponse;
 import com.project.filemanagement.dto.ActivityLogDetailResponse;
 import com.project.filemanagement.dto.ActivityLogResponse;
 import com.project.filemanagement.dto.PageResponse;
+import com.project.filemanagement.service.ActivityDiffService;
 import com.project.filemanagement.service.ActivityLogService;
 import com.project.filemanagement.util.PageRequests;
 
@@ -32,9 +34,14 @@ import com.project.filemanagement.util.PageRequests;
 public class ActivityLogController {
 
     private final ActivityLogService activityLogService;
+    private final ActivityDiffService activityDiffService;
 
-    public ActivityLogController(ActivityLogService activityLogService) {
+    public ActivityLogController(
+            ActivityLogService activityLogService,
+            ActivityDiffService activityDiffService
+    ) {
         this.activityLogService = activityLogService;
+        this.activityDiffService = activityDiffService;
     }
 
     // Allowlist of sortable columns -> entity property paths. Anything not here
@@ -68,9 +75,20 @@ public class ActivityLogController {
         return activityLogService.getDetail(id);
     }
 
-    /** "View Changes" for file-edit activities (Phase 1 placeholder). */
+    /** "View Changes" reference metadata for file-edit activities. */
     @GetMapping("/{id}/changes")
     public ActivityChangesResponse getActivityChanges(@PathVariable Long id) {
         return activityLogService.getChanges(id);
+    }
+
+    /**
+     * GitHub-style "View Changes" diff for an edit activity. Generated on demand
+     * only (never while loading the activity table): loads the before/after
+     * {@link com.project.filemanagement.entity.FileVersion}s referenced by the
+     * activity and returns a TEXT_DIFF or BINARY_METADATA payload.
+     */
+    @GetMapping("/{id}/diff")
+    public ActivityDiffResponse getActivityDiff(@PathVariable Long id) {
+        return activityDiffService.getDiff(id);
     }
 }
