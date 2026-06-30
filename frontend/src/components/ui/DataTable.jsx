@@ -20,19 +20,55 @@ export default function DataTable({
   columns, rows, loading, getRowKey,
   searchable = false, searchPlaceholder = "Search…", onSearchChange, searchValue,
   toolbarRight, empty, rowsPerPageOptions = [10, 25, 50], dense = false,
+  sortField, sortDirection, onSortChange,
+  // Server-side pagination: when true the table renders `rows` exactly as given
+  // (the parent has already fetched a single page) and the built-in client-side
+  // pager is suppressed — the parent renders <Pagination/> beneath the table.
+  serverMode = false,
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(rowsPerPageOptions[0]);
 
-  const paged = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paged = serverMode ? rows : rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // A column with no visible label (e.g. the row-actions menu) is treated as the
   // card's top-right action slot on mobile rather than a labelled field.
   const actionColumn = columns.find((c) => !c.label);
   const labelledColumns = columns.filter((c) => c.label);
   const cellValue = (col, row) => (col.render ? col.render(row) : (row[col.key] ?? "—"));
+
+  // A column opts into server-side sorting by declaring `sortKey`. When the
+  // parent also provides `onSortChange`, the header becomes a clickable control
+  // with an indicator: ⇅ (not sorted), ↑ (asc), ↓ (desc). Columns without a
+  // sortKey — or tables that don't pass onSortChange — render plain labels, so
+  // every other page using DataTable is unaffected.
+  const renderHeaderLabel = (col) => {
+    if (!col.sortKey || !onSortChange) return col.label;
+    const active = sortField === col.sortKey;
+    const indicator = !active ? "⇅" : sortDirection === "asc" ? "↑" : "↓";
+    return (
+      <Box
+        component="span"
+        role="button"
+        tabIndex={0}
+        onClick={() => onSortChange(col.sortKey)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSortChange(col.sortKey); } }}
+        sx={{
+          cursor: "pointer", userSelect: "none", display: "inline-flex",
+          alignItems: "center", gap: 0.5,
+          color: active ? tokens.text : "inherit",
+          "&:hover": { color: tokens.text },
+        }}
+      >
+        {col.label}
+        <Box component="span" sx={{ fontSize: "0.78rem", color: active ? tokens.accent : tokens.textFaint }}>
+          {indicator}
+        </Box>
+      </Box>
+    );
+  };
 
   const renderMobileCards = () => (
     <Box sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -87,7 +123,7 @@ export default function DataTable({
               size="small"
               placeholder={searchPlaceholder}
               value={searchValue}
-              onChange={(e) => { onSearchChange?.(e.target.value); setPage(0); }}
+              onChange={(e) => { onSearchChange?.(e.target.value); if (!serverMode) setPage(0); }}
               sx={{ flex: 1, minWidth: 180 }}
               slotProps={{
                 input: {
@@ -113,7 +149,7 @@ export default function DataTable({
               <TableRow>
                 {columns.map((c) => (
                   <TableCell key={c.key} align={c.align || "left"} sx={{ width: c.width }}>
-                    {c.label}
+                    {renderHeaderLabel(c)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -149,7 +185,7 @@ export default function DataTable({
         empty || <EmptyState title="Nothing here yet" description="There's no data to show." />
       )}
 
-      {!loading && rows.length > rowsPerPageOptions[0] && (
+      {!serverMode && !loading && rows.length > rowsPerPageOptions[0] && (
         <TablePagination
           component="div"
           count={rows.length}

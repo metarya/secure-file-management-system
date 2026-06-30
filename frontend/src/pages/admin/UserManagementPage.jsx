@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Avatar, IconButton, Menu, MenuItem, Dialog, DialogTitle, DialogContent,
@@ -17,22 +17,20 @@ import PersonRemoveRounded from "@mui/icons-material/PersonRemoveRounded";
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
+import Pagination from "../../components/ui/Pagination";
 import StatusChip from "../../components/ui/StatusChip";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/Toast";
+import usePaginatedQuery from "../../hooks/usePaginatedQuery";
 import { tokens } from "../../theme/theme";
 import { initials, avatarColor, formatDateShort } from "../../utils/format";
-import { getAllUsers, updateUserRole, updateUserStatus, resetUserPassword, deleteUser } from "../../api/adminApi";
+import { getUsersPage, updateUserRole, updateUserStatus, resetUserPassword, deleteUser } from "../../api/adminApi";
 import { getMyPermissions } from "../../api/rbacApi";
 import { loadStoredUser, storeUser } from "../../utils/auth";
 
 export default function UserManagementPage() {
   const toast = useToast();
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState("");
   const [perms, setPerms] = useState([]);
 
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -51,29 +49,21 @@ export default function UserManagementPage() {
   // (the backend also blocks self-deletion, but hiding it avoids a dead action).
   const myId = loadStoredUser()?.userId;
 
-  const fetchUsers = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    try {
-      const data = await getAllUsers();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (e) {
-      toast(e.message || "Couldn't load users.", "error");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []); // eslint-disable-line
+  // Server-side pagination + sort + search. Default: newest accounts first.
+  const fetchUsers = useCallback((params) => getUsersPage(params), []);
+  const {
+    rows: users, meta, loading, refreshing,
+    sort, search, handleSort, setSearch, goToPage, refresh,
+  } = usePaginatedQuery(fetchUsers, {
+    initialSort: "createdAt",
+    initialDirection: "desc",
+    size: 10, // 10 users per page (server-side LIMIT)
+    onError: (e) => toast(e.message || "Couldn't load users.", "error"),
+  });
 
   useEffect(() => {
-    fetchUsers();
     getMyPermissions().then((p) => setPerms(Array.isArray(p) ? p : [])).catch(() => {});
-  }, [fetchUsers]);
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return users.filter((u) => (u.fullName || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
-  }, [users, query]);
+  }, []);
 
   function openMenu(e, u) { setMenuAnchor(e.currentTarget); setMenuUser(u); }
   function closeMenu() { setMenuAnchor(null); setMenuUser(null); }
@@ -98,7 +88,7 @@ export default function UserManagementPage() {
         }
       }
 
-      await fetchUsers(true);
+      refresh();
     } catch (e) {
       toast(e.message || "Couldn't update the role.", "error");
     } finally {
@@ -114,7 +104,7 @@ export default function UserManagementPage() {
       toast(`User ${next === "BLOCKED" ? "blocked" : "unblocked"}.`, "success");
       setStatusDialog(null);
       // Re-fetch from server immediately to confirm the real saved state
-      await fetchUsers(true);
+      refresh();
     } catch (e) {
       toast(e.message || "Couldn't update status.", "error");
     } finally {
@@ -127,9 +117,9 @@ export default function UserManagementPage() {
     try {
       await deleteUser(deleteDialog.id);
       toast("User deleted.", "success");
-      // Drop them from the table immediately.
-      setUsers((prev) => prev.filter((u) => u.id !== deleteDialog.id));
       setDeleteDialog(null);
+      // Server-side pagination: re-fetch so the page and counts stay correct.
+      refresh();
     } catch (e) {
       toast(e.message || "Couldn't delete the user.", "error");
     } finally {
@@ -149,7 +139,7 @@ export default function UserManagementPage() {
 
   const columns = [
     {
-      key: "user", label: "User",
+      key: "user", label: "User", sortKey: "fullName",
       render: (u) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(u.email), fontSize: "0.8rem", fontWeight: 700 }}>{initials(u.fullName, u.email)}</Avatar>
@@ -161,8 +151,8 @@ export default function UserManagementPage() {
       ),
     },
     { key: "role", label: "Role", render: (u) => <StatusChip value={u.role} /> },
-    { key: "status", label: "Status", render: (u) => <StatusChip value={u.status} /> },
-    { key: "createdAt", label: "Joined", render: (u) => <Typography sx={{ color: tokens.textDim, fontSize: "0.85rem" }}>{formatDateShort(u.createdAt)}</Typography> },
+    { key: "status", label: "Status", sortKey: "status", render: (u) => <StatusChip value={u.status} /> },
+    { key: "createdAt", label: "Joined", sortKey: "createdAt", render: (u) => <Typography sx={{ color: tokens.textDim, fontSize: "0.85rem" }}>{formatDateShort(u.createdAt)}</Typography> },
     {
       key: "actions", label: "", align: "right", width: 56,
       render: (u) => (
@@ -174,7 +164,7 @@ export default function UserManagementPage() {
   const refreshButton = (
     <Tooltip title="Refresh table">
       <IconButton
-        onClick={() => fetchUsers(true)}
+        onClick={refresh}
         disabled={refreshing || loading}
         sx={{
           color: tokens.textDim,
@@ -194,21 +184,26 @@ export default function UserManagementPage() {
     <AppShell>
       <PageHeader
         eyebrow="Administration" title="Users"
-        subtitle={loading ? "Loading…" : `${users.length} registered ${users.length === 1 ? "account" : "accounts"}`}
+        subtitle={loading ? "Loading…" : `${meta.totalElements} registered ${meta.totalElements === 1 ? "account" : "accounts"}`}
         actions={refreshButton}
       />
 
       <DataTable
         columns={columns}
-        rows={filtered}
+        rows={users}
         loading={loading}
         getRowKey={(u) => u.id}
         searchable
         searchPlaceholder="Search by name or email…"
-        searchValue={query}
-        onSearchChange={setQuery}
+        searchValue={search}
+        onSearchChange={setSearch}
+        sortField={sort.field}
+        sortDirection={sort.direction}
+        onSortChange={handleSort}
+        serverMode
         empty={null}
       />
+      <Pagination {...meta} onPageChange={goToPage} />
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}
         transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>

@@ -1,7 +1,10 @@
 package com.project.filemanagement.controller;
 
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,6 +29,7 @@ import com.project.filemanagement.dto.AdminUserActivityResponse;
 import com.project.filemanagement.dto.AdminUserFileSummaryResponse;
 import com.project.filemanagement.dto.AdminUserResponse;
 import com.project.filemanagement.dto.AuditLogResponse;
+import com.project.filemanagement.dto.PageResponse;
 import com.project.filemanagement.dto.UpdateRoleRequest;
 import com.project.filemanagement.dto.UpdateUserStatusRequest;
 import com.project.filemanagement.entity.FileEntity;
@@ -43,6 +47,7 @@ import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.AuthService;
 import com.project.filemanagement.service.FileService;
 import com.project.filemanagement.service.UserService;
+import com.project.filemanagement.util.PageRequests;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -103,41 +108,92 @@ public class AdminController {
         );
     }
 
+    // Allowlist of admin-user sort options -> entity property paths. Role is a
+    // join (user_roles) rather than a column, so it is intentionally not
+    // sortable at the DB level and absent from this map.
+    private static final Map<String, String> USER_SORT_FIELDS = Map.of(
+            "fullName", "fullName",
+            "email", "email",
+            "status", "status",
+            "createdAt", "createdAt"
+    );
+
+    private static final String DEFAULT_USER_SORT = "createdAt";
+
     @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/users")
-    public List<AdminUserResponse> getAllUsers() {
+    public PageResponse<AdminUserResponse> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = DEFAULT_USER_SORT) String sort,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(required = false) String search
+    ) {
+        Pageable pageable = PageRequests.of(
+                page, size, sort, direction, USER_SORT_FIELDS, DEFAULT_USER_SORT);
 
-        return userRepository.findAll()
-                .stream()
-                .map(user -> new AdminUserResponse(
-                        user.getId(),
-                        user.getFullName(),
-                        user.getEmail(),
-                        getPrimaryRole(user),
-                        user.getStatus().name(),
-                        user.getCreatedAt()
-                ))
-                .toList();
+        Page<User> users = (search == null || search.isBlank())
+                ? userRepository.findAll(pageable)
+                : userRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                        search.trim(), search.trim(), pageable);
+
+        return PageResponse.of(users, user -> new AdminUserResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                getPrimaryRole(user),
+                user.getStatus().name(),
+                user.getCreatedAt()
+        ));
     }
+
+    // Allowlist of admin-file sort options: maps the public API field name to the
+    // actual entity property path. Acts as the validation gate too — any field not
+    // in this map falls back to the default, so arbitrary/unknown property names
+    // can never reach Spring Data. "ownerName" deliberately maps to the nested
+    // "owner.fullName" path so the API contract stays decoupled from the entity.
+    private static final Map<String, String> FILE_SORT_FIELDS = Map.of(
+            "fileName", "fileName",
+            "uploadedAt", "uploadedAt",
+            "fileSize", "fileSize",
+            "fileType", "fileType",
+            "ownerName", "owner.fullName"
+    );
+
+    private static final String DEFAULT_FILE_SORT = "uploadedAt";
 
     @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
     @GetMapping("/files")
-    public List<AdminFileResponse> getAllFiles() {
+    public PageResponse<AdminFileResponse> getAllFiles(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = DEFAULT_FILE_SORT) String sort,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(required = false) String search
+    ) {
+        // PageRequests appends an `id` tiebreaker in the same direction, so rows
+        // that tie on a second-precision `uploaded_at` still order stably and
+        // actually reverse when the direction flips.
+        Pageable pageable = PageRequests.of(
+                page, size, sort, direction, FILE_SORT_FIELDS, DEFAULT_FILE_SORT);
 
-        return fileRepository.findAll()
-                .stream()
-                .map(file -> new AdminFileResponse(
-                        file.getId(),
-                        file.getFileName(),
-                        file.getDescription(),
-                        file.getFileSize(),
-                        file.getVisibility(),
-                        file.getUploadedAt(),
-                        file.getOwner().getId(),
-                        file.getOwner().getFullName(),
-                        file.getOwner().getEmail()
-                ))
-                .toList();
+        Page<FileEntity> files = (search == null || search.isBlank())
+                ? fileRepository.findAll(pageable)
+                : fileRepository
+                    .findByFileNameContainingIgnoreCaseOrOwner_FullNameContainingIgnoreCaseOrOwner_EmailContainingIgnoreCase(
+                            search.trim(), search.trim(), search.trim(), pageable);
+
+        return PageResponse.of(files, file -> new AdminFileResponse(
+                file.getId(),
+                file.getFileName(),
+                file.getDescription(),
+                file.getFileSize(),
+                file.getVisibility(),
+                file.getUploadedAt(),
+                file.getOwner().getId(),
+                file.getOwner().getFullName(),
+                file.getOwner().getEmail()
+        ));
     }
 
     @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
@@ -239,42 +295,43 @@ public String deleteFile(
                 .toList();
     }
 
+    // Allowlist of admin-activity sort options -> raw JPQL ORDER BY expressions
+    // used by the grouped aggregate query (UserRepository#findUserActivity).
+    // User columns sort directly; "totalFiles"/"storageUsed"/"latestUpload" sort
+    // by their aggregate so the DB orders BEFORE paginating. Aliases here are the
+    // public API contract; "storageUsed"/"latestUpload" decouple the field name
+    // from the underlying SUM/MAX expression.
+    private static final Map<String, String> ACTIVITY_SORT_FIELDS = Map.of(
+            "fullName", "u.fullName",
+            "email", "u.email",
+            "createdAt", "u.createdAt",
+            "totalFiles", "COUNT(f.id)",
+            "storageUsed", "SUM(f.fileSize)",
+            "latestUpload", "MAX(f.uploadedAt)"
+    );
+
+    private static final String DEFAULT_ACTIVITY_SORT = "createdAt";
+
     @PreAuthorize("hasAuthority('USER:VIEW')")
     @GetMapping("/user-activity")
-    public List<AdminUserActivityResponse> getUserActivity() {
+    public PageResponse<AdminUserActivityResponse> getUserActivity(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = DEFAULT_ACTIVITY_SORT) String sort,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(required = false) String search
+    ) {
+        // The per-user file count / storage / last-upload are aggregates, so they
+        // are computed in the DB by a grouped query that can ORDER BY the
+        // aggregate and only then slice the page — letting "storageUsed" and
+        // "latestUpload" be true server-side sorts. Aggregate columns need a raw
+        // ORDER BY expression, hence ofUnsafe + the validated allowlist above.
+        Pageable pageable = PageRequests.ofUnsafe(
+                page, size, sort, direction, ACTIVITY_SORT_FIELDS, DEFAULT_ACTIVITY_SORT, "u.id");
 
-        return userRepository.findAll()
-                .stream()
-                .map(user -> {
+        String term = (search == null || search.isBlank()) ? null : search.trim();
 
-                    List<FileEntity> userFiles =
-                            fileRepository.findByOwner(user);
-
-                    long totalFiles = userFiles.size();
-
-                    long storageUsedBytes = userFiles.stream()
-                            .mapToLong(file ->
-                                    file.getFileSize() == null
-                                            ? 0
-                                            : file.getFileSize())
-                            .sum();
-
-                    java.time.LocalDateTime lastUploadDate =
-                            userFiles.stream()
-                                    .map(FileEntity::getUploadedAt)
-                                    .max(java.time.LocalDateTime::compareTo)
-                                    .orElse(null);
-
-                    return new AdminUserActivityResponse(
-                            user.getId(),
-                            user.getFullName(),
-                            user.getEmail(),
-                            totalFiles,
-                            storageUsedBytes,
-                            lastUploadDate
-                    );
-                })
-                .toList();
+        return PageResponse.of(userRepository.findUserActivity(term, pageable));
     }
 
     @PreAuthorize("hasAuthority('USER:VIEW')")
@@ -323,10 +380,26 @@ public AdminResetPasswordResponse resetUserPassword(
     return authService.adminResetPassword(email);
 }
 
+    private static final Map<String, String> AUDIT_SORT_FIELDS = Map.of(
+            "createdAt", "createdAt",
+            "action", "action",
+            "performedBy", "performedBy"
+    );
+
+    private static final String DEFAULT_AUDIT_SORT = "createdAt";
+
 @PreAuthorize("hasAuthority('USER:VIEW')")
 @GetMapping("/audit-logs")
-public List<AuditLogResponse> getAuditLogs() {
-    return auditLogService.getAllLogs();
+public PageResponse<AuditLogResponse> getAuditLogs(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(defaultValue = DEFAULT_AUDIT_SORT) String sort,
+        @RequestParam(defaultValue = "desc") String direction,
+        @RequestParam(required = false) String search
+) {
+    Pageable pageable = PageRequests.of(
+            page, size, sort, direction, AUDIT_SORT_FIELDS, DEFAULT_AUDIT_SORT);
+    return auditLogService.getLogsPage(search, pageable);
 }
 
 @PreAuthorize("hasAuthority('USER:ROLE_ASSIGN')")

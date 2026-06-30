@@ -3,10 +3,12 @@ package com.project.filemanagement.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.project.filemanagement.dto.PageResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
@@ -141,30 +143,47 @@ public class FileSharingService {
         return filePermissionRepository.findBySharedWithUser(sharedUser)
                 .stream()
                 .filter(permission -> !Boolean.TRUE.equals(permission.getFile().getDeleted()))
-                .map(permission -> {
-                    FileEntity file = permission.getFile();
-                    User owner = file.getOwner();
-
-                    return new SharedWithMeFileResponse(
-                            file.getId(),
-                            file.getFileName(),
-                            file.getDescription(),
-                            file.getFileType(),
-                            file.getFileSize(),
-                            file.getOriginalFileSize(),
-                            file.getCompressedFileSize(),
-                            file.getCompressed(),
-                            file.getVisibility(),
-                            file.getUploadedAt(),
-                            owner.getId(),
-                            owner.getFullName(),
-                            owner.getEmail(),
-                            permission.getId(),
-                            permission.getPermissionType().getCode(),
-                            permission.getCreatedAt()
-                    );
-                })
+                .map(this::mapToSharedResponse)
                 .toList();
+    }
+
+    /** One page of the files shared with a user (live files only). */
+    public PageResponse<SharedWithMeFileResponse> getSharedWithMeFilesPage(String userEmail, Pageable pageable) {
+
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
+        }
+
+        User sharedUser = userRepository.findByEmail(userEmail.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated user not found"));
+
+        return PageResponse.of(
+                filePermissionRepository.findBySharedWithUserAndFile_DeletedFalse(sharedUser, pageable),
+                this::mapToSharedResponse);
+    }
+
+    private SharedWithMeFileResponse mapToSharedResponse(FilePermission permission) {
+        FileEntity file = permission.getFile();
+        User owner = file.getOwner();
+
+        return new SharedWithMeFileResponse(
+                file.getId(),
+                file.getFileName(),
+                file.getDescription(),
+                file.getFileType(),
+                file.getFileSize(),
+                file.getOriginalFileSize(),
+                file.getCompressedFileSize(),
+                file.getCompressed(),
+                file.getVisibility(),
+                file.getUploadedAt(),
+                owner.getId(),
+                owner.getFullName(),
+                owner.getEmail(),
+                permission.getId(),
+                permission.getPermissionType().getCode(),
+                permission.getCreatedAt()
+        );
     }
 
     public String removeSharedFileFromMyList(Long fileId, String userEmail) {

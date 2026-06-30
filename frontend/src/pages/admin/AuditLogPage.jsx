@@ -1,9 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
-import { Box, Typography, Chip } from "@mui/material";
+import { useCallback } from "react";
+import { Typography, Chip } from "@mui/material";
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
+import Pagination from "../../components/ui/Pagination";
 import { useToast } from "../../components/ui/Toast";
+import usePaginatedQuery from "../../hooks/usePaginatedQuery";
 import { tokens } from "../../theme/theme";
 import { formatDate } from "../../utils/format";
 import { getAuditLogs } from "../../api/adminApi";
@@ -37,36 +39,22 @@ function actionStyle(action = "") {
 
 export default function AuditLogPage() {
   const toast = useToast();
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await getAuditLogs();
-        const list = Array.isArray(data) ? data : [];
-        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setLogs(list);
-      } catch (e) {
-        toast(e.message || "Couldn't load audit logs.", "error");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [toast]);
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return logs.filter((l) =>
-      (l.action || "").toLowerCase().includes(q) ||
-      (l.performedBy || "").toLowerCase().includes(q) ||
-      (l.details || "").toLowerCase().includes(q));
-  }, [logs, query]);
+  // Server-side pagination + sort + search. Default: most recent events first.
+  const fetchLogs = useCallback((params) => getAuditLogs(params), []);
+  const {
+    rows: logs, meta, loading,
+    sort, search, handleSort, setSearch, goToPage,
+  } = usePaginatedQuery(fetchLogs, {
+    initialSort: "createdAt",
+    initialDirection: "desc",
+    size: 10, // 10 events per page (server-side LIMIT)
+    onError: (e) => toast(e.message || "Couldn't load audit logs.", "error"),
+  });
 
   const columns = [
     {
-      key: "action", label: "Action", width: 200,
+      key: "action", label: "Action", width: 200, sortKey: "action",
       render: (l) => {
         const s = actionStyle(l.action);
         return (
@@ -85,25 +73,30 @@ export default function AuditLogPage() {
         );
       },
     },
-    { key: "performedBy", label: "By", render: (l) => <Typography sx={{ color: tokens.text, fontSize: "0.85rem", fontWeight: 500 }}>{l.performedBy || "—"}</Typography> },
+    { key: "performedBy", label: "By", sortKey: "performedBy", render: (l) => <Typography sx={{ color: tokens.text, fontSize: "0.85rem", fontWeight: 500 }}>{l.performedBy || "—"}</Typography> },
     { key: "details", label: "Details", render: (l) => <Typography sx={{ color: tokens.textDim, fontSize: "0.85rem" }}>{l.details || "—"}</Typography> },
-    { key: "createdAt", label: "When", width: 190, render: (l) => <Typography className="tnum" sx={{ color: tokens.textFaint, fontSize: "0.82rem" }}>{formatDate(l.createdAt)}</Typography> },
+    { key: "createdAt", label: "When", width: 190, sortKey: "createdAt", render: (l) => <Typography className="tnum" sx={{ color: tokens.textFaint, fontSize: "0.82rem" }}>{formatDate(l.createdAt)}</Typography> },
   ];
 
   return (
     <AppShell>
-      <PageHeader eyebrow="Administration" title="Audit Log" subtitle={loading ? "Loading…" : `${logs.length} recorded event${logs.length === 1 ? "" : "s"}`} />
+      <PageHeader eyebrow="Administration" title="Audit Log" subtitle={loading ? "Loading…" : `${meta.totalElements} recorded event${meta.totalElements === 1 ? "" : "s"}`} />
       <DataTable
         columns={columns}
-        rows={filtered}
+        rows={logs}
         loading={loading}
         getRowKey={(l) => l.id}
         searchable
         searchPlaceholder="Search actions, users, or details…"
-        searchValue={query}
-        onSearchChange={setQuery}
+        searchValue={search}
+        onSearchChange={setSearch}
+        sortField={sort.field}
+        sortDirection={sort.direction}
+        onSortChange={handleSort}
+        serverMode
         empty={null}
       />
+      <Pagination {...meta} onPageChange={goToPage} />
     </AppShell>
   );
 }

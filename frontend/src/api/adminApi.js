@@ -1,6 +1,7 @@
 // Admin endpoints — /api/admin/*  (full AdminController coverage)
 import { api } from "../lib/apiClient";
 import { htmlToText } from "../utils/htmlToText";
+import { pageQuery } from "../utils/pageQuery";
 
 // --- dashboards / stats -------------------------------------------------
 export const getAdminStats = () => api.get(`/admin/stats`);
@@ -9,7 +10,16 @@ export const getSystemHealth = () => api.get(`/admin/system-health`);
 export const adminTest = () => api.get(`/admin/test`);
 
 // --- users --------------------------------------------------------------
-export const getAllUsers = () => api.get(`/admin/users`);
+// Paginated user list (the Users table). Returns a PageResponse envelope.
+export const getUsersPage = (params) => api.get(`/admin/users${pageQuery(params)}`);
+
+// Full (unpaginated-feeling) user list for consumers that need every user —
+// the permissions user-picker and the admin role-sync probe. Backed by the
+// same paginated endpoint with a large page size, unwrapped to a plain array
+// so the historic array contract is preserved.
+export const getAllUsers = () =>
+  api.get(`/admin/users?size=1000`).then((r) =>
+    Array.isArray(r) ? r : (r?.content ?? []));
 
 export const updateUserRole = (userId, role) =>
   api.patch(`/admin/users/${userId}/role`, { role });
@@ -27,12 +37,18 @@ export const deleteUser = (userId) =>
 export const getUserFileSummary = () =>
   api.get(`/admin/user-file-summary`);
 
-export const getUserActivity = () =>
-  api.get(`/admin/user-activity`);
+// Paginated user activity (the Activity table). Aggregates (file count,
+// storage, last upload) are computed per page; sortable by name/email/joined.
+export const getUserActivity = (params) =>
+  api.get(`/admin/user-activity${pageQuery(params)}`);
 
 // --- files --------------------------------------------------------------
-export const getAllFiles = () =>
-  api.get(`/admin/files`);
+// Paginated admin file list. `sort` is an allowlisted field (fileName,
+// uploadedAt, fileSize, fileType, ownerName), `direction` is asc|desc, and
+// `search` matches file name / owner name / owner email. Returns a
+// PageResponse envelope; the backend defaults to uploadedAt desc.
+export const getAllFiles = (params) =>
+  api.get(`/admin/files${pageQuery(params)}`);
 
 export const adminPreviewFile = (fileId) =>
   api.get(`/admin/files/${fileId}/preview`);
@@ -117,8 +133,10 @@ export async function adminDownloadFile(fileId, fallbackName) {
 }
 
 // --- audit --------------------------------------------------------------
-export const getAuditLogs = () =>
-  api.get(`/admin/audit-logs`);
+// Paginated audit log (the Audit Log table). Sortable by createdAt/action/
+// performedBy; `search` matches action / actor / details. Returns PageResponse.
+export const getAuditLogs = (params) =>
+  api.get(`/admin/audit-logs${pageQuery(params)}`);
 
 // --- permissions --------------------------------------------------------
 export const getPermissionCatalog = () =>

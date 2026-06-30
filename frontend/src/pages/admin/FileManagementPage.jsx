@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box, Typography, IconButton, Menu, MenuItem, Dialog, DialogContent, Button, CircularProgress, Divider, Tooltip, useMediaQuery,
 } from "@mui/material";
@@ -15,9 +15,11 @@ import RefreshRounded from "@mui/icons-material/RefreshRounded";
 import AppShell from "../../components/ui/AppShell";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
+import Pagination from "../../components/ui/Pagination";
 import StatusChip from "../../components/ui/StatusChip";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/Toast";
+import usePaginatedQuery from "../../hooks/usePaginatedQuery";
 import { tokens } from "../../theme/theme";
 import { formatBytes, formatDateShort, fileTypeLabel, initials, avatarColor } from "../../utils/format";
 import { getAllFiles, adminPreviewFile, adminPreviewMedia, adminDownloadFile, adminDeleteFile, adminRestoreFile } from "../../api/adminApi";
@@ -43,10 +45,6 @@ export default function FileManagementPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const toast = useToast();
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [query, setQuery] = useState("");
   const [perms, setPerms] = useState([]);
 
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -60,32 +58,22 @@ export default function FileManagementPage() {
 
   const can = (code) => perms.length === 0 || perms.includes(code);
 
-  const fetchFiles = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
-    try {
-      const data = await getAllFiles();
-      setFiles(Array.isArray(data) ? data : []);
-    } catch (e) {
-      toast(e.message || "Couldn't load files.", "error");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []); // eslint-disable-line
+  // Server-side pagination + sort + search. Default matches the backend: newest
+  // uploads first. The hook resets to page 1 whenever the sort or search changes.
+  const fetchFiles = useCallback((params) => getAllFiles(params), []);
+  const {
+    rows: files, meta, loading, refreshing,
+    sort, search, handleSort, setSearch, goToPage, refresh,
+  } = usePaginatedQuery(fetchFiles, {
+    initialSort: "uploadedAt",
+    initialDirection: "desc",
+    size: 10, // 10 files per page (server-side LIMIT)
+    onError: (e) => toast(e.message || "Couldn't load files.", "error"),
+  });
 
   useEffect(() => {
-    fetchFiles();
     getMyPermissions().then((p) => setPerms(Array.isArray(p) ? p : [])).catch(() => {});
-  }, [fetchFiles]);
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return files.filter((f) =>
-      (f.fileName || "").toLowerCase().includes(q) ||
-      (f.ownerName || "").toLowerCase().includes(q) ||
-      (f.ownerEmail || "").toLowerCase().includes(q));
-  }, [files, query]);
+  }, []);
 
   function openMenu(e, f) { setMenuAnchor(e.currentTarget); setMenuFile(f); }
   function closeMenu() { setMenuAnchor(null); setMenuFile(null); }
@@ -130,8 +118,9 @@ export default function FileManagementPage() {
     try {
       await adminDeleteFile(deleteTarget.fileId);
       toast("File deleted.", "success");
-      setFiles((prev) => prev.filter((f) => f.fileId !== deleteTarget.fileId));
       setDeleteTarget(null);
+      // Server-side pagination: re-fetch the current page so counts stay correct.
+      refresh();
     } catch (e) {
       toast(e.message || "Couldn't delete the file.", "error");
     } finally {
@@ -145,7 +134,7 @@ export default function FileManagementPage() {
       await adminRestoreFile(restoreTarget.fileId);
       toast("File restored.", "success");
       setRestoreTarget(null);
-      await fetchFiles(true);
+      refresh();
     } catch (e) {
       toast(e.message || "Couldn't restore the file.", "error");
     } finally {
@@ -155,7 +144,7 @@ export default function FileManagementPage() {
 
   const columns = [
     {
-      key: "file", label: "File",
+      key: "file", label: "File", sortKey: "fileName",
       render: (f) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Box sx={{ position: "relative", width: 34, height: 34, borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(129,140,248,0.14)", color: tokens.accent, flexShrink: 0 }}>
@@ -169,7 +158,7 @@ export default function FileManagementPage() {
       ),
     },
     {
-      key: "owner", label: "Owner",
+      key: "owner", label: "Owner", sortKey: "ownerName",
       render: (f) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Box sx={{ width: 26, height: 26, borderRadius: "50%", bgcolor: avatarColor(f.ownerEmail), display: "grid", placeItems: "center", fontSize: "0.66rem", fontWeight: 700, color: "#fff" }}>
@@ -182,9 +171,9 @@ export default function FileManagementPage() {
         </Box>
       ),
     },
-    { key: "fileSize", label: "Size", render: (f) => <Typography className="tnum" sx={{ color: tokens.textDim, fontSize: "0.84rem" }}>{formatBytes(f.fileSize)}</Typography> },
+    { key: "fileSize", label: "Size", sortKey: "fileSize", render: (f) => <Typography className="tnum" sx={{ color: tokens.textDim, fontSize: "0.84rem" }}>{formatBytes(f.fileSize)}</Typography> },
     { key: "visibility", label: "Visibility", render: (f) => <StatusChip value={f.visibility} /> },
-    { key: "uploadedAt", label: "Uploaded", render: (f) => <Typography sx={{ color: tokens.textDim, fontSize: "0.84rem" }}>{formatDateShort(f.uploadedAt)}</Typography> },
+    { key: "uploadedAt", label: "Uploaded", sortKey: "uploadedAt", render: (f) => <Typography sx={{ color: tokens.textDim, fontSize: "0.84rem" }}>{formatDateShort(f.uploadedAt)}</Typography> },
     {
       key: "actions", label: "", align: "right", width: 56,
       render: (f) => <IconButton size="small" onClick={(e) => openMenu(e, f)} sx={{ color: tokens.textFaint }}><MoreVertRounded fontSize="small" /></IconButton>,
@@ -194,7 +183,7 @@ export default function FileManagementPage() {
   const refreshButton = (
     <Tooltip title="Refresh table">
       <IconButton
-        onClick={() => fetchFiles(true)}
+        onClick={refresh}
         disabled={refreshing || loading}
         sx={{
           color: tokens.textDim,
@@ -249,21 +238,26 @@ export default function FileManagementPage() {
     <AppShell>
       <PageHeader
         eyebrow="Administration" title="Files"
-        subtitle={loading ? "Loading…" : `${files.length} file${files.length === 1 ? "" : "s"} across all users`}
+        subtitle={loading ? "Loading…" : `${meta.totalElements} file${meta.totalElements === 1 ? "" : "s"} across all users`}
         actions={refreshButton}
       />
 
       <DataTable
         columns={columns}
-        rows={filtered}
+        rows={files}
         loading={loading}
         getRowKey={(f) => f.fileId}
         searchable
         searchPlaceholder="Search by file, owner, or email…"
-        searchValue={query}
-        onSearchChange={setQuery}
+        searchValue={search}
+        onSearchChange={setSearch}
+        sortField={sort.field}
+        sortDirection={sort.direction}
+        onSortChange={handleSort}
+        serverMode
         empty={null}
       />
+      <Pagination {...meta} onPageChange={goToPage} />
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}
         transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>
