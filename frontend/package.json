@@ -15,10 +15,13 @@
     "@mui/icons-material": "^9.0.1",
     "@mui/material": "^9.0.1",
     "axios": "^1.16.1",
+    "dompurify": "^3.4.11",
     "hls.js": "^1.6.16",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.15.1"
+    "react-router-dom": "^7.15.1",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

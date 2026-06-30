@@ -22,6 +22,14 @@ import { tokens } from "../../theme/theme";
 import { formatBytes, formatDateShort, fileTypeLabel, initials, avatarColor } from "../../utils/format";
 import { getAllFiles, adminPreviewFile, adminPreviewMedia, adminDownloadFile, adminDeleteFile, adminRestoreFile } from "../../api/adminApi";
 import { getMyPermissions } from "../../api/rbacApi";
+import { htmlToText } from "../../utils/htmlToText";
+
+// TXT/MD files are authored in the rich-text editor and stored as HTML markup,
+// so the raw preview body for a .txt file is HTML — not plain text. Detect that
+// (same heuristic the user-facing preview uses) so we can normalize it back to
+// readable plain text instead of dumping raw tags. Genuine plain-text uploads
+// contain no markup and are shown verbatim, preserving spacing/indentation.
+const looksLikeHtml = (s = "") => /<[a-z][\s\S]*>/i.test(s);
 
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
@@ -225,6 +233,18 @@ export default function FileManagementPage() {
     previewType === "application/pdf" ||
     previewFileName.endsWith(".pdf");
 
+  // Plain-text branch (anything that isn't audio/video/pdf). For .txt files the
+  // stored body is HTML from the rich-text editor, so strip it back to plain
+  // text; everything else is shown exactly as received. The result renders in a
+  // <pre> with white-space: pre-wrap, so line breaks and indentation survive and
+  // nothing is ever interpreted as HTML or Markdown.
+  const rawPreviewBody = preview?.content ?? "";
+  const previewText =
+    previewFileName.endsWith(".txt") && looksLikeHtml(rawPreviewBody)
+      ? htmlToText(rawPreviewBody)
+      : rawPreviewBody;
+  const isEmptyPreview = previewText.trim().length === 0;
+
   return (
     <AppShell>
       <PageHeader
@@ -286,9 +306,13 @@ export default function FileManagementPage() {
               src={preview?.url}
               style={{ width: "100%", height: isMobile ? "70vh" : 600, border: "none", borderRadius: 8 }}
             />
+          ) : isEmptyPreview ? (
+            <Typography sx={{ color: tokens.textFaint, fontSize: "0.9rem", py: 4, textAlign: "center" }}>
+              Empty file
+            </Typography>
           ) : (
             <Box component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", color: tokens.text, fontSize: "0.9rem", lineHeight: 1.7, fontFamily: "inherit", m: 0, maxHeight: 460, overflowY: "auto" }}>
-              {preview?.content || "This file has no readable content."}
+              {previewText}
             </Box>
           )}
         </DialogContent>
