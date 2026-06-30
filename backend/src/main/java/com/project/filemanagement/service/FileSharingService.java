@@ -28,17 +28,20 @@ public class FileSharingService {
     private final UserRepository userRepository;
     private final FilePermissionRepository filePermissionRepository;
     private final PermissionTypeRepository permissionTypeRepository;
+    private final ActivityLogService activityLogService;
 
     public FileSharingService(
             FileRepository fileRepository,
             UserRepository userRepository,
             FilePermissionRepository filePermissionRepository,
-            PermissionTypeRepository permissionTypeRepository
+            PermissionTypeRepository permissionTypeRepository,
+            ActivityLogService activityLogService
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
         this.filePermissionRepository = filePermissionRepository;
         this.permissionTypeRepository = permissionTypeRepository;
+        this.activityLogService = activityLogService;
     }
 
     public ShareFileResponse shareFile(ShareFileRequest request, String ownerEmail) {
@@ -118,6 +121,19 @@ public class FileSharingService {
             permission.setPermissionType(permissionType);
             FilePermission updatedPermission = filePermissionRepository.save(permission);
 
+            activityLogService.log(
+                    owner,
+                    "PERMISSION_CHANGED",
+                    ActivityLogService.RESOURCE_SHARE,
+                    file.getId(),
+                    file.getFileName(),
+                    ActivityLogService.SUCCESS,
+                    null,
+                    null,
+                    "Changed " + targetUser.getEmail() + "'s permission on "
+                            + file.getFileName() + " from " + currentPermissionCode
+                            + " to " + requestedPermissionCode);
+
             return new ShareFileResponse("File permission updated successfully", updatedPermission.getId());
         }
 
@@ -127,6 +143,18 @@ public class FileSharingService {
         permission.setPermissionType(permissionType);
 
         FilePermission savedPermission = filePermissionRepository.save(permission);
+
+        activityLogService.log(
+                owner,
+                "SHARE_FILE",
+                ActivityLogService.RESOURCE_SHARE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Shared " + file.getFileName() + " with " + targetUser.getEmail()
+                        + " as " + requestedPermissionCode);
 
         return new ShareFileResponse("File shared successfully", savedPermission.getId());
     }
@@ -217,6 +245,17 @@ public class FileSharingService {
 
         filePermissionRepository.delete(permission);
 
+        activityLogService.log(
+                sharedUser,
+                "REMOVE_SHARE",
+                ActivityLogService.RESOURCE_SHARE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Removed shared file " + file.getFileName() + " from own list");
+
         return "Shared file removed from your list";
     }
 
@@ -243,7 +282,19 @@ public class FileSharingService {
             );
         }
 
+        FileEntity removedFile = permission.getFile();
         filePermissionRepository.delete(permission);
+
+        activityLogService.log(
+                sharedUser,
+                "REMOVE_SHARE",
+                ActivityLogService.RESOURCE_SHARE,
+                removedFile == null ? null : removedFile.getId(),
+                removedFile == null ? null : removedFile.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Removed shared permission from own list");
 
         return "Shared file removed from your list";
     }
@@ -265,7 +316,19 @@ public class FileSharingService {
                         "Shared file entry not found for this user"
                 ));
 
+        FileEntity sideFile = permission.getFile();
         filePermissionRepository.delete(permission);
+
+        activityLogService.logByEmail(
+                userEmail,
+                "REMOVE_SHARE",
+                ActivityLogService.RESOURCE_SHARE,
+                sideFile == null ? fileId : sideFile.getId(),
+                sideFile == null ? null : sideFile.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Removed shared file entry from own list");
 
         return "Shared file removed from your list";
     }

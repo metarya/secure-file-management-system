@@ -21,6 +21,8 @@ export default function DataTable({
   searchable = false, searchPlaceholder = "Search…", onSearchChange, searchValue,
   toolbarRight, empty, rowsPerPageOptions = [10, 25, 50], dense = false,
   sortField, sortDirection, onSortChange,
+  // Optional: when provided, each row becomes clickable and invokes onRowClick(row).
+  onRowClick,
   // Server-side pagination: when true the table renders `rows` exactly as given
   // (the parent has already fetched a single page) and the built-in client-side
   // pager is suppressed — the parent renders <Pagination/> beneath the table.
@@ -84,9 +86,11 @@ export default function DataTable({
         paged.map((row, idx) => (
           <Box
             key={getRowKey ? getRowKey(row) : idx}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
             sx={{
               p: 2, borderRadius: "14px", border: `1px solid ${tokens.border}`,
               background: tokens.surface, backdropFilter: "blur(14px)",
+              ...(onRowClick ? { cursor: "pointer" } : {}),
             }}
           >
             {/* Header: first labelled column + optional action menu */}
@@ -168,7 +172,12 @@ export default function DataTable({
 
               {!loading &&
                 paged.map((row, idx) => (
-                  <TableRow key={getRowKey ? getRowKey(row) : idx} hover>
+                  <TableRow
+                    key={getRowKey ? getRowKey(row) : idx}
+                    hover
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    sx={onRowClick ? { cursor: "pointer" } : undefined}
+                  >
                     {columns.map((c) => (
                       <TableCell key={c.key} align={c.align || "left"} sx={{ color: tokens.text }}>
                         {c.render ? c.render(row) : <Typography sx={{ fontSize: "0.9rem" }}>{row[c.key] ?? "—"}</Typography>}

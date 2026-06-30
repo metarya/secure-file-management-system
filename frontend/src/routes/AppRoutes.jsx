@@ -11,7 +11,7 @@ import RecycleBinPage from "../pages/user/RecycleBinPage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import UserManagementPage from "../pages/admin/UserManagementPage";
 import FileManagementPage from "../pages/admin/FileManagementPage";
-import ActivityPage from "../pages/admin/ActivityPage";
+import SystemActivityLogPage from "../pages/admin/SystemActivityLogPage";
 import AuditLogPage from "../pages/admin/AuditLogPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 
@@ -39,7 +39,9 @@ export default function AppRoutes() {
         <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
         <Route path="/admin/files" element={<AdminRoute><FileManagementPage /></AdminRoute>} />
-        <Route path="/admin/activity" element={<AdminRoute><ActivityPage /></AdminRoute>} />
+        {/* System Activity Log (replaces the old per-user Activity page) */}
+        <Route path="/admin/activity" element={<AdminRoute><SystemActivityLogPage /></AdminRoute>} />
+        {/* Legacy audit-log view kept for back-compat; no longer in the nav. */}
         <Route path="/admin/audit" element={<AdminRoute><AuditLogPage /></AdminRoute>} />
         <Route path="/admin/permissions" element={<AdminRoute><PermissionsPage /></AdminRoute>} />
 

@@ -36,6 +36,7 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
+    private final ActivityLogService activityLogService;
     private final UserRoleRepository userRoleRepository;
     private final RoleRepository roleRepository;
 
@@ -44,15 +45,17 @@ public class AuthService {
             JwtUtil jwtUtil,
             EmailService emailService,
             AuditLogService auditLogService,
+            ActivityLogService activityLogService,
             UserRoleRepository userRoleRepository,
             RoleRepository roleRepository
-            ) 
+            )
     {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtUtil = jwtUtil;
         this.emailService = emailService;
         this.auditLogService = auditLogService;
+        this.activityLogService = activityLogService;
         this.userRoleRepository = userRoleRepository;
         this.roleRepository = roleRepository;
     }
@@ -101,6 +104,17 @@ UserRoleEntity userRole = UserRoleEntity.builder()
 
 userRoleRepository.save(userRole);
 
+activityLogService.log(
+        user,
+        "USER_CREATED",
+        ActivityLogService.RESOURCE_USER,
+        user.getId(),
+        user.getEmail(),
+        ActivityLogService.SUCCESS,
+        null,
+        null,
+        "New account registered: " + user.getEmail());
+
 return "User registered successfully";
     }
 
@@ -117,6 +131,16 @@ return "User registered successfully";
         Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
 
         if (userOptional.isEmpty()) {
+            activityLogService.logByEmail(
+                    request.getEmail(),
+                    "LOGIN_FAILED",
+                    ActivityLogService.RESOURCE_AUTH,
+                    null,
+                    request.getEmail(),
+                    ActivityLogService.FAILURE,
+                    null,
+                    null,
+                    "Login failed: no account for this email");
             return new LoginResponse("Invalid email or password", null, null, null);
         }
 
@@ -127,10 +151,30 @@ return "User registered successfully";
                 user.getPasswordHash());
 
         if (!passwordMatched) {
+            activityLogService.log(
+                    user,
+                    "LOGIN_FAILED",
+                    ActivityLogService.RESOURCE_AUTH,
+                    user.getId(),
+                    user.getEmail(),
+                    ActivityLogService.FAILURE,
+                    null,
+                    null,
+                    "Login failed: incorrect password");
             return new LoginResponse("Invalid email or password", null, null, null);
         }
 
         if (user.getStatus() == UserStatus.BLOCKED) {
+            activityLogService.log(
+                    user,
+                    "LOGIN_FAILED",
+                    ActivityLogService.RESOURCE_AUTH,
+                    user.getId(),
+                    user.getEmail(),
+                    ActivityLogService.FAILURE,
+                    null,
+                    null,
+                    "Login blocked: account is disabled");
             return new LoginResponse(
                     "Your account has been blocked. Contact administrator.",
                     null,
@@ -141,6 +185,17 @@ return "User registered successfully";
         String token = jwtUtil.generateToken(
                 user.getEmail(),
                 user.getFullName());
+
+        activityLogService.log(
+                user,
+                "LOGIN",
+                ActivityLogService.RESOURCE_AUTH,
+                user.getId(),
+                user.getEmail(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "User signed in");
 
         return new LoginResponse(
                 "Login successful",
@@ -235,9 +290,38 @@ public String resetPassword(String email, String otp, String newPassword) {
                 "ADMIN",
                 "Reset password for " + user.getEmail());
 
+        activityLogService.log(
+                user,
+                "PASSWORD_RESET",
+                ActivityLogService.RESOURCE_USER,
+                user.getId(),
+                user.getEmail(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Administrator reset password for " + user.getEmail());
+
         return new AdminResetPasswordResponse(
                 user.getEmail(),
                 temporaryPassword);
+    }
+
+    /** Records an explicit sign-out for the authenticated user. */
+    public void logout(String email) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        userRepository.findByEmail(email).ifPresent(user ->
+                activityLogService.log(
+                        user,
+                        "LOGOUT",
+                        ActivityLogService.RESOURCE_AUTH,
+                        user.getId(),
+                        user.getEmail(),
+                        ActivityLogService.SUCCESS,
+                        null,
+                        null,
+                        "User signed out"));
     }
 
     private String getPrimaryRole(User user) {

@@ -171,6 +171,15 @@ export const updateVisibility = (fileId, visibility) =>
 export const updateFileContent = (fileId, content) =>
   api.put(`/files/${fileId}/content`, { content });
 
+// --- versioning ---------------------------------------------------------
+// All versions of a file (newest first); access mirrors preview/download.
+export const getFileVersions = (fileId) =>
+  api.get(`/files/${fileId}/versions`);
+
+// Metadata for a single version of a file.
+export const getFileVersion = (fileId, versionId) =>
+  api.get(`/files/${fileId}/versions/${versionId}`);
+
 export const renameFile = (fileId, newFileName) =>
   api.put(`/files/${fileId}/rename`, { newFileName });
 

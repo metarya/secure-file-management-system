@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
 import com.project.filemanagement.dto.FileListResponse;
+import com.project.filemanagement.dto.FileVersionResponse;
 import com.project.filemanagement.dto.PageResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
@@ -49,10 +50,12 @@ public class FileService {
     private final UserRepository userRepository;
     private final FilePermissionRepository filePermissionRepository;
     private final AuditLogService auditLogService;
+    private final ActivityLogService activityLogService;
     private final FileValidationService fileValidationService;
     private final FileCompressionService fileCompressionService;
     private final FileHashService fileHashService;
     private final FileContentService fileContentService;
+    private final FileVersionService fileVersionService;
     private final FileSharingService fileSharingService;
     private final FileStreamingService fileStreamingService;
     private final MarkdownService markdownService;
@@ -64,10 +67,12 @@ public class FileService {
             UserRepository userRepository,
             FilePermissionRepository filePermissionRepository,
             AuditLogService auditLogService,
+            ActivityLogService activityLogService,
             FileValidationService fileValidationService,
             FileCompressionService fileCompressionService,
             FileHashService fileHashService,
             FileContentService fileContentService,
+            FileVersionService fileVersionService,
             FileSharingService fileSharingService,
             FileStreamingService fileStreamingService,
             MarkdownService markdownService,
@@ -77,10 +82,12 @@ public class FileService {
         this.userRepository = userRepository;
         this.filePermissionRepository = filePermissionRepository;
         this.auditLogService = auditLogService;
+        this.activityLogService = activityLogService;
         this.fileValidationService = fileValidationService;
         this.fileCompressionService = fileCompressionService;
         this.fileHashService = fileHashService;
         this.fileContentService = fileContentService;
+        this.fileVersionService = fileVersionService;
         this.fileSharingService = fileSharingService;
         this.fileStreamingService = fileStreamingService;
         this.markdownService = markdownService;
@@ -287,6 +294,31 @@ finally {
 
 }
 
+// Versioning: the upload becomes version 1 (the file's first immutable
+// snapshot). The raw uploaded bytes are stored so future phases can diff
+// against later versions; FileEntity continues to hold the served (compressed)
+// bytes, so preview/download are unaffected.
+var initialVersion = fileVersionService.createInitialVersion(
+        savedFile,
+        originalBytes,
+        fileHash,
+        detectedMimeType,
+        owner.getEmail(),
+        "Initial upload");
+
+activityLogService.log(
+        owner,
+        "FILE_UPLOAD",
+        ActivityLogService.RESOURCE_FILE,
+        savedFile.getId(),
+        savedFile.getFileName(),
+        ActivityLogService.SUCCESS,
+        null,
+        versionRef(savedFile.getFileHash(), savedFile.getFileSize()),
+        null,
+        initialVersion.getId(),
+        "Uploaded file " + savedFile.getFileName());
+
 return new FileUploadResponse(
         "File uploaded successfully",
         savedFile.getId(),
@@ -401,11 +433,15 @@ return new FileUploadResponse(
     // ----------------------------------------------------------------------
 
     public ResponseEntity<byte[]> previewFile(Long fileId, String userEmail) {
-        return fileContentService.serveFileContent(fileId, userEmail, false);
+        ResponseEntity<byte[]> result = fileContentService.serveFileContent(fileId, userEmail, false);
+        logFileAccess(fileId, userEmail, "FILE_PREVIEW", "Previewed file");
+        return result;
     }
 
     public ResponseEntity<byte[]> downloadFile(Long fileId, String userEmail) {
-        return fileContentService.serveFileContent(fileId, userEmail, true);
+        ResponseEntity<byte[]> result = fileContentService.serveFileContent(fileId, userEmail, true);
+        logFileAccess(fileId, userEmail, "FILE_DOWNLOAD", "Downloaded file");
+        return result;
     }
 
     public ResponseEntity<byte[]> streamFile(Long fileId, String userEmail, String rangeHeader) {
@@ -437,6 +473,18 @@ return new FileUploadResponse(
 
     public AdminFilePreviewResponse adminPreviewFile(Long fileId) {
         return fileContentService.adminPreviewFile(fileId);
+    }
+
+    // ----------------------------------------------------------------------
+    // Versioning (delegated to FileVersionService)
+    // ----------------------------------------------------------------------
+
+    public List<FileVersionResponse> getFileVersions(Long fileId, String userEmail) {
+        return fileVersionService.getVersions(fileId, userEmail);
+    }
+
+    public FileVersionResponse getFileVersion(Long fileId, Long versionId, String userEmail) {
+        return fileVersionService.getVersion(fileId, versionId, userEmail);
     }
 
     // ----------------------------------------------------------------------
@@ -472,6 +520,10 @@ return new FileUploadResponse(
     // ----------------------------------------------------------------------
 
     public String adminDeleteFile(Long fileId) {
+        return adminDeleteFile(fileId, null);
+    }
+
+    public String adminDeleteFile(Long fileId, String actingAdminEmail) {
 
         if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
@@ -486,6 +538,18 @@ return new FileUploadResponse(
                 "Deleted file " + file.getFileName() + " owned by " + file.getOwner().getEmail()
         );
 
+        activityLogService.logByEmail(
+                actingAdminEmail,
+                "FILE_DELETE",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Admin deleted file " + file.getFileName()
+                        + " owned by " + file.getOwner().getEmail());
+
         file.setDeleted(true);
         fileRepository.save(file);
 
@@ -493,6 +557,10 @@ return new FileUploadResponse(
     }
 
     public String restoreFile(Long fileId) {
+        return restoreFile(fileId, null);
+    }
+
+    public String restoreFile(Long fileId, String actingAdminEmail) {
 
         if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
@@ -509,6 +577,18 @@ return new FileUploadResponse(
                 "ADMIN",
                 "Restored file " + file.getFileName() + " owned by " + file.getOwner().getEmail()
         );
+
+        activityLogService.logByEmail(
+                actingAdminEmail,
+                "FILE_RESTORE",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Admin restored file " + file.getFileName()
+                        + " owned by " + file.getOwner().getEmail());
 
         return "File restored successfully";
     }
@@ -539,6 +619,17 @@ return new FileUploadResponse(
 
         file.setDeleted(true);
         fileRepository.save(file);
+
+        activityLogService.log(
+                user,
+                "FILE_DELETE",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Moved file to recycle bin: " + file.getFileName());
 
         return "File deleted successfully";
     }
@@ -595,6 +686,17 @@ return new FileUploadResponse(
                 "Restored file " + file.getFileName() + " from the recycle bin"
         );
 
+        activityLogService.log(
+                owner,
+                "FILE_RESTORE",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Restored file " + file.getFileName() + " from the recycle bin");
+
         return "File restored successfully";
     }
 
@@ -635,6 +737,17 @@ return new FileUploadResponse(
                 owner.getEmail(),
                 "Permanently deleted file " + fileName
         );
+
+        activityLogService.log(
+                owner,
+                "FILE_PERMANENT_DELETE",
+                ActivityLogService.RESOURCE_FILE,
+                fileId,
+                fileName,
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Permanently deleted file " + fileName);
 
         return "File permanently deleted";
     }
@@ -711,6 +824,11 @@ return new FileUploadResponse(
 
         byte[] updatedData = content.getBytes(StandardCharsets.UTF_8);
 
+        // Capture a content-free reference to the version BEFORE the edit so the
+        // activity log can later drive a diff without storing the old body.
+        String beforeRef = versionRef(file.getFileHash(), file.getFileSize());
+        String newHash = fileHashService.generateSha256Hash(updatedData);
+
         Path tempInputPath = null;
         File compressedFile = null;
         CompressionResult compressionResult;
@@ -727,6 +845,7 @@ return new FileUploadResponse(
 
             file.setFileData(Files.readAllBytes(compressedFile.toPath()));
             file.setFileSize((long) updatedData.length);
+            file.setFileHash(newHash);
             file.setOriginalFileSize(compressionResult.getOriginalSize());
             file.setCompressedFileSize(compressionResult.getCompressedSize());
             file.setCompressed(
@@ -747,6 +866,31 @@ return new FileUploadResponse(
 
 
         fileRepository.save(file);
+
+        // Versioning: never overwrite history. The current version is preserved
+        // and a NEW immutable version is appended and marked latest. FileEntity
+        // keeps the served (compressed) bytes above so preview/download/sharing
+        // are unaffected; the version stores the raw edited bytes for diffing.
+        FileVersionService.VersionTransition transition = fileVersionService.recordNewVersion(
+                file,
+                updatedData,
+                newHash,
+                file.getContentType(),
+                owner.getEmail(),
+                "Edited content");
+
+        activityLogService.log(
+                owner,
+                "FILE_EDIT",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                beforeRef,
+                versionRef(newHash, (long) updatedData.length),
+                transition.previousVersionId(),
+                transition.newVersion().getId(),
+                "Edited content of file " + file.getFileName());
     }
 
     public void renameFile(Long fileId, String userEmail, String newFileName) {
@@ -802,6 +946,17 @@ return new FileUploadResponse(
                 user.getEmail(),
                 "Renamed file from " + oldName + " to " + newFileName
         );
+
+        activityLogService.log(
+                user,
+                "FILE_EDIT",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                newName,
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Renamed file from " + oldName + " to " + newName);
     }
 
     public void updateFileDescription(Long fileId, String userEmail, String description) {
@@ -835,5 +990,53 @@ return new FileUploadResponse(
                 user.getEmail(),
                 "Updated description for file: " + file.getFileName()
         );
+
+        activityLogService.log(
+                user,
+                "FILE_EDIT",
+                ActivityLogService.RESOURCE_FILE,
+                file.getId(),
+                file.getFileName(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Updated description for file: " + file.getFileName());
+    }
+
+    // ----------------------------------------------------------------------
+    // Activity-log helpers
+    // ----------------------------------------------------------------------
+
+    /**
+     * Builds a compact, content-free reference to a file version for the
+     * activity log: {@code "<hash> · <bytes> bytes"}. This is what gets stored
+     * in {@code versionBefore} / {@code versionAfter} — never the file body —
+     * so a diff can be reconstructed later without bloating the audit trail.
+     */
+    private static String versionRef(String hash, Long sizeBytes) {
+        String shortHash = (hash == null || hash.isBlank())
+                ? "no-hash"
+                : (hash.length() > 12 ? hash.substring(0, 12) : hash);
+        return shortHash + " · " + (sizeBytes == null ? 0 : sizeBytes) + " bytes";
+    }
+
+    /** Logs a successful read-style access (preview/download) of a file, best-effort. */
+    private void logFileAccess(Long fileId, String userEmail, String action, String description) {
+        try {
+            FileEntity file = fileRepository.findById(fileId).orElse(null);
+            String name = file == null ? null : file.getFileName();
+            activityLogService.logByEmail(
+                    userEmail,
+                    action,
+                    ActivityLogService.RESOURCE_FILE,
+                    fileId,
+                    name,
+                    ActivityLogService.SUCCESS,
+                    null,
+                    null,
+                    description + (name == null ? "" : (": " + name)));
+        } catch (Exception ignored) {
+            // Access logging must never break serving the file.
+        }
     }
 }

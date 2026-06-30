@@ -1,6 +1,7 @@
 package com.project.filemanagement.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +51,17 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(response);
+    }
+
+    // ---------------- LOGOUT ----------------
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(Authentication authentication) {
+
+        if (authentication != null) {
+            authService.logout(authentication.getName());
+        }
+
+        return ResponseEntity.ok("Logged out");
     }
 
         @PostMapping("/forgot-password")

@@ -11,7 +11,6 @@ import FolderRounded from "@mui/icons-material/FolderRounded";
 import ShareRounded from "@mui/icons-material/ShareRounded";
 import PeopleRounded from "@mui/icons-material/PeopleRounded";
 import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
-import BarChartRounded from "@mui/icons-material/BarChartRounded";
 import ReceiptLongRounded from "@mui/icons-material/ReceiptLongRounded";
 import ShieldRounded from "@mui/icons-material/ShieldRounded";
 import LogoutRounded from "@mui/icons-material/LogoutRounded";
@@ -22,6 +21,7 @@ import RestoreFromTrashRounded from "@mui/icons-material/RestoreFromTrashRounded
 import { tokens } from "../../theme/theme";
 import ThemeToggle from "./ThemeToggle";
 import { loadStoredUser, logout, isAdmin } from "../../utils/auth";
+import { logoutServer } from "../../api/authApi";
 import { avatarColor, initials } from "../../utils/format";
 
 const WIDTH = 268;
@@ -39,8 +39,7 @@ const adminNav = [
   { label: "Overview", to: "/admin/dashboard", icon: <DashboardRounded /> },
   { label: "Users", to: "/admin/users", icon: <PeopleRounded /> },
   { label: "Files", to: "/admin/files", icon: <InsertDriveFileRounded /> },
-  { label: "Activity", to: "/admin/activity", icon: <BarChartRounded /> },
-  { label: "Audit Log", to: "/admin/audit", icon: <ReceiptLongRounded /> },
+  { label: "Activity Logs", to: "/admin/activity", icon: <ReceiptLongRounded /> },
   { label: "Permissions", to: "/admin/permissions", icon: <ShieldRounded /> },
 ];
 
@@ -126,7 +125,9 @@ export default function AppShell({ children }) {
     ...(admin ? [{ label: "Admin console", to: "/admin/dashboard", icon: <ShieldRounded /> }] : []),
   ];
 
-  function handleLogout() {
+  async function handleLogout() {
+    // Record the sign-out (best-effort) before clearing the local session.
+    await logoutServer();
     logout();
     navigate("/login", { replace: true });
   }

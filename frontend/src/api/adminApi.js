@@ -138,6 +138,23 @@ export async function adminDownloadFile(fileId, fallbackName) {
 export const getAuditLogs = (params) =>
   api.get(`/admin/audit-logs${pageQuery(params)}`);
 
+// --- system activity log ------------------------------------------------
+// Paginated, sortable, searchable system-wide activity feed (every important
+// action by every user). Sort keys: timestamp, actorName, actorEmail, action,
+// resourceName, status. `search` matches actor / action / resource / status /
+// details. Returns a PageResponse envelope; backend defaults to timestamp desc.
+export const getActivityLogs = (params) =>
+  api.get(`/admin/activity-logs${pageQuery(params)}`);
+
+// Full detail for a single activity record (the detail dialog).
+export const getActivityDetail = (id) =>
+  api.get(`/admin/activity-logs/${id}`);
+
+// "View Changes" for a file-edit activity. Phase 1 returns the recorded
+// version references plus a status message (diff rendering arrives in Phase 2).
+export const getActivityChanges = (id) =>
+  api.get(`/admin/activity-logs/${id}/changes`);
+
 // --- permissions --------------------------------------------------------
 export const getPermissionCatalog = () =>
   api.get(`/admin/permissions`);

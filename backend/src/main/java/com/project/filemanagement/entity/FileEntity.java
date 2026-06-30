@@ -86,6 +86,12 @@ public class FileEntity {
     @Column(name = "is_deleted")
     private Boolean deleted = false;
 
+    // Points at the latest FileVersion (see FileVersionService). Kept as a plain
+    // id rather than a JPA relationship to avoid a circular files <-> file_versions
+    // FK cycle; referential integrity is maintained in the service layer.
+    @Column(name = "current_version_id")
+    private Long currentVersionId;
+
     public FileEntity(
             User owner,
             String fileName,
