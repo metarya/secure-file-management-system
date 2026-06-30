@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.apache.tika.Tika;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
 import com.project.filemanagement.dto.FileListResponse;
+import com.project.filemanagement.dto.PageResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
@@ -334,6 +336,50 @@ return new FileUploadResponse(
                 .toList();
     }
 
+    // ----------------------------------------------------------------------
+    // Listing / search — paginated (server-side pagination)
+    // ----------------------------------------------------------------------
+
+    /**
+     * One page of the owner's live files. When {@code search} is non-blank the
+     * page is filtered by file name; otherwise it's the full (non-deleted) set.
+     * The deleted filter is applied in the query so the page metadata counts
+     * match exactly what the user sees.
+     */
+    public PageResponse<FileListResponse> getMyFilesPage(Long ownerId, String search, Pageable pageable) {
+
+        if (ownerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
+        }
+
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
+
+        boolean hasSearch = search != null && !search.isBlank();
+
+        var page = hasSearch
+                ? fileRepository.findByOwnerAndDeletedFalseAndFileNameContainingIgnoreCase(
+                        owner, search.trim(), pageable)
+                : fileRepository.findByOwnerAndDeletedFalse(owner, pageable);
+
+        return PageResponse.of(page, this::mapToFileListResponse);
+    }
+
+    /** One page of the owner's soft-deleted files (the recycle bin view). */
+    public PageResponse<FileListResponse> getDeletedFilesPage(Long ownerId, Pageable pageable) {
+
+        if (ownerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
+        }
+
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
+
+        return PageResponse.of(
+                fileRepository.findByOwnerAndDeletedTrue(owner, pageable),
+                this::mapToFileListResponse);
+    }
+
     private FileListResponse mapToFileListResponse(FileEntity file) {
 
         return new FileListResponse(
@@ -403,6 +449,10 @@ return new FileUploadResponse(
 
     public List<SharedWithMeFileResponse> getSharedWithMeFiles(String userEmail) {
         return fileSharingService.getSharedWithMeFiles(userEmail);
+    }
+
+    public PageResponse<SharedWithMeFileResponse> getSharedWithMeFilesPage(String userEmail, Pageable pageable) {
+        return fileSharingService.getSharedWithMeFilesPage(userEmail, pageable);
     }
 
     public String removeSharedFileFromMyList(Long fileId, String userEmail) {

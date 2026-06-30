@@ -4,6 +4,8 @@ import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.FilePermission;
 import com.project.filemanagement.entity.User;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +18,14 @@ import java.util.Optional;
 public interface FilePermissionRepository extends JpaRepository<FilePermission, Long> {
 
     List<FilePermission> findBySharedWithUser(User sharedWithUser);
+
+    // Shared with me: a user's shares whose underlying file is still live,
+    // paginated. The "File_Deleted" traversal pushes the deleted filter into
+    // the query so paging counts match what the user actually sees.
+    Page<FilePermission> findBySharedWithUserAndFile_DeletedFalse(
+            User sharedWithUser,
+            Pageable pageable
+    );
 
     Optional<FilePermission> findByFileAndSharedWithUser(FileEntity file, User sharedWithUser);
 
