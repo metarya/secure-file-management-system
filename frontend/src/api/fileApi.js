@@ -113,6 +113,14 @@ export async function previewFile(fileId, fileName) {
   };
 }
 
+// Server-rendered Markdown → HTML for the editor/preview. Reuses the backend's
+// commonmark renderer (GFM tables, raw HTML escaped) so a freshly-uploaded .txt
+// is loaded into the rich-text editor as HTML. Returns an HTML string.
+export async function previewMarkdownHtml(fileId) {
+  const res = await api.raw(`/files/preview/markdown/${fileId}`);
+  return await res.text();
+}
+
 export async function downloadFile(fileId, fallbackName) {
   const res = await api.raw(`/files/download/${fileId}`);
   const blob = await res.blob();

@@ -25,6 +25,7 @@ import RichTextEditor from "./RichTextEditor";
 import StatusChip from "../ui/StatusChip";
 import HlsVideoPlayer from "./HlsVideoPlayer";
 import { loadStoredUser } from "../../utils/auth";
+import { previewMarkdownHtml } from "../../api/fileApi";
 
 import { tokens } from "../../theme/theme";
 import {
@@ -33,7 +34,26 @@ import {
   initials,
   avatarColor,
 } from "../../utils/format";
+import {
+  isStoredHtml,
+  markStoredHtml,
+  stripStoredHtmlMarker,
+  sanitizeHtml,
+  htmlToMarkdown,
+  toMarkdownFileName,
+} from "../../utils/markdownHtml";
 
+// Trigger a client-side file download from an in-memory Blob.
+function triggerDownload(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export default function FilePreviewDialog({
   open,
@@ -54,7 +74,10 @@ export default function FilePreviewDialog({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const [content, setContent] = useState("");
+  // `html` is the single working format: sanitized HTML used for both the
+  // read-only preview and as the editor's initial value. `draft` holds the
+  // editor's live HTML output.
+  const [html, setHtml] = useState("");
   const [draft, setDraft] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -85,8 +108,27 @@ export default function FilePreviewDialog({
         const result = await loadContent(file.fileId, file.fileName);
 
         if (result?.type === "text") {
-          setContent(result.content || "");
-          setDraft(result.content || "");
+          const raw = result.content || "";
+
+          // Saved documents carry the storage marker → already HTML, render
+          // directly. A freshly uploaded .txt has no marker → it's Markdown, so
+          // render it through the backend's commonmark converter. Either way the
+          // editor/preview ends up working on HTML.
+          let rendered;
+          if (isStoredHtml(raw)) {
+            rendered = sanitizeHtml(stripStoredHtmlMarker(raw));
+          } else {
+            try {
+              rendered = sanitizeHtml(await previewMarkdownHtml(file.fileId));
+            } catch {
+              rendered = sanitizeHtml(raw);
+            }
+          }
+
+          if (!cancelled) {
+            setHtml(rendered);
+            setDraft(rendered);
+          }
         }
 
         if (!cancelled) {
@@ -94,7 +136,7 @@ export default function FilePreviewDialog({
         }
       } catch {
         if (!cancelled) {
-          setContent("Couldn't load this file.");
+          setHtml("<p>Couldn't load this file.</p>");
         }
       } finally {
         if (!cancelled) {
@@ -113,10 +155,18 @@ export default function FilePreviewDialog({
   async function saveContent() {
     setSaving(true);
 
-    try {
-      await onSaveContent(file.fileId, draft);
+    // Store the editor's HTML directly — HTML is the persisted representation.
+    // Sanitize at the trust boundary so nothing outside the editor's formatting
+    // surface is ever written (defence against a crafted PUT) or later rendered
+    // inline in the preview. Prefix the storage marker so reopen knows the
+    // stored bytes are already HTML (not Markdown).
+    const sanitized = sanitizeHtml(draft);
+    const stored = markStoredHtml(sanitized);
 
-      setContent(draft);
+    try {
+      await onSaveContent(file.fileId, stored);
+
+      setHtml(sanitized);
       setEditing(false);
     } catch {
       // The parent already surfaced the error via a toast — keep the editor
@@ -159,6 +209,23 @@ export default function FilePreviewDialog({
     previewType.startsWith("video/") ||
     ["mp4", "webm", "mov", "avi", "mkv"].includes(fileExt);
   const isPdf = previewType === "application/pdf" || fileExt === "pdf";
+
+  // Editable text documents (.txt/.md) flow through the HTML pipeline.
+  const isTextEditable = ["txt", "md"].includes(fileExt);
+
+  // Download converts the stored HTML back to Markdown and saves it as a .md
+  // file. Binaries fall back to the parent's raw download.
+  function handleDownload() {
+    if (isTextEditable && previewData?.type === "text") {
+      const markdown = htmlToMarkdown(html);
+      triggerDownload(
+        new Blob([markdown], { type: "text/markdown;charset=utf-8" }),
+        toMarkdownFileName(file.fileName)
+      );
+    } else {
+      onDownload?.(file);
+    }
+  }
 
   return (
     <Dialog
@@ -425,27 +492,26 @@ export default function FilePreviewDialog({
               </>
             ) : editing ? (
               <RichTextEditor
-                initialValue={content}
+                initialValue={html}
                 onChange={setDraft}
               />
             ) : (
+              // Preview renders the stored HTML directly (already sanitized on
+              // load/save). No Markdown conversion happens here.
               <Box
                 className="fv-rich"
                 sx={{
+                  // Typography comes from `.fv-rich` so this matches the editor
+                  // exactly; only layout/scroll styles are set here.
                   color: tokens.text,
-                  fontSize: "0.95rem",
-                  lineHeight: 1.7,
                   minHeight: 160,
                   maxHeight: 460,
                   overflowY: "auto",
                   p: 0.5,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily: "inherit",
+                  overflowWrap: "anywhere",
                 }}
-              >
-                {content}
-              </Box>
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
             )}
           </>
         )}
@@ -467,7 +533,7 @@ export default function FilePreviewDialog({
         <Button
           variant="outlined"
           startIcon={<DownloadRounded />}
-          onClick={() => onDownload(file)}
+          onClick={handleDownload}
         >
           Download
         </Button>
@@ -479,7 +545,7 @@ export default function FilePreviewDialog({
             variant="contained"
             startIcon={<EditRounded />}
             onClick={() => {
-              setDraft(content);
+              setDraft(html);
               setEditing(true);
             }}
           >
@@ -493,9 +559,10 @@ export default function FilePreviewDialog({
           <>
             <Button
               variant="outlined"
+              disabled={saving}
               onClick={() => {
                 setEditing(false);
-                setDraft(content);
+                setDraft(html);
               }}
             >
               Cancel
@@ -504,9 +571,10 @@ export default function FilePreviewDialog({
             <Button
               variant="contained"
               startIcon={<SaveRounded />}
+              disabled={saving}
               onClick={saveContent}
             >
-              Save Content
+              {saving ? "Saving…" : "Save Content"}
             </Button>
           </>
         )}

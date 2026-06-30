@@ -104,11 +104,23 @@ a { color: inherit; }
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-/* Rich text rendered inside previews */
+/* Rich-text document styling — shared by the editor and the read-only preview
+   so the two surfaces render a document identically (same headings, spacing,
+   lists, quotes, code). Both elements carry className="fv-rich". */
+.fv-rich { font-size: 1rem; line-height: 1.8; }
+.fv-rich h1 { font-size: 2rem;   font-weight: 700; margin: 0 0 0.5em; }
+.fv-rich h2 { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5em; }
+.fv-rich h3 { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.5em; }
 .fv-rich :is(h1,h2,h3) { color: var(--fv-text); }
+.fv-rich p { margin: 0 0 0.9em; }
 .fv-rich a { color: var(--fv-accent); }
-.fv-rich ul, .fv-rich ol { padding-left: 1.4em; }
+.fv-rich ul, .fv-rich ol { padding-left: 1.4em; margin: 0 0 0.9em; }
 .fv-rich blockquote {
-  margin: 0; padding-left: 14px; border-left: 3px solid var(--fv-accent);
+  margin: 0 0 0.9em; padding-left: 14px; border-left: 3px solid var(--fv-accent);
   color: var(--fv-text-dim);
 }
+.fv-rich pre {
+  background: rgba(0,0,0,0.35); padding: 12px 14px; border-radius: 10px;
+  font-family: Consolas, monospace; overflow-x: auto; margin: 0 0 0.9em;
+}
+.fv-rich code { font-family: Consolas, monospace; }

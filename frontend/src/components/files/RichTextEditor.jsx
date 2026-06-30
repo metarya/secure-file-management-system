@@ -18,7 +18,21 @@ import FormatAlignJustifyRounded from "@mui/icons-material/FormatAlignJustifyRou
 import StrikethroughSRounded from "@mui/icons-material/StrikethroughSRounded";
 import { tokens } from "../../theme/theme";
 
-const looksLikeHtml = (s = "") => /<[a-z][\s\S]*>/i.test(s);
+// Commands whose result Markdown can't express (alignment, text/background
+// colour). For these we switch the browser into CSS-styling mode so the result
+// is an inline `style="..."` the sanitizer preserves — instead of legacy markup
+// like <center>/<font> that varies by browser. Semantic commands (bold, italic,
+// headings, lists…) keep CSS-mode OFF so they stay as <b>/<em>/<h1>/<ul> tags
+// that convert cleanly to Markdown.
+const CSS_STYLED_COMMANDS = new Set([
+  "foreColor",
+  "hiliteColor",
+  "backColor",
+  "justifyLeft",
+  "justifyCenter",
+  "justifyRight",
+  "justifyFull",
+]);
 
 function ToolBtn({
   title,
@@ -97,32 +111,53 @@ export default function RichTextEditor({
   useEffect(() => {
     if (!ref.current || ready) return;
 
-    const html = looksLikeHtml(initialValue)
-      ? initialValue
-      : `<p>${(initialValue || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/\n/g, "<br/>")}</p>`;
-
-    ref.current.innerHTML =
-      html || "<p><br/></p>";
+    // The document pipeline always hands the editor sanitized HTML (Markdown is
+    // rendered to HTML before this point), so render it as live DOM. Never use
+    // textContent here — that would display the tags as literal text, which is
+    // the WYSIWYG bug this editor must avoid.
+    ref.current.innerHTML = initialValue || "<p><br/></p>";
 
     setReady(true);
   }, [initialValue, ready]);
 
+  // The colour swatches are real <input type="color"> elements: clicking one
+  // moves focus to the native picker and collapses the editor's selection, so
+  // execCommand would have nothing to colour. We snapshot the selection on the
+  // swatch's mousedown (before focus shifts) and restore it inside exec.
+  const savedRange = useRef(null);
+
+  const saveSelection = useCallback(() => {
+    const sel = window.getSelection();
+    if (
+      sel &&
+      sel.rangeCount > 0 &&
+      ref.current &&
+      ref.current.contains(sel.anchorNode)
+    ) {
+      savedRange.current = sel.getRangeAt(0).cloneRange();
+    }
+  }, []);
+
   const exec = useCallback(
     (command, value = null) => {
-      document.execCommand(
-        command,
-        false,
-        value
-      );
-
       ref.current?.focus();
 
-      onChange?.(
-        ref.current?.innerHTML || ""
-      );
+      // A snapshot is only present when a colour swatch stole focus and
+      // collapsed the selection just before this call. Restoring it
+      // unconditionally re-targets the original text — focus() alone would
+      // otherwise leave a collapsed caret, so the colour would apply to nothing.
+      if (savedRange.current) {
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(savedRange.current);
+      }
+
+      // Emit inline CSS for colour/alignment, semantic tags for everything else.
+      document.execCommand("styleWithCSS", false, CSS_STYLED_COMMANDS.has(command));
+      document.execCommand(command, false, value);
+
+      savedRange.current = null;
+      onChange?.(ref.current?.innerHTML || "");
     },
     [onChange]
   );
@@ -380,6 +415,7 @@ export default function RichTextEditor({
         <input
           type="color"
           title="Text Color"
+          onMouseDown={saveSelection}
           onChange={(e) =>
             exec(
               "foreColor",
@@ -401,6 +437,7 @@ export default function RichTextEditor({
         <input
           type="color"
           title="Highlight"
+          onMouseDown={saveSelection}
           onChange={(e) =>
             exec(
               "hiliteColor",
@@ -432,57 +469,22 @@ export default function RichTextEditor({
           maxHeight: { xs: "58vh", sm: 700 },
           overflowY: "auto",
 
+          // The editor works on HTML (Markdown is rendered to HTML on load), so
+          // use normal whitespace handling — otherwise the newlines commonmark
+          // emits between block tags would render as spurious blank lines.
+          // Whitespace inside <pre>/<code> is still preserved by the UA style.
+          // Long unbreakable tokens wrap instead of forcing horizontal scroll.
+          overflowWrap: "anywhere",
+
           p: 3,
 
           outline: "none",
 
           color: tokens.text,
 
-          fontFamily:
-            '"Segoe UI", Arial, sans-serif',
-
-          fontSize: "1rem",
-
-          lineHeight: 1.8,
-
-          "& h1": {
-            fontSize: "2rem",
-            fontWeight: 700,
-            marginBottom: 1,
-          },
-
-          "& h2": {
-            fontSize: "1.6rem",
-            fontWeight: 700,
-            marginBottom: 1,
-          },
-
-          "& h3": {
-            fontSize: "1.3rem",
-            fontWeight: 700,
-            marginBottom: 1,
-          },
-
-          "& p": {
-            marginBottom: "0.9em",
-          },
-
-          "& blockquote": {
-            borderLeft: `4px solid ${tokens.accent}`,
-            paddingLeft: "12px",
-            marginLeft: 0,
-            opacity: 0.9,
-          },
-
-          "& pre": {
-            background:
-              "rgba(0,0,0,0.35)",
-            padding: "12px 14px",
-            borderRadius: "10px",
-            fontFamily:
-              "Consolas, monospace",
-            overflowX: "auto",
-          },
+          // All document typography (headings, paragraphs, lists, quotes, code)
+          // lives in the shared `.fv-rich` rules so the editor and the read-only
+          // preview render identically. Only structural styles stay here.
         }}
       />
     </Box>
