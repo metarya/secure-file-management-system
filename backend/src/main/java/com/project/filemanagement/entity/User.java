@@ -16,7 +16,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -44,8 +43,14 @@ public class User {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "account_locked_until")
+    private LocalDateTime accountLockedUntil;
+
     @JsonIgnore
-    @Column(name = "otp", length = 6 )
+    @Column(name = "otp", length = 6)
     private String otp;
 
     @JsonIgnore
@@ -58,5 +63,19 @@ public class User {
         this.passwordHash = passwordHash;
         this.status = UserStatus.ACTIVE;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public void incrementFailedLoginAttempts() {
+        this.failedLoginAttempts++;
+    }
+
+    public void resetFailedLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.accountLockedUntil = null;
+    }
+
+    public boolean isAccountLocked() {
+        return accountLockedUntil != null
+                && accountLockedUntil.isAfter(LocalDateTime.now());
     }
 }
