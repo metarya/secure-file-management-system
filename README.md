@@ -1,365 +1,364 @@
-# Secure File Management System (SFMS)
+# Secure File Management System
 
-A secure full-stack file management platform built using React, Spring Boot, and MySQL. The system supports file upload, preview, sharing, multimedia compression, recycle bin functionality, backend search, and JWT-protected HLS video streaming.
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen?logo=springboot)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
----
-
-# Features
-
-## Authentication & Security
-
-- JWT Authentication
-- Role-Based Access Control
-- Secure API Endpoints
-- Admin Dashboard
-- Audit Logs
-
-## File Management
-
-- Upload Files
-- Download Files
-- Preview Files
-- Rename Files
-- Edit Text Files
-- File Description Support
-- Public/Private Visibility
-- Duplicate Detection
-
-## Sharing System
-
-- Share Files with Users
-- Permission-Based Access
-- Shared With Me
-- Remove Shared Access
-
-## Recycle Bin
-
-- Soft Delete Files
-- Restore Deleted Files
-- Permanent Delete
-
-## Search
-
-- Backend Search
-- Case-Insensitive Search
-- Debounced Search
-
-## Preview Support
-
-- Images
-- PDF Files
-- Text Files
-- Markdown Files
-- Audio Files
-- Video Files
-
-## Compression
-
-### Text Compression
-- GZIP Compression
-
-### PDF Compression
-- Apache PDFBox
-
-### Audio Compression
-- FFmpeg
-
-### Video Compression
-- H.264 + AAC
-
-## Streaming
-
-### Range Streaming
-- Seek Support
-- Audio Streaming
-- Video Streaming
-
-### HLS Streaming
-
-- Automatic HLS Generation
-- master.m3u8 Playlist
-- TS Segment Streaming
-- JWT-Protected Endpoints
-- React hls.js Player
+A modern, secure file management platform built with **Spring Boot** and **React**. It provides JWT-based authentication, role-based access control, file versioning, sharing, activity logging, multimedia support, pluggable storage providers (Local, Google Drive, OneDrive, Amazon S3, SFTP), and a full administration dashboard.
 
 ---
 
-# Tech Stack
+## Features
 
-## Backend
+### Authentication & Security
 
-- Java 17
-- Spring Boot 3
-- Spring Security
-- JWT Authentication
-- Spring Data JPA
-- Maven
+| Feature | Description |
+|---|---|
+| JWT Authentication | Stateless token-based auth with configurable expiry |
+| Email OTP Verification | One-time password sent via email for password reset |
+| Password Reset | Secure OTP-gated reset flow |
+| Account Locking | Admin can disable accounts; blocked users receive a clear error |
+| Session Expiry Detection | Frontend detects expired tokens and redirects to login |
+| Secure Password Hashing | BCrypt via Spring Security Crypto |
+| Role-Based Access Control | `ADMIN` / `USER` roles with granular per-user permission overrides |
+| SFTP Host Key Verification | Known-hosts checked at connection time via JSch/Apache SSHD |
+| Encryption Key Management | Storage credentials encrypted at rest using AES (configurable key + salt) |
 
-## Frontend
+### File Management
 
-- React 19
-- Vite
-- Material UI
-- React Router DOM
-- Axios
+- Upload files (up to 1 GB per file)
+- Download files
+- Preview files in-browser
+- Rename files
+- Soft delete with restore (recycle bin)
+- Version history with diff viewer
+- File sharing with per-user permission controls
+- Rich text / Markdown editing with live preview
+- Native text storage (text content stored in the database)
+- Full-text search
+- Public / private visibility controls
 
-## Database
+### Multimedia
 
-- MySQL
+| Type | Support |
+|---|---|
+| Images | Inline preview |
+| PDF | Embedded viewer via PDFBox |
+| Video | HLS adaptive streaming (FFmpeg-backed) |
+| Audio | Streaming playback |
+| Compression | Per-type compression pipeline (video, audio, PDF, text) |
 
-## Multimedia Processing
+### Storage Providers
 
-- Apache PDFBox
-- Apache Commons Compress
-- FFmpeg
-- HLS
-- hls.js
+Each user can configure their own storage backend independently. Credentials are encrypted before being stored.
 
-## Development Tools
+| Provider | Notes |
+|---|---|
+| **Local** | Files stored on the server filesystem |
+| **Google Drive** | OAuth token-based cloud storage |
+| **OneDrive** | Microsoft Graph API integration |
+| **Amazon S3** | AWS SDK-backed object storage |
+| **SFTP** | SSH file transfer with host-key verification |
 
-- Git
-- GitHub
-- VS Code
-- IntelliJ IDEA
-- Postman
-- MySQL Workbench
+The storage layer uses a pluggable `StorageProvider` interface, making it straightforward to add new backends.
 
-## Deployment
+### Administration
 
-### Frontend
-- Vercel
+- User management (list, update role, update status, reset password)
+- File management (view, preview, delete any user's files)
+- Activity logs (per-user action history)
+- Audit logs (security-relevant events)
+- Storage usage statistics per user
+- System health statistics
+- Server-side pagination and sorting on all admin tables
 
-### Backend
-- Spring Boot running locally
+### Developer Features
 
-### Database
-- Local MySQL Database
+- **Flyway** – versioned database migrations (`V1` through `V6`)
+- **JUnit 5 + Mockito** – unit and integration tests
+- **REST API** – JSON over HTTP, structured error responses
+- **Modular services** – single-responsibility service classes
+- **Clean layered architecture** – Controller → Service → Repository
+- **Maven** – build and dependency management
+- **Vite** – fast frontend build tooling
 
 ---
 
-# Repository Structure
+## Tech Stack
 
-```text
-secure-file-management-system
-│
-├── backend
-│   ├── src
-│   │   ├── config
-│   │   ├── controller
-│   │   ├── dto
-│   │   ├── entity
-│   │   ├── exception
-│   │   ├── repository
-│   │   ├── security
-│   │   └── service
-│   │       ├── compression
-│   │       ├── ffmpeg
-│   │       └── streaming
-│   ├── uploads
-│   └── pom.xml
-│
-├── frontend
-│   ├── public
-│   ├── src
-│   └── package.json
-│
-├── README.md
-└── LICENSE
+| Layer | Technology |
+|---|---|
+| **Backend** | Java 21, Spring Boot 3.5, Spring Security, JJWT 0.13 |
+| **Frontend** | React 19, Vite 8, React Router 7, Axios |
+| **Database** | MySQL 8, Flyway migrations, Spring Data JPA |
+| **Storage** | Local FS, Google Drive, OneDrive, Amazon S3, SFTP |
+| **Security** | BCrypt, AES encryption, JWT, Spring Security |
+| **Multimedia** | Apache Tika, PDFBox, FFmpeg (Jaffree), Apache SSHD |
+| **Testing** | JUnit 5, Mockito, Spring Boot Test |
+
+---
+
+## Architecture
+
+```
+Frontend (React + Vite)
+        ↓  HTTP / JSON
+REST API (Spring Boot – port 8080)
+        ↓
+Controllers  (/api/auth, /api/files, /api/admin, ...)
+        ↓
+Services  (AuthService, FileService, FileSharingService, ...)
+        ↓
+Repositories  (Spring Data JPA)
+        ↓
+MySQL Database  +  Storage Providers (Local / Drive / S3 / SFTP)
 ```
 
-# System Architecture
+The backend follows a strict layered architecture. Controllers handle request validation and HTTP concerns only. Services own all business logic. Repositories are thin JPA interfaces. The `StorageProvider` abstraction decouples file I/O from the rest of the system.
 
-```text
-React Frontend
-        ↓
-REST APIs
-        ↓
-Spring Boot Backend
-        ↓
-Service Layer
-        ↓
-Repository Layer
-        ↓
-MySQL Database
+---
+
+## Project Structure
+
 ```
-
-## Multimedia Pipeline
-
-```text
-Upload
-   ↓
-Compression
-   ↓
-Database Metadata
-   ↓
-HLS Generation
-   ↓
-master.m3u8
-   ↓
-TS Segments
-   ↓
-JWT Protected Streaming
-   ↓
-React hls.js Player
+secure-file-management-system/
+├── backend/
+│   ├── src/main/java/com/project/filemanagement/
+│   │   ├── controller/        # REST controllers
+│   │   ├── service/           # Business logic (incl. compression/, streaming/)
+│   │   ├── storage/           # StorageProvider interface + implementations
+│   │   ├── entity/            # JPA entities
+│   │   ├── repository/        # Spring Data JPA repositories
+│   │   ├── dto/               # Request / response DTOs
+│   │   ├── security/          # JWT filter, JwtUtil, AuthenticatedUserService
+│   │   ├── config/            # CORS, Security configuration
+│   │   └── exception/         # Global exception handler
+│   └── src/main/resources/
+│       ├── application.properties
+│       └── db/migration/      # Flyway SQL scripts (V1–V6)
+└── frontend/
+    └── src/
+        ├── pages/             # admin/, auth/, user/
+        ├── components/        # Reusable UI components
+        ├── api/               # Axios API clients
+        ├── hooks/             # Custom React hooks
+        └── routes/            # React Router configuration
 ```
 
 ---
 
-# Installation
+## Screenshots
 
-## Clone Repository
+> Screenshots will be added in a future update.
+
+| Screen | Path |
+|---|---|
+| Login | `docs/images/login.png` |
+| Dashboard | `docs/images/dashboard.png` |
+| File Manager | `docs/images/file-manager.png` |
+| File Preview | `docs/images/file-preview.png` |
+| Admin Panel | `docs/images/admin-panel.png` |
+| Storage Settings | `docs/images/storage-settings.png` |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Java JDK | 21+ |
+| Maven | 3.9+ |
+| Node.js | 18+ |
+| MySQL | 8.0+ |
+| FFmpeg | Any recent release (required for video/audio features) |
+
+### Clone
 
 ```bash
-git clone https://github.com/metarya/secure-file-management-system.git
-
+git clone https://github.com/metarya07/secure-file-management-system.git
 cd secure-file-management-system
 ```
 
----
+### Database Setup
 
-# Backend Setup
+```sql
+CREATE DATABASE file_management_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'sfms_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON file_management_db.* TO 'sfms_user'@'localhost';
+FLUSH PRIVILEGES;
+```
 
-Go to backend:
+Flyway will run all migrations automatically on first startup.
+
+### Backend Setup
+
+Copy the example below into `backend/src/main/resources/application-local.properties` (or export as environment variables) and fill in your values:
+
+```properties
+DB_URL=jdbc:mysql://127.0.0.1:3306/file_management_db
+DB_USERNAME=sfms_user
+DB_PASSWORD=your_db_password
+
+JWT_SECRET=your-256-bit-secret-here
+
+MAIL_USERNAME=your@email.com
+MAIL_PASSWORD=your_smtp_password
+MAIL_FROM=noreply@yourdomain.com
+
+APP_STORAGE_ENCRYPTION_KEY=change-this-in-production
+APP_STORAGE_ENCRYPTION_SALT=change-this-salt
+
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+### Run Backend
 
 ```bash
 cd backend
-```
-
-Configure MySQL credentials in:
-
-```properties
-application.properties
-```
-
-Build:
-
-```bash
-mvn clean install
-```
-
-Run:
-
-```bash
 mvn spring-boot:run
 ```
 
-Backend runs on:
+The API starts on `http://localhost:8080`.
 
-```text
-http://localhost:8080
-```
-
----
-
-# Frontend Setup
-
-Go to frontend:
+### Frontend Setup
 
 ```bash
 cd frontend
-```
-
-Install dependencies:
-
-```bash
 npm install
 ```
 
-Run:
+Create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:8080
+```
+
+### Run Frontend
 
 ```bash
 npm run dev
 ```
 
-Frontend runs on:
-
-```text
-http://localhost:5173
-```
+The app starts on `http://localhost:5173`.
 
 ---
 
-# FFmpeg Setup
+## Environment Variables
 
-Install FFmpeg and ensure it is available in PATH.
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `DB_URL` | Yes | JDBC connection string | `jdbc:mysql://127.0.0.1:3306/file_management_db` |
+| `DB_USERNAME` | Yes | MySQL username | `sfms_user` |
+| `DB_PASSWORD` | Yes | MySQL password | *(secret)* |
+| `JWT_SECRET` | Yes | HS256 signing key (≥ 32 chars) | *(secret)* |
+| `MAIL_USERNAME` | Yes | SMTP username (Brevo / Gmail / etc.) | `user@example.com` |
+| `MAIL_PASSWORD` | Yes | SMTP password or API key | *(secret)* |
+| `MAIL_FROM` | Yes | Sender address for outgoing emails | `noreply@yourdomain.com` |
+| `APP_STORAGE_ENCRYPTION_KEY` | Yes | AES key for credential encryption | *(secret, ≥ 16 chars)* |
+| `APP_STORAGE_ENCRYPTION_SALT` | No | Encryption salt | `5c0744940b5c369b` |
+| `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed origins | `http://localhost:5173` |
 
-Verify:
+---
+
+## Database
+
+Schema management is handled entirely by **Flyway**. Migration scripts live in `backend/src/main/resources/db/migration/` and run automatically at startup.
+
+| Migration | Description |
+|---|---|
+| `V1__Initial_Schema.sql` | Core tables: users, files, roles, permissions |
+| `V2__add_index_files_file_hash.sql` | Index on file hash for deduplication checks |
+| `V3__add_activity_logs.sql` | Activity log table |
+| `V4__add_file_versions.sql` | File versioning table |
+| `V5__add_storage_providers.sql` | Per-user storage settings table |
+| `V6__add_sftp_storage.sql` | SFTP-specific columns |
+
+`spring.jpa.hibernate.ddl-auto=validate` ensures Hibernate only validates entity mappings against the Flyway-managed schema — it never issues `ALTER TABLE` statements.
+
+---
+
+## Storage Providers
+
+Users can switch their storage backend at any time from the **Storage Settings** page. Credentials are encrypted with AES before being persisted.
+
+| Provider | Required credentials |
+|---|---|
+| **Local** | None (uses server filesystem) |
+| **Google Drive** | OAuth access token + refresh token |
+| **OneDrive** | OAuth access token + refresh token |
+| **Amazon S3** | Access key, secret key, bucket name, region |
+| **SFTP** | Host, port, username, password or private key, known-hosts entry |
+
+The `StorageProvider` interface in `storage/StorageProvider.java` defines the contract. All providers are registered in `StorageProviderRegistry` and resolved at runtime via `StorageContext`.
+
+---
+
+## Security Features
+
+| Feature | Implementation |
+|---|---|
+| JWT Authentication | Stateless tokens validated on every request via `JwtAuthFilter` |
+| Account Locking | Admins can disable user accounts; `UserStatus.DISABLED` blocks login |
+| Password Reset | Six-digit OTP emailed to user; expires after use |
+| Secure Password Hashing | BCrypt via `spring-security-crypto` |
+| Session Expiry Redirect | Frontend intercepts 401 responses and redirects to the login page |
+| Credential Encryption | Storage provider credentials encrypted with AES-256 at rest (`CredentialEncryptionService`) |
+| SFTP Host Key Verification | Known-host entry verified via JSch / Apache SSHD before connection is established |
+| Role-Based Access Control | Roles (`ADMIN`, `USER`) with fine-grained per-user permission overrides managed via `RbacService` |
+| Audit Logging | Security-sensitive actions recorded in a dedicated `audit_logs` table |
+
+---
+
+## Testing
 
 ```bash
-ffmpeg -version
+cd backend
+mvn test
 ```
 
-FFmpeg is used for:
+Tests are written with **JUnit 5** and **Mockito**. Notable test classes:
 
-- Audio Compression
-- Video Compression
-- HLS Generation
+| Test | Covers |
+|---|---|
+| `StorageActivityLoggingTest` | Activity log entries generated for storage operations |
+| `SftpStorageProviderTest` | SFTP provider connection and file transfer logic |
 
----
+To run a single test class:
 
-# HLS Streaming
-
-The system automatically generates:
-
-```text
-master.m3u8
-master0.ts
-master1.ts
-master2.ts
-...
-```
-
-Streaming endpoints are protected using JWT authentication.
-
-Workflow:
-
-```text
-Upload Video
-↓
-Compression
-↓
-Generate HLS
-↓
-Persist Metadata
-↓
-Spring Boot Endpoints
-↓
-React hls.js Player
-↓
-HTML5 Video Playback
+```bash
+mvn test -Dtest=SftpStorageProviderTest
 ```
 
 ---
 
-# Future Enhancements
+## Roadmap
 
-- Adaptive Bitrate Streaming
-- Multi-Bitrate HLS
-- Video Thumbnail Generation
-- Tags and Categories
-- Folder Support
-- Favorites
-- Notifications
-- Version History
-- AWS S3 Integration
-- CDN Support
+- [ ] Two-factor authentication (TOTP)
+- [ ] Folder hierarchy with nested folders
+- [ ] Real-time notifications (WebSocket)
+- [ ] Shareable download links with expiry
+- [ ] Storage quota enforcement per user
+- [ ] Docker Compose setup for one-command local start
 
 ---
 
-# Author
+## Contributing
 
-**Metarya Jain**
+Contributions are welcome. Please follow these steps:
 
-B.Tech Computer Science and Engineering
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Commit your changes with a descriptive message.
+4. Open a pull request against `main` and describe what your change does.
 
-Academic Session: 2023–2027
-
-Project Type:
-
-**Internship Project**
+Please keep pull requests focused — one feature or fix per PR. For significant changes, open an issue first to discuss the approach.
 
 ---
 
-# License
+## License
 
-This project is intended for educational and internship purposes.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
