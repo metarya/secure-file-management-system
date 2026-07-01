@@ -29,6 +29,10 @@ import com.project.filemanagement.storage.StorageModels.StoredContent;
  *   <li>{@code username}</li>
  *   <li>{@code password} — decrypted by the service layer before reaching here</li>
  *   <li>{@code remoteDir} — base directory on the server (default ".")</li>
+ *   <li>{@code knownHostsPath} — absolute path to an OpenSSH known_hosts file;
+ *       injected by the service layer from {@code sftp.known-hosts-path}. Strict
+ *       host key verification is always enforced — connections fail fast when this
+ *       key is absent or the server key does not match.</li>
  * </ul>
  */
 @Component
@@ -137,7 +141,7 @@ public class SftpStorageProvider implements StorageProvider {
     // Internal helpers
     // ------------------------------------------------------------------
 
-    private record SftpConfig(String host, int port, String username, String password, String remoteDir) {}
+    private record SftpConfig(String host, int port, String username, String password, String remoteDir, String knownHostsPath) {}
 
     private SftpConfig config(StorageContext ctx) {
         String host = ctx.get("host");
@@ -163,7 +167,8 @@ public class SftpStorageProvider implements StorageProvider {
         if (remoteDir.isBlank()) {
             remoteDir = ".";
         }
-        return new SftpConfig(host, port, username, password, remoteDir);
+        String knownHostsPath = ctx.get("knownHostsPath");
+        return new SftpConfig(host, port, username, password, remoteDir, knownHostsPath);
     }
 
     @FunctionalInterface
@@ -176,11 +181,16 @@ public class SftpStorageProvider implements StorageProvider {
         ChannelSftp channel = null;
         try {
             JSch jsch = new JSch();
+            if (cfg.knownHostsPath() == null || cfg.knownHostsPath().isBlank()) {
+                throw new StorageException(
+                    "SFTP host key verification is required but no known_hosts file is configured. " +
+                    "Set the 'sftp.known-hosts-path' property to the path of a valid known_hosts file " +
+                    "(populated via: ssh-keyscan -H <host> >> <path>).");
+            }
+            jsch.setKnownHosts(cfg.knownHostsPath());
             session = jsch.getSession(cfg.username(), cfg.host(), cfg.port());
             session.setPassword(cfg.password());
-            // Disable strict host-key checking for generic connectivity.
-            // For production hardening, supply a known_hosts file instead.
-            session.setConfig("StrictHostKeyChecking", "no");
+            session.setConfig("StrictHostKeyChecking", "yes");
             session.setTimeout(15_000);
             session.connect(15_000);
 
@@ -247,6 +257,12 @@ public class SftpStorageProvider implements StorageProvider {
         }
         if (msg.contains("timeout") || msg.contains("Timeout")) {
             return "Connection timed out — host unreachable or firewall blocking port.";
+        }
+        if (msg.contains("reject HostKey") || msg.contains("REJECT") || msg.contains("HostKey") ||
+                msg.contains("host key") || msg.contains("known_hosts")) {
+            return "Host key verification failed — the server's key is not in the known_hosts file " +
+                   "or has changed. Run: ssh-keyscan -H <host> >> <known_hosts_path> to add the key, " +
+                   "or investigate a potential man-in-the-middle attack.";
         }
         return msg;
     }
