@@ -12,16 +12,29 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.project.filemanagement.security.ForgotPasswordRateLimitFilter;
 import com.project.filemanagement.security.JwtAuthFilter;
+import com.project.filemanagement.security.LoginRateLimitFilter;
+import com.project.filemanagement.security.OtpRateLimitFilter;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final LoginRateLimitFilter loginRateLimitFilter;
+    private final OtpRateLimitFilter otpRateLimitFilter;
+    private final ForgotPasswordRateLimitFilter forgotPasswordRateLimitFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            LoginRateLimitFilter loginRateLimitFilter,
+            OtpRateLimitFilter otpRateLimitFilter,
+            ForgotPasswordRateLimitFilter forgotPasswordRateLimitFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.loginRateLimitFilter = loginRateLimitFilter;
+        this.otpRateLimitFilter = otpRateLimitFilter;
+        this.forgotPasswordRateLimitFilter = forgotPasswordRateLimitFilter;
     }
 
     @Bean
@@ -61,6 +74,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").authenticated()
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(otpRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(forgotPasswordRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
