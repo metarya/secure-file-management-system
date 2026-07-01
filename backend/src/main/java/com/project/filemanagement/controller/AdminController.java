@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
 import com.project.filemanagement.dto.ChangeUserStorageProviderRequest;
 import com.project.filemanagement.dto.AdminFileResponse;
@@ -558,7 +557,7 @@ public String deleteUser(
 @PutMapping("/users/{id}/storage-provider")
 public AdminUserStorageResponse changeUserStorageProvider(
         @PathVariable Long id,
-        @Valid @RequestBody ChangeUserStorageProviderRequest request,
+        @RequestBody ChangeUserStorageProviderRequest request,
         Authentication authentication
 ) {
     User targetUser = userRepository.findById(id)
@@ -567,7 +566,7 @@ public AdminUserStorageResponse changeUserStorageProvider(
     String adminEmail = authentication == null ? "ADMIN" : authentication.getName();
 
     String newProvider = userStorageSettingsService
-            .adminChangeUserStorageProvider(targetUser, request.storageProvider(), adminEmail);
+            .adminChangeUserStorageProvider(targetUser, request.getStorageProvider(), adminEmail);
 
     auditLogService.logAction(
             "STORAGE_PROVIDER_CHANGED",

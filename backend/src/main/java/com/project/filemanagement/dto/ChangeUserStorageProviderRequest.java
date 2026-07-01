@@ -1,9 +1,15 @@
 package com.project.filemanagement.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-public record ChangeUserStorageProviderRequest(
-        @NotBlank(message = "storageProvider is required")
-        String storageProvider
-) {
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class ChangeUserStorageProviderRequest {
+
+    private String storageProvider;
 }
