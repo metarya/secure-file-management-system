@@ -30,4 +30,10 @@ public class UpdateStorageSettingsRequest {
     private String oneDriveClientId;
     private String oneDriveClientSecret;
     private String oneDriveRefreshToken;
+
+    private String sftpHost;
+    private String sftpPort;
+    private String sftpUsername;
+    private String sftpPassword;
+    private String sftpRemoteDir;
 }

@@ -75,6 +75,22 @@ public class UserStorageSettings {
     @Column(name = "onedrive_refresh_token_enc", length = 2048)
     private String onedriveRefreshTokenEnc;
 
+    // --- SFTP ---
+    @Column(name = "sftp_host", length = 255)
+    private String sftpHost;
+
+    @Column(name = "sftp_port", length = 10)
+    private String sftpPort;
+
+    @Column(name = "sftp_username", length = 255)
+    private String sftpUsername;
+
+    @Column(name = "sftp_password_enc", length = 1024)
+    private String sftpPasswordEnc;
+
+    @Column(name = "sftp_remote_dir", length = 500)
+    private String sftpRemoteDir;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

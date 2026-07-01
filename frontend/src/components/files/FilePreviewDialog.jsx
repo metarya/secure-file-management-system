@@ -23,7 +23,7 @@ import InsertDriveFileRounded from "@mui/icons-material/InsertDriveFileRounded";
 
 import RichTextEditor from "./RichTextEditor";
 import StatusChip from "../ui/StatusChip";
-import HlsVideoPlayer from "./HlsVideoPlayer";
+import VideoPreview from "./VideoPreview";
 import { loadStoredUser } from "../../utils/auth";
 
 import { tokens } from "../../theme/theme";
@@ -176,6 +176,13 @@ export default function FilePreviewDialog({
   maxWidth="md"
   fullWidth
   fullScreen={isMobile}
+  // Native HTML5 video controls (seek-bar drag, fullscreen, the three-dot
+  // menu) move focus onto the browser's own media surface. MUI's default
+  // focus trap treats that as focus escaping the dialog and forcibly pulls
+  // it back, cancelling the interaction — so those controls feel unclickable
+  // or unreliable. Relaxing the trap lets the native controls work normally
+  // while the dialog still closes via its Close button / onClose handler.
+  disableEnforceFocus
   onClose={(event, reason) => {
     if (
       reason === "backdropClick" ||
@@ -404,9 +411,10 @@ export default function FilePreviewDialog({
                   </audio>
                 )}
                 {isVideo && (
-                  <HlsVideoPlayer
-                  fileId={file.fileId}
-                  token={loadStoredUser()?.token}
+                  <VideoPreview
+                    fileId={file.fileId}
+                    token={loadStoredUser()?.token}
+                    src={previewData.url}
                   />
                 )}
                 {isPdf && (

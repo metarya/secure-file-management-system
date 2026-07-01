@@ -14,6 +14,7 @@ const PROVIDER_LABELS = {
   S3: "Amazon S3",
   GOOGLE_DRIVE: "Google Drive",
   ONEDRIVE: "OneDrive",
+  SFTP: "SFTP",
 };
 
 const PROVIDER_COLORS = {
@@ -21,6 +22,7 @@ const PROVIDER_COLORS = {
   S3: "warning",
   GOOGLE_DRIVE: "success",
   ONEDRIVE: "info",
+  SFTP: "secondary",
 };
 
 // Read-only: administrators may VIEW each user's provider but never change it.

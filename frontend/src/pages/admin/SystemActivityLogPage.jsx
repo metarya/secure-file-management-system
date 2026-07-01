@@ -35,6 +35,10 @@ function actionStyle(action = "") {
     ? { bg: "rgba(251,191,36,0.16)", fg: "#fcd34d", border: "rgba(251,191,36,0.30)" }
     : { bg: "rgba(217,119,6,0.10)", fg: "#92400e", border: "rgba(217,119,6,0.28)" };
 
+  if (a.includes("STORAGE")) return isDark
+    ? { bg: "rgba(34,211,238,0.14)", fg: "#67e8f9", border: "rgba(34,211,238,0.30)" }
+    : { bg: "rgba(6,182,212,0.10)",  fg: "#0e7490", border: "rgba(6,182,212,0.28)" };
+
   return isDark
     ? { bg: "rgba(255,255,255,0.07)", fg: "#cbd5e1", border: "rgba(255,255,255,0.12)" }
     : { bg: "rgba(15,23,42,0.07)", fg: "#334155", border: "rgba(15,23,42,0.18)" };

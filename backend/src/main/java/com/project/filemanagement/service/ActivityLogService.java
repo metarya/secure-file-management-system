@@ -43,6 +43,12 @@ public class ActivityLogService {
     public static final String RESOURCE_FILE = "FILE";
     public static final String RESOURCE_SHARE = "SHARE";
     public static final String RESOURCE_USER = "USER";
+    public static final String RESOURCE_STORAGE = "STORAGE";
+
+    // --- Action constants for storage events --------------------------------
+    public static final String ACTION_STORAGE_PROVIDER_CHANGED = "STORAGE_PROVIDER_CHANGED";
+    public static final String ACTION_STORAGE_SETTINGS_UPDATED = "STORAGE_SETTINGS_UPDATED";
+    public static final String ACTION_STORAGE_CONNECTION_TEST  = "STORAGE_CONNECTION_TEST";
 
     private final ActivityLogRepository activityLogRepository;
     private final UserRepository userRepository;

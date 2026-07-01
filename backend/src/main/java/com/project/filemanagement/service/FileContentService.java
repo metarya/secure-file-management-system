@@ -71,7 +71,7 @@ public class FileContentService {
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
         byte[] outputBytes = resolveContentBytes(file);
-        MediaType mediaType = resolveMediaType(file.getContentType(), file.getFileType());
+        MediaType mediaType = resolveServedMediaType(file);
 
         // Defence in depth against stored XSS: HTML content must never render
         // inline in the browser, so force it to download regardless of preview
@@ -85,6 +85,23 @@ public class FileContentService {
                 .contentType(mediaType)
                 .contentLength(outputBytes.length)
                 .body(outputBytes);
+    }
+
+    /**
+     * Content-Type for the bytes we actually serve. Video uploads are always
+     * transcoded to H.264/AAC MP4 by {@code VideoCompressor} (algorithm
+     * {@code FFMPEG_VIDEO}), so the stored bytes are MP4 regardless of the
+     * original container. The stored {@code contentType} still holds the
+     * ORIGINAL MIME (e.g. video/webm), which would mislabel the served MP4 and
+     * break native &lt;video&gt; playback on strict browsers. For those rows we
+     * report {@code video/mp4}, the true type of the bytes; everything else
+     * keeps its stored/looked-up type.
+     */
+    private static MediaType resolveServedMediaType(FileEntity file) {
+        if ("FFMPEG_VIDEO".equalsIgnoreCase(file.getCompressionAlgorithm())) {
+            return MediaType.parseMediaType("video/mp4");
+        }
+        return resolveMediaType(file.getContentType(), file.getFileType());
     }
 
     /** True when the response would carry HTML, which must never render inline. */

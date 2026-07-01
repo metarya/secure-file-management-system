@@ -9,7 +9,8 @@ public enum StorageProviderType {
     LOCAL,
     S3,
     GOOGLE_DRIVE,
-    ONEDRIVE;
+    ONEDRIVE,
+    SFTP;
 
     public static StorageProviderType fromString(String value) {
         if (value == null || value.isBlank()) {

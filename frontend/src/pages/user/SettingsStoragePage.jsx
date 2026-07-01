@@ -17,6 +17,7 @@ const PROVIDER_LABELS = {
   S3: "Amazon S3",
   GOOGLE_DRIVE: "Google Drive",
   ONEDRIVE: "Microsoft OneDrive",
+  SFTP: "SFTP",
 };
 
 const EMPTY = {
@@ -25,6 +26,7 @@ const EMPTY = {
   s3Bucket: "", s3Region: "", s3AccessKey: "", s3SecretKey: "",
   googleClientId: "", googleClientSecret: "", googleRefreshToken: "",
   oneDriveClientId: "", oneDriveClientSecret: "", oneDriveRefreshToken: "",
+  sftpHost: "", sftpPort: "22", sftpUsername: "", sftpPassword: "", sftpRemoteDir: "",
 };
 
 export default function SettingsStoragePage() {
@@ -48,6 +50,10 @@ export default function SettingsStoragePage() {
           s3Region: s.s3Region || "",
           googleClientId: s.googleClientId || "",
           oneDriveClientId: s.oneDriveClientId || "",
+          sftpHost: s.sftpHost || "",
+          sftpPort: s.sftpPort || "22",
+          sftpUsername: s.sftpUsername || "",
+          sftpRemoteDir: s.sftpRemoteDir || "",
         }));
       })
       .catch((e) => toast(e.message || "Couldn't load storage settings.", "error"))
@@ -76,7 +82,7 @@ export default function SettingsStoragePage() {
       const updated = await updateStorageSettings(form);
       setMeta(updated);
       // Clear write-only secret fields after a successful save.
-      setForm((f) => ({ ...f, s3AccessKey: "", s3SecretKey: "", googleClientSecret: "", googleRefreshToken: "", oneDriveClientSecret: "", oneDriveRefreshToken: "" }));
+      setForm((f) => ({ ...f, s3AccessKey: "", s3SecretKey: "", googleClientSecret: "", googleRefreshToken: "", oneDriveClientSecret: "", oneDriveRefreshToken: "", sftpPassword: "" }));
       toast("Storage settings saved.", "success");
     } catch (e) {
       toast(e.message || "Couldn't save settings.", "error");
@@ -155,6 +161,24 @@ export default function SettingsStoragePage() {
               <TextField fullWidth type="password" label="OAuth Refresh Token" value={form.oneDriveRefreshToken} onChange={set("oneDriveRefreshToken")}
                 placeholder={secretPlaceholder(meta?.oneDriveConnected)} autoComplete="new-password"
                 helperText="Obtained from the Microsoft identity OAuth flow (offline_access)." />
+            </Box>
+          )}
+
+          {form.defaultProvider === "SFTP" && (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography sx={{ fontWeight: 700, color: tokens.text }}>SFTP</Typography>
+                {meta?.sftpConfigured && <Chip size="small" color="success" label="Configured" icon={<CloudDoneRounded />} />}
+              </Box>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 2 }}>
+                <TextField fullWidth label="Host" value={form.sftpHost} onChange={set("sftpHost")} placeholder="sftp.example.com" />
+                <TextField label="Port" value={form.sftpPort} onChange={set("sftpPort")} sx={{ width: 100 }} placeholder="22" />
+              </Box>
+              <TextField fullWidth label="Username" value={form.sftpUsername} onChange={set("sftpUsername")} autoComplete="off" />
+              <TextField fullWidth type="password" label="Password" value={form.sftpPassword} onChange={set("sftpPassword")}
+                placeholder={secretPlaceholder(meta?.sftpConfigured)} autoComplete="new-password" />
+              <TextField fullWidth label="Remote Directory" value={form.sftpRemoteDir} onChange={set("sftpRemoteDir")}
+                placeholder="/uploads" helperText="Base directory on the SFTP server where files will be stored." />
             </Box>
           )}
 

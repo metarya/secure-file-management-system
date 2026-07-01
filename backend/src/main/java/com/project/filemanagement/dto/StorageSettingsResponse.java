@@ -21,6 +21,12 @@ public record StorageSettingsResponse(
         boolean googleConnected,
 
         String oneDriveClientId,
-        boolean oneDriveConnected
+        boolean oneDriveConnected,
+
+        String sftpHost,
+        String sftpPort,
+        String sftpUsername,
+        String sftpRemoteDir,
+        boolean sftpConfigured
 ) {
 }

@@ -35,15 +35,18 @@ public class UserStorageSettingsService {
     private final UserStorageSettingsRepository repository;
     private final CredentialEncryptionService encryption;
     private final StorageProviderRegistry registry;
+    private final ActivityLogService activityLogService;
 
     public UserStorageSettingsService(
             UserStorageSettingsRepository repository,
             CredentialEncryptionService encryption,
-            StorageProviderRegistry registry
+            StorageProviderRegistry registry,
+            ActivityLogService activityLogService
     ) {
         this.repository = repository;
         this.encryption = encryption;
         this.registry = registry;
+        this.activityLogService = activityLogService;
     }
 
     // ----------------------------------------------------------------------
@@ -57,7 +60,8 @@ public class UserStorageSettingsService {
             return new StorageSettingsResponse(
                     StorageProviderType.LOCAL.name(),
                     supportedProviders(),
-                    null, null, null, false, null, false, null, false);
+                    null, null, null, false, null, false, null, false,
+                    null, null, null, null, false);
         }
 
         return new StorageSettingsResponse(
@@ -70,7 +74,12 @@ public class UserStorageSettingsService {
                 s.getGdriveClientId(),
                 notBlank(s.getGdriveRefreshTokenEnc()),
                 s.getOnedriveClientId(),
-                notBlank(s.getOnedriveRefreshTokenEnc()));
+                notBlank(s.getOnedriveRefreshTokenEnc()),
+                s.getSftpHost(),
+                s.getSftpPort(),
+                s.getSftpUsername(),
+                s.getSftpRemoteDir(),
+                notBlank(s.getSftpHost()) && notBlank(s.getSftpPasswordEnc()));
     }
 
     /** The provider a user's NEW uploads should use (default LOCAL). */
@@ -85,7 +94,8 @@ public class UserStorageSettingsService {
                 StorageProviderType.LOCAL.name(),
                 StorageProviderType.S3.name(),
                 StorageProviderType.GOOGLE_DRIVE.name(),
-                StorageProviderType.ONEDRIVE.name());
+                StorageProviderType.ONEDRIVE.name(),
+                StorageProviderType.SFTP.name());
     }
 
     // ----------------------------------------------------------------------
@@ -99,6 +109,9 @@ public class UserStorageSettingsService {
                     fresh.setUserId(user.getId());
                     return fresh;
                 });
+
+        // Capture the provider in effect BEFORE this save so we can detect a change.
+        String providerBefore = s.getDefaultProvider() == null ? StorageProviderType.LOCAL.name() : s.getDefaultProvider();
 
         if (notBlank(req.getDefaultProvider())) {
             // Validate against the enum (falls back to LOCAL on unknown values).
@@ -120,8 +133,40 @@ public class UserStorageSettingsService {
         s.setOnedriveClientSecretEnc(keepOrEncrypt(req.getOneDriveClientSecret(), s.getOnedriveClientSecretEnc()));
         s.setOnedriveRefreshTokenEnc(keepOrEncrypt(req.getOneDriveRefreshToken(), s.getOnedriveRefreshTokenEnc()));
 
+        s.setSftpHost(req.getSftpHost());
+        s.setSftpPort(req.getSftpPort());
+        s.setSftpUsername(req.getSftpUsername());
+        s.setSftpPasswordEnc(keepOrEncrypt(req.getSftpPassword(), s.getSftpPasswordEnc()));
+        s.setSftpRemoteDir(req.getSftpRemoteDir());
+
         s.setUpdatedAt(LocalDateTime.now());
         repository.save(s);
+
+        // Audit: one event per save — either a provider switch or a config-only update.
+        String providerAfter = s.getDefaultProvider();
+        if (!providerBefore.equalsIgnoreCase(providerAfter)) {
+            activityLogService.log(
+                    user,
+                    ActivityLogService.ACTION_STORAGE_PROVIDER_CHANGED,
+                    ActivityLogService.RESOURCE_STORAGE,
+                    null,
+                    providerLabel(providerBefore) + " → " + providerLabel(providerAfter),
+                    ActivityLogService.SUCCESS,
+                    null, null,
+                    "Provider switched from " + providerBefore + " to " + providerAfter
+            );
+        } else {
+            activityLogService.log(
+                    user,
+                    ActivityLogService.ACTION_STORAGE_SETTINGS_UPDATED,
+                    ActivityLogService.RESOURCE_STORAGE,
+                    null,
+                    providerLabel(providerAfter),
+                    ActivityLogService.SUCCESS,
+                    null, null,
+                    "Configuration updated for provider: " + providerAfter
+            );
+        }
 
         return getSettings(user);
     }
@@ -161,6 +206,13 @@ public class UserStorageSettingsService {
                     settings.put("clientId", s.getOnedriveClientId());
                     settings.put("clientSecret", encryption.decrypt(s.getOnedriveClientSecretEnc()));
                     settings.put("refreshToken", encryption.decrypt(s.getOnedriveRefreshTokenEnc()));
+                }
+                case SFTP -> {
+                    settings.put("host", s.getSftpHost());
+                    settings.put("port", s.getSftpPort());
+                    settings.put("username", s.getSftpUsername());
+                    settings.put("password", encryption.decrypt(s.getSftpPasswordEnc()));
+                    settings.put("remoteDir", s.getSftpRemoteDir());
                 }
             }
         }
@@ -205,10 +257,35 @@ public class UserStorageSettingsService {
                 settings.put("refreshToken", firstNonBlank(req.getOneDriveRefreshToken(),
                         saved == null ? null : encryption.decrypt(saved.getOnedriveRefreshTokenEnc())));
             }
+            case SFTP -> {
+                settings.put("host", firstNonBlank(req.getSftpHost(), saved == null ? null : saved.getSftpHost()));
+                settings.put("port", firstNonBlank(req.getSftpPort(), saved == null ? null : saved.getSftpPort()));
+                settings.put("username", firstNonBlank(req.getSftpUsername(), saved == null ? null : saved.getSftpUsername()));
+                settings.put("password", firstNonBlank(req.getSftpPassword(),
+                        saved == null ? null : encryption.decrypt(saved.getSftpPasswordEnc())));
+                settings.put("remoteDir", firstNonBlank(req.getSftpRemoteDir(), saved == null ? null : saved.getSftpRemoteDir()));
+            }
         }
 
         ConnectionTestResult result = registry.get(type)
                 .testConnection(new StorageContext(user.getEmail(), type, settings));
+
+        // Audit: one event per test attempt, whether it succeeded or failed.
+        String testStatus = result.success() ? ActivityLogService.SUCCESS : ActivityLogService.FAILURE;
+        String testDesc = result.success()
+                ? providerLabel(type.name()) + ": " + result.message()
+                : providerLabel(type.name()) + ": " + result.message();
+        activityLogService.log(
+                user,
+                ActivityLogService.ACTION_STORAGE_CONNECTION_TEST,
+                ActivityLogService.RESOURCE_STORAGE,
+                null,
+                testDesc,
+                testStatus,
+                null, null,
+                result.message()
+        );
+
         return new StorageConnectionTestResponse(result.success(), result.message());
     }
 
@@ -236,5 +313,18 @@ public class UserStorageSettingsService {
 
     private static String firstNonBlank(String a, String b) {
         return notBlank(a) ? a : b;
+    }
+
+    /** Human-readable display name for a StorageProviderType name string. */
+    private static String providerLabel(String providerName) {
+        if (providerName == null) return "Local Storage";
+        return switch (providerName.toUpperCase()) {
+            case "LOCAL"        -> "Local Storage";
+            case "S3"           -> "Amazon S3";
+            case "GOOGLE_DRIVE" -> "Google Drive";
+            case "ONEDRIVE"     -> "OneDrive";
+            case "SFTP"         -> "SFTP";
+            default             -> providerName;
+        };
     }
 }
