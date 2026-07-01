@@ -1,13 +1,7 @@
 package com.project.filemanagement.service;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
-import org.apache.tika.Tika;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,26 +20,21 @@ import com.project.filemanagement.dto.ShareFileResponse;
 import com.project.filemanagement.dto.SharedWithMeFileResponse;
 import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.entity.User;
-import com.project.filemanagement.exception.BadRequestException;
-import com.project.filemanagement.exception.ForbiddenException;
 import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.repository.FilePermissionRepository;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.UserRepository;
-import com.project.filemanagement.service.compression.CompressionResult;
 import com.project.filemanagement.service.streaming.HlsService;
 import com.project.filemanagement.storage.StorageContext;
 import com.project.filemanagement.storage.StorageProviderRegistry;
 import com.project.filemanagement.storage.StorageProviderType;
 
-import lombok.extern.slf4j.Slf4j;
-
 /**
- * Core file service: upload, listing/search, metadata (rename, description,
- * visibility, content edit) and admin file actions. Sharing, content serving,
- * streaming and markdown rendering are delegated to dedicated services.
+ * Facade for file operations: delegates upload to {@link FileUploadService},
+ * metadata mutations to {@link FileMetadataService}, and content/sharing/versioning
+ * to their respective dedicated services. Retains listing, delete/restore, and
+ * the streaming/preview/sharing pass-through layer.
  */
-@Slf4j
 @Service
 public class FileService {
 
@@ -54,18 +43,16 @@ public class FileService {
     private final FilePermissionRepository filePermissionRepository;
     private final AuditLogService auditLogService;
     private final ActivityLogService activityLogService;
-    private final FileValidationService fileValidationService;
-    private final FileCompressionService fileCompressionService;
-    private final FileHashService fileHashService;
     private final FileContentService fileContentService;
     private final FileVersionService fileVersionService;
     private final FileSharingService fileSharingService;
     private final FileStreamingService fileStreamingService;
     private final MarkdownService markdownService;
-    private final Tika tika;
     private final HlsService hlsService;
     private final UserStorageSettingsService storageSettingsService;
     private final StorageProviderRegistry storageRegistry;
+    private final FileUploadService fileUploadService;
+    private final FileMetadataService fileMetadataService;
 
     public FileService(
             FileRepository fileRepository,
@@ -73,9 +60,6 @@ public class FileService {
             FilePermissionRepository filePermissionRepository,
             AuditLogService auditLogService,
             ActivityLogService activityLogService,
-            FileValidationService fileValidationService,
-            FileCompressionService fileCompressionService,
-            FileHashService fileHashService,
             FileContentService fileContentService,
             FileVersionService fileVersionService,
             FileSharingService fileSharingService,
@@ -83,16 +67,15 @@ public class FileService {
             MarkdownService markdownService,
             HlsService hlsService,
             UserStorageSettingsService storageSettingsService,
-            StorageProviderRegistry storageRegistry
+            StorageProviderRegistry storageRegistry,
+            FileUploadService fileUploadService,
+            FileMetadataService fileMetadataService
     ) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
         this.filePermissionRepository = filePermissionRepository;
         this.auditLogService = auditLogService;
         this.activityLogService = activityLogService;
-        this.fileValidationService = fileValidationService;
-        this.fileCompressionService = fileCompressionService;
-        this.fileHashService = fileHashService;
         this.fileContentService = fileContentService;
         this.fileVersionService = fileVersionService;
         this.fileSharingService = fileSharingService;
@@ -101,257 +84,20 @@ public class FileService {
         this.hlsService = hlsService;
         this.storageSettingsService = storageSettingsService;
         this.storageRegistry = storageRegistry;
-        this.tika = new Tika();
+        this.fileUploadService = fileUploadService;
+        this.fileMetadataService = fileMetadataService;
     }
 
     // ----------------------------------------------------------------------
-    // Upload
+    // Upload (delegated to FileUploadService)
     // ----------------------------------------------------------------------
 
     public FileUploadResponse uploadFile(MultipartFile file, Long ownerId) {
-        return uploadFile(file, ownerId, null);
+        return fileUploadService.uploadFile(file, ownerId);
     }
 
     public FileUploadResponse uploadFile(MultipartFile file, Long ownerId, String description) {
-
-        // 1. Verify that ownerId is provided and owner user exists.
-        if (ownerId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
-        }
-
-        User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
-
-        // 2. Reject null or empty files.
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty");
-        }
-
-        // 3. Read original file name.
-        String originalFileName = file.getOriginalFilename();
-
-        if (originalFileName == null || originalFileName.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File name is required");
-        }
-
-        // 4. Extract + validate extension.
-        String fileType = fileValidationService.getFileExtension(originalFileName);
-
-        if (!fileValidationService.isAllowedFileType(fileType)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "File type not supported: ." + fileType
-            );
-        }
-
-        // 5. Read actual uploaded bytes once.
-        byte[] originalBytes;
-
-        try {
-            originalBytes = file.getBytes();
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to read uploaded file content", e);
-        }
-
-        // 6. Detect the real MIME type from bytes and validate it (blocks
-        //    files whose real content doesn't match an allowed type, e.g. an
-        //    executable renamed to .mp4).
-        String detectedMimeType = tika.detect(originalBytes, originalFileName);
-
-        if (!fileValidationService.isAllowedDetectedMimeType(detectedMimeType)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid file content. Detected type: " + detectedMimeType
-            );
-        }
-
-        boolean isText = detectedMimeType.toLowerCase().startsWith("text/");
-
-        // 7. Scan for suspicious patterns — text files only (a PDF/audio/video
-        //    byte stream is not UTF-8 text, so scanning it is meaningless).
-        if (isText) {
-            String textContent = new String(originalBytes, StandardCharsets.UTF_8);
-
-            if (fileValidationService.containsSuspiciousContent(textContent)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Suspicious file content detected. Upload rejected"
-                );
-            }
-        }
-
-        // 8. SHA-256 for duplicate detection.
-        String fileHash = fileHashService.generateSha256Hash(originalBytes);
-
-        if (fileRepository.existsByOwnerAndFileHashAndDeletedFalse(owner, fileHash)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Duplicate file detected. This file was already uploaded by the same user"
-            );
-        }
-
-        Path tempInputPath = null;
-        File compressedFile = null;
-        byte[] storedBytes;
-        CompressionResult compressionResult;
-
-try {
-
-    tempInputPath = Files.createTempFile("sfms-upload-", "-" + originalFileName);
-
-    Files.write(tempInputPath, originalBytes);
-
-    compressionResult =
-            fileCompressionService.compress(tempInputPath.toFile(),fileType);
-
-            compressedFile = compressionResult.getCompressedFile();
-
-    storedBytes =
-            Files.readAllBytes(
-                    compressionResult.getCompressedFile().toPath()
-            );
-
-} catch (IOException e) {
-
-    throw new RuntimeException(
-            "Unable to compress uploaded file",
-            e
-    );
-
-} 
-
-finally {
-
-    try {
-
-        if (tempInputPath != null) {
-            Files.deleteIfExists(tempInputPath);
-        }
-
-    } catch (IOException ignored) {
-    }
-}
-
-
-        // 10. Persist metadata + bytes.
-        FileEntity fileEntity = new FileEntity();
-        fileEntity.setOwner(owner);
-        fileEntity.setFileName(originalFileName);
-        fileEntity.setFileType(fileType);
-        fileEntity.setContentType(detectedMimeType);
-        fileEntity.setDescription(fileValidationService.cleanDescription(description));
-        fileEntity.setFileSize(file.getSize());
-        fileEntity.setFileHash(fileHash);
-        fileEntity.setOriginalFileSize(
-        compressionResult.getOriginalSize());
-
-fileEntity.setCompressedFileSize(
-        compressionResult.getCompressedSize());
-
-fileEntity.setCompressed(
-        compressionResult.getCompressedSize()
-                < compressionResult.getOriginalSize());
-
-fileEntity.setCompressionAlgorithm(
-        compressionResult.getAlgorithm());
-
-fileEntity.setRequiresDecompression(
-        compressionResult.isRequiresDecompression());
-        fileEntity.setVisibility("PRIVATE");
-
-        // Storage routing: the user's chosen provider decides where the bytes go.
-        // LOCAL keeps the existing DB-blob behavior (stores the compressed bytes
-        // in file_data) so all existing flows are unchanged. Cloud providers store
-        // the raw bytes externally and we record only the provider + storage key.
-        StorageProviderType providerType = storageSettingsService.resolveProviderType(owner);
-        if (providerType == StorageProviderType.LOCAL) {
-            fileEntity.setFileData(storedBytes);
-            fileEntity.setStorageProvider(StorageProviderType.LOCAL.name());
-            fileEntity.setStorageKey(null);
-        } else {
-            StorageContext ctx = storageSettingsService.contextFor(owner, providerType);
-            String key = storageRegistry.get(providerType)
-                    .upload(ctx, originalFileName, originalBytes, detectedMimeType);
-            fileEntity.setFileData(null);
-            fileEntity.setStorageProvider(providerType.name());
-            fileEntity.setStorageKey(key);
-        }
-
-FileEntity savedFile = fileRepository.save(fileEntity);
-
-try {
-
-    if ("FFMPEG_VIDEO".equals(compressionResult.getAlgorithm())) {
-
-        hlsService.generateHls(
-                compressionResult.getCompressedFile(),
-                savedFile.getId()
-        );
-
-        savedFile.setHlsFolder(
-                "uploads/hls/" + savedFile.getId()
-        );
-
-        savedFile.setHlsPlaylist(
-                "uploads/hls/" + savedFile.getId() + "/master.m3u8"
-        );
-
-        savedFile.setHlsGenerated(true);
-
-        fileRepository.save(savedFile);
-    }
-
-} catch (Exception e) {
-
-    log.error("HLS generation failed for file {}", savedFile.getId(), e);
-
-}
-
-finally {
-
-    try {
-
-        if (compressedFile != null) {
-            Files.deleteIfExists(compressedFile.toPath());
-        }
-
-    } catch (IOException ignored) {
-    }
-
-}
-
-// Versioning: the upload becomes version 1 (the file's first immutable
-// snapshot). The raw uploaded bytes are stored so future phases can diff
-// against later versions; FileEntity continues to hold the served (compressed)
-// bytes, so preview/download are unaffected.
-var initialVersion = fileVersionService.createInitialVersion(
-        savedFile,
-        originalBytes,
-        fileHash,
-        detectedMimeType,
-        owner.getEmail(),
-        "Initial upload");
-
-activityLogService.log(
-        owner,
-        "FILE_UPLOAD",
-        ActivityLogService.RESOURCE_FILE,
-        savedFile.getId(),
-        savedFile.getFileName(),
-        ActivityLogService.SUCCESS,
-        null,
-        versionRef(savedFile.getFileHash(), savedFile.getFileSize()),
-        null,
-        initialVersion.getId(),
-        "Uploaded file " + savedFile.getFileName());
-
-return new FileUploadResponse(
-        "File uploaded successfully",
-        savedFile.getId(),
-        savedFile.getFileName(),
-        savedFile.getFileType(),
-        savedFile.getFileSize()
-);
+        return fileUploadService.uploadFile(file, ownerId, description);
     }
 
     // ----------------------------------------------------------------------
@@ -394,16 +140,6 @@ return new FileUploadResponse(
                 .toList();
     }
 
-    // ----------------------------------------------------------------------
-    // Listing / search — paginated (server-side pagination)
-    // ----------------------------------------------------------------------
-
-    /**
-     * One page of the owner's live files. When {@code search} is non-blank the
-     * page is filtered by file name; otherwise it's the full (non-deleted) set.
-     * The deleted filter is applied in the query so the page metadata counts
-     * match exactly what the user sees.
-     */
     public PageResponse<FileListResponse> getMyFilesPage(Long ownerId, String search, Pageable pageable) {
 
         if (ownerId == null) {
@@ -423,7 +159,6 @@ return new FileUploadResponse(
         return PageResponse.of(page, this::mapToFileListResponse);
     }
 
-    /** One page of the owner's soft-deleted files (the recycle bin view). */
     public PageResponse<FileListResponse> getDeletedFilesPage(Long ownerId, Pageable pageable) {
 
         if (ownerId == null) {
@@ -439,7 +174,6 @@ return new FileUploadResponse(
     }
 
     private FileListResponse mapToFileListResponse(FileEntity file) {
-
         return new FileListResponse(
                 file.getId(),
                 file.getFileName(),
@@ -474,7 +208,6 @@ return new FileUploadResponse(
         return fileStreamingService.streamFile(fileId, userEmail, rangeHeader);
     }
 
-    /** Renders a .md/.txt file to sanitized HTML for the in-app preview. */
     public String renderMarkdownPreview(Long fileId, String userEmail) {
 
         FileEntity file = fileRepository.findById(fileId)
@@ -485,8 +218,7 @@ return new FileUploadResponse(
         if (!type.equals("md") && !type.equals("txt")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Markdown preview is only available for .md and .txt files"
-            );
+                    "Markdown preview is only available for .md and .txt files");
         }
 
         String markdown = fileContentService.loadDecompressedText(fileId, userEmail);
@@ -514,7 +246,7 @@ return new FileUploadResponse(
     }
 
     // ----------------------------------------------------------------------
-    // Sharing  (delegated to FileSharingService)
+    // Sharing (delegated to FileSharingService)
     // ----------------------------------------------------------------------
 
     public ShareFileResponse shareFile(ShareFileRequest request, String ownerEmail) {
@@ -539,6 +271,26 @@ return new FileUploadResponse(
 
     public String removeSharedEntryFromMySide(Long fileId, String userEmail) {
         return fileSharingService.removeSharedEntryFromMySide(fileId, userEmail);
+    }
+
+    // ----------------------------------------------------------------------
+    // Metadata mutations (delegated to FileMetadataService)
+    // ----------------------------------------------------------------------
+
+    public FileListResponse updateFileVisibility(Long fileId, String visibility, String ownerEmail) {
+        return fileMetadataService.updateFileVisibility(fileId, visibility, ownerEmail);
+    }
+
+    public void updateFileContent(Long fileId, String userEmail, String content) {
+        fileMetadataService.updateFileContent(fileId, userEmail, content);
+    }
+
+    public void renameFile(Long fileId, String userEmail, String newFileName) {
+        fileMetadataService.renameFile(fileId, userEmail, newFileName);
+    }
+
+    public void updateFileDescription(Long fileId, String userEmail, String description) {
+        fileMetadataService.updateFileDescription(fileId, userEmail, description);
     }
 
     // ----------------------------------------------------------------------
@@ -628,7 +380,6 @@ return new FileUploadResponse(
         if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
-
         if (userId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required");
         }
@@ -660,10 +411,6 @@ return new FileUploadResponse(
         return "File deleted successfully";
     }
 
-    // ----------------------------------------------------------------------
-    // Recycle bin (owner-scoped)
-    // ----------------------------------------------------------------------
-
     public List<FileListResponse> getDeletedFiles(Long ownerId) {
 
         if (ownerId == null) {
@@ -684,7 +431,6 @@ return new FileUploadResponse(
         if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
-
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
@@ -732,7 +478,6 @@ return new FileUploadResponse(
         if (fileId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
         }
-
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
         }
@@ -751,19 +496,14 @@ return new FileUploadResponse(
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only files in the recycle bin can be permanently deleted");
         }
 
-        // Drop any shares pointing at this file first, or the file_permissions
-        // FK would block the row delete.
         filePermissionRepository.deleteAllByFile(file);
 
-        // Best-effort: remove the bytes from a cloud provider too (LOCAL bytes
-        // are in the DB row being deleted). Never let this block the delete.
         StorageProviderType delProvider = StorageProviderType.fromString(file.getStorageProvider());
         if (delProvider != StorageProviderType.LOCAL && file.getStorageKey() != null) {
             try {
                 StorageContext ctx = storageSettingsService.contextFor(owner, delProvider);
                 storageRegistry.get(delProvider).delete(ctx, file.getStorageKey());
             } catch (Exception ignored) {
-                // Orphaned remote object is acceptable; the DB record is the source of truth.
             }
         }
 
@@ -790,287 +530,10 @@ return new FileUploadResponse(
         return "File permanently deleted";
     }
 
-    public FileListResponse updateFileVisibility(Long fileId, String visibility, String ownerEmail) {
-
-        if (ownerEmail == null || ownerEmail.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user email is required");
-        }
-
-        if (fileId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
-        }
-
-        if (visibility == null || visibility.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Visibility is required");
-        }
-
-        String normalizedVisibility = visibility.trim().toUpperCase();
-
-        if (!normalizedVisibility.equals("PUBLIC") && !normalizedVisibility.equals("PRIVATE")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Visibility must be PUBLIC or PRIVATE");
-        }
-
-        User owner = userRepository.findByEmail(ownerEmail.trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authenticated owner user not found"));
-
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-
-        if (!file.getOwner().getId().equals(owner.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the file owner can change visibility");
-        }
-
-        file.setVisibility(normalizedVisibility);
-
-        FileEntity savedFile = fileRepository.save(file);
-
-        return mapToFileListResponse(savedFile);
-    }
-
-    public void updateFileContent(Long fileId, String userEmail, String content) {
-
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
-
-        User owner = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        boolean isOwner = file.getOwner().getId().equals(owner.getId());
-
-        boolean isEditor = filePermissionRepository
-                .findByFileAndSharedWithUser(file, owner)
-                .map(permission -> "EDITOR".equalsIgnoreCase(permission.getPermissionType().getCode()))
-                .orElse(false);
-
-        if (!isOwner && !isEditor) {
-            throw new ForbiddenException("Only Owner or Editor can edit this file");
-        }
-
-        String type = file.getFileType() == null ? "" : file.getFileType().toLowerCase();
-
-        if (!type.equals("txt") && !type.equals("md")) {
-            throw new BadRequestException("Only text files (.txt, .md) can be edited");
-        }
-
-        if (content == null || content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File content cannot be empty");
-        }
-
-        if (fileValidationService.containsSuspiciousContent(content)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suspicious file content detected");
-        }
-
-        byte[] updatedData = content.getBytes(StandardCharsets.UTF_8);
-
-        // Capture a content-free reference to the version BEFORE the edit so the
-        // activity log can later drive a diff without storing the old body.
-        String beforeRef = versionRef(file.getFileHash(), file.getFileSize());
-        String newHash = fileHashService.generateSha256Hash(updatedData);
-
-        Path tempInputPath = null;
-        File compressedFile = null;
-        CompressionResult compressionResult;
-
-        try {
-
-            tempInputPath = Files.createTempFile("sfms-edit-", "." + type);
-
-            Files.write(tempInputPath, updatedData);
-
-            compressionResult = fileCompressionService.compress(tempInputPath.toFile(), type);
-
-            compressedFile = compressionResult.getCompressedFile();
-
-            file.setFileData(Files.readAllBytes(compressedFile.toPath()));
-            file.setFileSize((long) updatedData.length);
-            file.setFileHash(newHash);
-            file.setOriginalFileSize(compressionResult.getOriginalSize());
-            file.setCompressedFileSize(compressionResult.getCompressedSize());
-            file.setCompressed(
-                    compressionResult.getCompressedSize() < compressionResult.getOriginalSize());
-            file.setCompressionAlgorithm(compressionResult.getAlgorithm());
-            file.setRequiresDecompression(compressionResult.isRequiresDecompression());
-
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to update file content", e);
-        } finally {
-            try {
-                if (tempInputPath != null) {
-                    Files.deleteIfExists(tempInputPath);
-                }
-            } catch (IOException ignored) {
-            }
-        }
-
-
-        // Storage routing: for cloud-backed files, push the edited bytes to the
-        // provider and repoint the storage key (LOCAL keeps the DB-blob written
-        // above). Keeps the served content in sync with the edit on every backend.
-        StorageProviderType editProvider = StorageProviderType.fromString(file.getStorageProvider());
-        if (editProvider != StorageProviderType.LOCAL) {
-            StorageContext ctx = storageSettingsService.contextFor(owner, editProvider);
-            String key = storageRegistry.get(editProvider)
-                    .upload(ctx, file.getFileName(), updatedData, file.getContentType());
-            file.setStorageKey(key);
-            file.setFileData(null);
-        }
-
-        fileRepository.save(file);
-
-        // Versioning: never overwrite history. The current version is preserved
-        // and a NEW immutable version is appended and marked latest. FileEntity
-        // keeps the served (compressed) bytes above so preview/download/sharing
-        // are unaffected; the version stores the raw edited bytes for diffing.
-        FileVersionService.VersionTransition transition = fileVersionService.recordNewVersion(
-                file,
-                updatedData,
-                newHash,
-                file.getContentType(),
-                owner.getEmail(),
-                "Edited content");
-
-        activityLogService.log(
-                owner,
-                "FILE_EDIT",
-                ActivityLogService.RESOURCE_FILE,
-                file.getId(),
-                file.getFileName(),
-                ActivityLogService.SUCCESS,
-                beforeRef,
-                versionRef(newHash, (long) updatedData.length),
-                transition.previousVersionId(),
-                transition.newVersion().getId(),
-                "Edited content of file " + file.getFileName());
-    }
-
-    public void renameFile(Long fileId, String userEmail, String newFileName) {
-
-        if (fileId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
-        }
-
-        if (newFileName == null || newFileName.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New file name is required");
-        }
-
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-        boolean isOwner = file.getOwner().getId().equals(user.getId());
-
-        boolean isEditor = filePermissionRepository
-                .findByFileAndSharedWithUser(file, user)
-                .map(permission -> "EDITOR".equalsIgnoreCase(permission.getPermissionType().getCode()))
-                .orElse(false);
-
-        if (!isOwner && !isEditor) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Owner or Editor can rename this file");
-        }
-
-        String oldName = file.getFileName();
-        String newName = newFileName.trim();
-
-        // Preserve the file's current extension instead of forcing .txt.
-        String ext = fileValidationService.getFileExtension(oldName);
-
-        if (!newName.toLowerCase().endsWith("." + ext)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File name must keep ." + ext + " extension");
-        }
-
-        if (newName.length() > 255) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File name is too long");
-        }
-
-        if (!newName.matches("^[a-zA-Z0-9._ -]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid file name");
-        }
-
-        file.setFileName(newName);
-        fileRepository.save(file);
-
-        auditLogService.logAction(
-                "FILE_RENAMED",
-                user.getEmail(),
-                "Renamed file from " + oldName + " to " + newFileName
-        );
-
-        activityLogService.log(
-                user,
-                "FILE_EDIT",
-                ActivityLogService.RESOURCE_FILE,
-                file.getId(),
-                newName,
-                ActivityLogService.SUCCESS,
-                null,
-                null,
-                "Renamed file from " + oldName + " to " + newName);
-    }
-
-    public void updateFileDescription(Long fileId, String userEmail, String description) {
-
-        if (fileId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File ID is required");
-        }
-
-        FileEntity file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
-
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-        boolean isOwner = file.getOwner().getId().equals(user.getId());
-
-        boolean isEditor = filePermissionRepository
-                .findByFileAndSharedWithUser(file, user)
-                .map(permission -> "EDITOR".equalsIgnoreCase(permission.getPermissionType().getCode()))
-                .orElse(false);
-
-        if (!isOwner && !isEditor) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Owner or Editor can update description");
-        }
-
-        file.setDescription(fileValidationService.cleanDescription(description));
-        fileRepository.save(file);
-
-        auditLogService.logAction(
-                "FILE_DESCRIPTION_UPDATED",
-                user.getEmail(),
-                "Updated description for file: " + file.getFileName()
-        );
-
-        activityLogService.log(
-                user,
-                "FILE_EDIT",
-                ActivityLogService.RESOURCE_FILE,
-                file.getId(),
-                file.getFileName(),
-                ActivityLogService.SUCCESS,
-                null,
-                null,
-                "Updated description for file: " + file.getFileName());
-    }
-
     // ----------------------------------------------------------------------
     // Activity-log helpers
     // ----------------------------------------------------------------------
 
-    /**
-     * Builds a compact, content-free reference to a file version for the
-     * activity log: {@code "<hash> · <bytes> bytes"}. This is what gets stored
-     * in {@code versionBefore} / {@code versionAfter} — never the file body —
-     * so a diff can be reconstructed later without bloating the audit trail.
-     */
-    private static String versionRef(String hash, Long sizeBytes) {
-        String shortHash = (hash == null || hash.isBlank())
-                ? "no-hash"
-                : (hash.length() > 12 ? hash.substring(0, 12) : hash);
-        return shortHash + " · " + (sizeBytes == null ? 0 : sizeBytes) + " bytes";
-    }
-
-    /** Logs a successful read-style access (preview/download) of a file, best-effort. */
     private void logFileAccess(Long fileId, String userEmail, String action, String description) {
         try {
             FileEntity file = fileRepository.findById(fileId).orElse(null);
@@ -1086,7 +549,6 @@ return new FileUploadResponse(
                     null,
                     description + (name == null ? "" : (": " + name)));
         } catch (Exception ignored) {
-            // Access logging must never break serving the file.
         }
     }
 }
