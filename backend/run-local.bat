@@ -1,9 +1,8 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 set "MAVEN_HOME=C:\Tools\apache-maven-3.9.15"
 set "PATH=%MAVEN_HOME%\bin;%PATH%"
-APP_STORAGE_ENCRYPTION_KEY=8F3nL2xP9qW4mR7tY6uK1vJ5cH8zA0Bd
 
 if not exist "%MAVEN_HOME%\bin\mvn.cmd" (
     echo ERROR: Maven not found at %MAVEN_HOME%\bin\mvn.cmd
@@ -15,8 +14,10 @@ if not exist ".env" (
     exit /b 1
 )
 
-for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
-    set "%%A=%%B"
+for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
+    if not "%%A"=="" (
+        set "%%A=%%B"
+    )
 )
 
 if not defined DB_PASSWORD (
