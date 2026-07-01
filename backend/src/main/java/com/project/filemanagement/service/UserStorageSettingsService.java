@@ -290,8 +290,50 @@ public class UserStorageSettingsService {
     }
 
     // ----------------------------------------------------------------------
-    // Admin (read-only)
+    // Admin (read/write)
     // ----------------------------------------------------------------------
+
+    /**
+     * Changes a user's default storage provider on behalf of an administrator.
+     * Only the provider pointer is changed; no files are migrated.
+     *
+     * @param adminEmail the authenticated admin's email (used for audit logging)
+     * @return the updated provider name (enum string)
+     */
+    public String adminChangeUserStorageProvider(User targetUser, String newProviderRaw, String adminEmail) {
+        StorageProviderType newProvider = StorageProviderType.fromString(newProviderRaw);
+
+        UserStorageSettings s = repository.findByUserId(targetUser.getId())
+                .orElseGet(() -> {
+                    UserStorageSettings fresh = new UserStorageSettings();
+                    fresh.setUserId(targetUser.getId());
+                    return fresh;
+                });
+
+        String previousProvider = s.getDefaultProvider() == null
+                ? StorageProviderType.LOCAL.name()
+                : s.getDefaultProvider();
+
+        s.setDefaultProvider(newProvider.name());
+        s.setUpdatedAt(LocalDateTime.now());
+        repository.save(s);
+
+        activityLogService.logByEmail(
+                adminEmail,
+                ActivityLogService.ACTION_STORAGE_PROVIDER_CHANGED,
+                ActivityLogService.RESOURCE_STORAGE,
+                targetUser.getId(),
+                targetUser.getEmail(),
+                ActivityLogService.SUCCESS,
+                previousProvider,
+                newProvider.name(),
+                "Admin " + adminEmail + " changed storage provider for user "
+                        + targetUser.getEmail() + " from " + providerLabel(previousProvider)
+                        + " to " + providerLabel(newProvider.name())
+        );
+
+        return newProvider.name();
+    }
 
     /** Maps each user to their default provider for the admin overview. */
     public List<AdminUserStorageResponse> adminListUserStorage(List<User> users) {

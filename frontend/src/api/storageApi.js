@@ -17,3 +17,7 @@ export const testStorageConnection = (settings) =>
 
 // Admin: which provider each user uses (read-only; no credentials).
 export const getAdminUserStorage = () => api.get(`/admin/user-storage`);
+
+// Admin: change the storage provider assigned to any user.
+export const adminChangeUserStorageProvider = (userId, storageProvider) =>
+  api.put(`/admin/users/${userId}/storage-provider`, { storageProvider });
