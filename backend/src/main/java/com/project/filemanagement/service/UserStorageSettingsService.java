@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.project.filemanagement.dto.AdminUserStorageResponse;
@@ -31,6 +32,10 @@ import com.project.filemanagement.storage.StorageProviderType;
  */
 @Service
 public class UserStorageSettingsService {
+
+    /** Absolute path to the system-wide SSH known_hosts file used for SFTP host key verification. */
+    @Value("${sftp.known-hosts-path:}")
+    private String sftpKnownHostsPath;
 
     private final UserStorageSettingsRepository repository;
     private final CredentialEncryptionService encryption;
@@ -213,6 +218,9 @@ public class UserStorageSettingsService {
                     settings.put("username", s.getSftpUsername());
                     settings.put("password", encryption.decrypt(s.getSftpPasswordEnc()));
                     settings.put("remoteDir", s.getSftpRemoteDir());
+                    if (sftpKnownHostsPath != null && !sftpKnownHostsPath.isBlank()) {
+                        settings.put("knownHostsPath", sftpKnownHostsPath);
+                    }
                 }
             }
         }
@@ -264,6 +272,9 @@ public class UserStorageSettingsService {
                 settings.put("password", firstNonBlank(req.getSftpPassword(),
                         saved == null ? null : encryption.decrypt(saved.getSftpPasswordEnc())));
                 settings.put("remoteDir", firstNonBlank(req.getSftpRemoteDir(), saved == null ? null : saved.getSftpRemoteDir()));
+                if (sftpKnownHostsPath != null && !sftpKnownHostsPath.isBlank()) {
+                    settings.put("knownHostsPath", sftpKnownHostsPath);
+                }
             }
         }
 

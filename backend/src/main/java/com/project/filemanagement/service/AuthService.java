@@ -31,6 +31,9 @@ public class AuthService {
     // Cryptographically secure RNG for OTP generation (reused across calls).
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    private static final int ACCOUNT_LOCK_DURATION_MINUTES = 15;
+
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -146,11 +149,54 @@ return "User registered successfully";
 
         User user = userOptional.get();
 
+        if (user.isAccountLocked()) {
+                activityLogService.log(
+                        user,
+                        "LOGIN_BLOCKED",
+                        ActivityLogService.RESOURCE_AUTH,
+                        user.getId(),
+                        user.getEmail(),
+                        ActivityLogService.FAILURE,
+                        null,
+                        null,
+                        "Login blocked: account temporarily locked");
+
+                return new LoginResponse(
+                        "Your account is temporarily locked. Please try again later.",
+                        null,
+                        null,
+                        null
+                );
+
+        }
+
+        // Lock timestamp exists but has already expired — clear stale data immediately.
+        if (user.getAccountLockedUntil() != null) {
+            user.resetFailedLoginAttempts();
+            userRepository.save(user);
+        }
+
         boolean passwordMatched = passwordEncoder.matches(
                 request.getPassword(),
                 user.getPasswordHash());
 
         if (!passwordMatched) {
+                user.incrementFailedLoginAttempts();
+                if (user.getFailedLoginAttempts() >= MAX_FAILED_LOGIN_ATTEMPTS) {
+                    user.setAccountLockedUntil(
+                            LocalDateTime.now().plusMinutes(ACCOUNT_LOCK_DURATION_MINUTES));
+                    activityLogService.log(
+                            user,
+                            "ACCOUNT_LOCKED",
+                            ActivityLogService.RESOURCE_AUTH,
+                            user.getId(),
+                            user.getEmail(),
+                            ActivityLogService.FAILURE,
+                            null,
+                            null,
+                            "Account locked after too many failed login attempts");
+                }
+                userRepository.save(user);
             activityLogService.log(
                     user,
                     "LOGIN_FAILED",
@@ -181,6 +227,10 @@ return "User registered successfully";
                     null,
                     null);
         }
+
+
+        user.resetFailedLoginAttempts();
+        userRepository.save(user);
 
         String token = jwtUtil.generateToken(
                 user.getEmail(),
