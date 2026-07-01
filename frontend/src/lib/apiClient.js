@@ -32,9 +32,14 @@ async function toError(response) {
   return err;
 }
 
-// If the session has expired, clear it so route guards bounce to /login.
+// If the session has expired, clear storage and redirect to login.
+// window.location.replace wipes the forward-history so Back can't return to
+// a protected page after the session expires.
 function handleAuthFailure(status) {
-  if (status === 401) logout();
+  if (status === 401) {
+    logout();
+    window.location.replace("/login");
+  }
 }
 
 async function request(path, { method = "GET", body, json = true, raw = false } = {}) {

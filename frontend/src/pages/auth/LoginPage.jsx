@@ -6,7 +6,7 @@ import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 import AuthLayout, { FieldLabel } from "../../components/ui/AuthLayout";
 import { login } from "../../api/authApi";
-import { loadStoredUser, storeUser, homeRouteForUser } from "../../utils/auth";
+import { loadStoredUser, storeUser, homeRouteForUser, isAuthenticated } from "../../utils/auth";
 import { tokens } from "../../theme/theme";
 
 export default function LoginPage() {
@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const stored = loadStoredUser();
-    if (stored?.userId && stored?.token) navigate(homeRouteForUser(stored), { replace: true });
+    if (isAuthenticated(stored)) navigate(homeRouteForUser(stored), { replace: true });
   }, []); // eslint-disable-line
 
   async function submit() {

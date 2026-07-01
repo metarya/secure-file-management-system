@@ -48,7 +48,19 @@ export function storeUser(data) {
   localStorage.setItem("sfms_user", JSON.stringify(data));
 }
 
-export const isAuthenticated = (user) => Boolean(user?.userId && user?.token);
+// Decode the JWT payload (base64url middle segment) and check the exp claim
+// without any library. Returns true if the token is expired or unparseable.
+function isTokenExpiredLocally(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true; // treat unparseable tokens as expired
+  }
+}
+
+export const isAuthenticated = (user) =>
+  Boolean(user?.userId && user?.token && !isTokenExpiredLocally(user.token));
 export const isAdmin = (user) => user?.role === "ADMIN";
 
 export function logout() {
