@@ -86,6 +86,21 @@ public class FileEntity {
     @Column(name = "is_deleted")
     private Boolean deleted = false;
 
+    // Points at the latest FileVersion (see FileVersionService). Kept as a plain
+    // id rather than a JPA relationship to avoid a circular files <-> file_versions
+    // FK cycle; referential integrity is maintained in the service layer.
+    @Column(name = "current_version_id")
+    private Long currentVersionId;
+
+    // Which storage backend holds this file's bytes. LOCAL keeps bytes in
+    // file_data (the existing DB-blob behavior); cloud providers store them
+    // externally and record the provider key in storage_key.
+    @Column(name = "storage_provider", length = 32)
+    private String storageProvider = "LOCAL";
+
+    @Column(name = "storage_key", length = 1024)
+    private String storageKey;
+
     public FileEntity(
             User owner,
             String fileName,

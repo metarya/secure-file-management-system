@@ -135,6 +135,21 @@
 			<artifactId>jaffree</artifactId>
 			<version>2024.08.29</version>
 		</dependency>
+
+        <!-- Maintained JSch fork for SFTP storage provider -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.21</version>
+        </dependency>
+
+        <!-- Embedded SFTP server for integration tests -->
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-sftp</artifactId>
+            <version>2.13.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 	<build>

@@ -34,6 +34,7 @@ public class UserService {
     private final FilePermissionRepository filePermissionRepository;
     private final FileRepository fileRepository;
     private final AuditLogService auditLogService;
+    private final ActivityLogService activityLogService;
 
     public UserService(
             UserRepository userRepository,
@@ -41,7 +42,8 @@ public class UserService {
             UserPermissionRepository userPermissionRepository,
             FilePermissionRepository filePermissionRepository,
             FileRepository fileRepository,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            ActivityLogService activityLogService
     ) {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
@@ -49,6 +51,7 @@ public class UserService {
         this.filePermissionRepository = filePermissionRepository;
         this.fileRepository = fileRepository;
         this.auditLogService = auditLogService;
+        this.activityLogService = activityLogService;
     }
 
     @Transactional
@@ -100,6 +103,19 @@ public class UserService {
                         + " (removed " + ownedFiles.size()
                         + " file(s), all shares and permissions)"
         );
+
+        activityLogService.logByEmail(
+                actingAdminEmail,
+                "USER_DELETED",
+                ActivityLogService.RESOURCE_USER,
+                userId,
+                deletedEmail,
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Deleted user " + deletedEmail
+                        + " (removed " + ownedFiles.size()
+                        + " file(s), all shares and permissions)");
 
         return "User deleted successfully";
     }

@@ -17,6 +17,9 @@ import com.project.filemanagement.entity.FileEntity;
 import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.service.compression.CompressorFactory;
 import com.project.filemanagement.service.compression.FileCompressor;
+import com.project.filemanagement.storage.StorageContext;
+import com.project.filemanagement.storage.StorageProviderRegistry;
+import com.project.filemanagement.storage.StorageProviderType;
 
 /**
  * Serves file bytes for preview/download and exposes helpers used by the
@@ -30,26 +33,45 @@ public class FileContentService {
     private final FileCompressionService fileCompressionService;
     private final FileAccessService fileAccessService;
     private final CompressorFactory compressorFactory;
+    private final UserStorageSettingsService storageSettingsService;
+    private final StorageProviderRegistry storageRegistry;
 
     public FileContentService(
             FileRepository fileRepository,
             FileCompressionService fileCompressionService,
             FileAccessService fileAccessService,
-            CompressorFactory compressorFactory
+            CompressorFactory compressorFactory,
+            UserStorageSettingsService storageSettingsService,
+            StorageProviderRegistry storageRegistry
     ) {
         this.fileRepository = fileRepository;
         this.fileCompressionService = fileCompressionService;
         this.fileAccessService = fileAccessService;
         this.compressorFactory = compressorFactory;
+        this.storageSettingsService = storageSettingsService;
+        this.storageRegistry = storageRegistry;
+    }
 
+    /**
+     * Returns the file's served bytes, routing to the correct storage backend.
+     * LOCAL files are read from the DB blob (and decompressed as before); cloud
+     * files are fetched from their provider (stored raw, no decompression).
+     */
+    private byte[] resolveContentBytes(FileEntity file) {
+        StorageProviderType type = StorageProviderType.fromString(file.getStorageProvider());
+        if (type != StorageProviderType.LOCAL && file.getStorageKey() != null) {
+            StorageContext ctx = storageSettingsService.contextFor(file.getOwner(), type);
+            return storageRegistry.get(type).download(ctx, file.getStorageKey()).data();
+        }
+        return decompressedBytes(file);
     }
 
     public ResponseEntity<byte[]> serveFileContent(Long fileId, String userEmail, boolean downloadMode) {
 
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
-        byte[] outputBytes = decompressedBytes(file);
-        MediaType mediaType = resolveMediaType(file.getContentType(), file.getFileType());
+        byte[] outputBytes = resolveContentBytes(file);
+        MediaType mediaType = resolveServedMediaType(file);
 
         // Defence in depth against stored XSS: HTML content must never render
         // inline in the browser, so force it to download regardless of preview
@@ -63,6 +85,23 @@ public class FileContentService {
                 .contentType(mediaType)
                 .contentLength(outputBytes.length)
                 .body(outputBytes);
+    }
+
+    /**
+     * Content-Type for the bytes we actually serve. Video uploads are always
+     * transcoded to H.264/AAC MP4 by {@code VideoCompressor} (algorithm
+     * {@code FFMPEG_VIDEO}), so the stored bytes are MP4 regardless of the
+     * original container. The stored {@code contentType} still holds the
+     * ORIGINAL MIME (e.g. video/webm), which would mislabel the served MP4 and
+     * break native &lt;video&gt; playback on strict browsers. For those rows we
+     * report {@code video/mp4}, the true type of the bytes; everything else
+     * keeps its stored/looked-up type.
+     */
+    private static MediaType resolveServedMediaType(FileEntity file) {
+        if ("FFMPEG_VIDEO".equalsIgnoreCase(file.getCompressionAlgorithm())) {
+            return MediaType.parseMediaType("video/mp4");
+        }
+        return resolveMediaType(file.getContentType(), file.getFileType());
     }
 
     /** True when the response would carry HTML, which must never render inline. */
@@ -84,7 +123,7 @@ public class FileContentService {
      */
     public String loadDecompressedText(Long fileId, String userEmail) {
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
-        return new String(decompressedBytes(file), StandardCharsets.UTF_8);
+        return new String(resolveContentBytes(file), StandardCharsets.UTF_8);
     }
 
 
@@ -200,7 +239,7 @@ private byte[] decompressedBytes(FileEntity file) {
         FileEntity file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
-        byte[] outputBytes = decompressedBytes(file);
+        byte[] outputBytes = resolveContentBytes(file);
         MediaType mediaType = resolveMediaType(file.getContentType(), file.getFileType());
 
         return ResponseEntity.ok()
@@ -232,7 +271,7 @@ public AdminFilePreviewResponse adminPreviewFile(Long fileId) {
             || "md".equals(fileType);
 
     String content = isText
-            ? new String(decompressedBytes(file), StandardCharsets.UTF_8)
+            ? new String(resolveContentBytes(file), StandardCharsets.UTF_8)
             : "[Binary file — "
             + (file.getContentType() == null
                     ? "unknown type"

@@ -43,8 +43,11 @@ import com.project.filemanagement.repository.FileRepository;
 import com.project.filemanagement.repository.RoleRepository;
 import com.project.filemanagement.repository.UserRepository;
 import com.project.filemanagement.repository.UserRoleRepository;
+import com.project.filemanagement.dto.AdminUserStorageResponse;
+import com.project.filemanagement.service.ActivityLogService;
 import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.AuthService;
+import com.project.filemanagement.service.UserStorageSettingsService;
 import com.project.filemanagement.service.FileService;
 import com.project.filemanagement.service.UserService;
 import com.project.filemanagement.util.PageRequests;
@@ -58,9 +61,11 @@ public class AdminController {
     private final FileService fileService;
     private final AuthService authService;
     private final AuditLogService auditLogService;
+    private final ActivityLogService activityLogService;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserService userService;
+    private final UserStorageSettingsService userStorageSettingsService;
 
     public AdminController(
             UserRepository userRepository,
@@ -68,18 +73,30 @@ public class AdminController {
             FileService fileService,
             AuthService authService,
             AuditLogService auditLogService,
+            ActivityLogService activityLogService,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
-            UserService userService
+            UserService userService,
+            UserStorageSettingsService userStorageSettingsService
     ) {
         this.userRepository = userRepository;
         this.fileRepository = fileRepository;
         this.fileService = fileService;
         this.authService = authService;
         this.auditLogService = auditLogService;
+        this.activityLogService = activityLogService;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.userService = userService;
+        this.userStorageSettingsService = userStorageSettingsService;
+    }
+
+    // Read-only: which storage provider each user uses. Administrators may VIEW
+    // this but can never change another user's storage configuration.
+    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @GetMapping("/user-storage")
+    public List<AdminUserStorageResponse> getUserStorage() {
+        return userStorageSettingsService.adminListUserStorage(userRepository.findAll());
     }
 
     @PreAuthorize("hasAuthority('USER:VIEW')")
@@ -223,9 +240,11 @@ public ResponseEntity<byte[]> adminStreamFile(
     @PreAuthorize("hasAuthority('FILE:DELETE_ANY')")
     @DeleteMapping("/files/{fileId}")
 public String deleteFile(
-        @PathVariable Long fileId
+        @PathVariable Long fileId,
+        Authentication authentication
 ) {
-    return fileService.adminDeleteFile(fileId);
+    return fileService.adminDeleteFile(
+            fileId, authentication == null ? null : authentication.getName());
 }
 
     @PreAuthorize("hasAuthority('FILE:VIEW_ANY')")
@@ -407,7 +426,8 @@ public PageResponse<AuditLogResponse> getAuditLogs(
 @Transactional
 public String updateUserRole(
         @PathVariable Long id,
-        @RequestBody UpdateRoleRequest request
+        @RequestBody UpdateRoleRequest request,
+        Authentication authentication
 ) {
 
 User user = userRepository.findById(id)
@@ -446,6 +466,18 @@ auditLogService.logAction(
                 + newRole.getName()
 );
 
+activityLogService.logByEmail(
+        authentication == null ? null : authentication.getName(),
+        "ROLE_CHANGED",
+        ActivityLogService.RESOURCE_USER,
+        user.getId(),
+        user.getEmail(),
+        ActivityLogService.SUCCESS,
+        null,
+        null,
+        "Changed role of " + user.getEmail()
+                + " from " + oldRole + " to " + newRole.getName());
+
     return "Role updated successfully";
 }
 
@@ -453,7 +485,8 @@ auditLogService.logAction(
 @PatchMapping("/users/{id}/status")
 public String updateUserStatus(
         @PathVariable Long id,
-        @RequestBody UpdateUserStatusRequest request
+        @RequestBody UpdateUserStatusRequest request,
+        Authentication authentication
 ) {
 
     User user = userRepository.findById(id)
@@ -481,15 +514,32 @@ public String updateUserStatus(
                     + newStatus.name()
     );
 
+    // BLOCKED => account disabled, ACTIVE => account (re-)enabled.
+    String statusAction = newStatus == UserStatus.BLOCKED ? "USER_DISABLED" : "USER_ENABLED";
+
+    activityLogService.logByEmail(
+            authentication == null ? null : authentication.getName(),
+            statusAction,
+            ActivityLogService.RESOURCE_USER,
+            user.getId(),
+            user.getEmail(),
+            ActivityLogService.SUCCESS,
+            null,
+            null,
+            "Changed status of " + user.getEmail()
+                    + " from " + oldStatus.name() + " to " + newStatus.name());
+
     return "User status updated successfully";
 }
 
 @PreAuthorize("hasAuthority('FILE:RESTORE')")
 @PatchMapping("/files/{fileId}/restore")
 public String restoreFile(
-        @PathVariable Long fileId
+        @PathVariable Long fileId,
+        Authentication authentication
 ) {
-    return fileService.restoreFile(fileId);
+    return fileService.restoreFile(
+            fileId, authentication == null ? null : authentication.getName());
 }
 
 @PreAuthorize("hasAuthority('USER:DELETE')")

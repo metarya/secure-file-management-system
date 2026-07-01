@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.project.filemanagement.dto.FileListResponse;
 import com.project.filemanagement.dto.FileUploadResponse;
+import com.project.filemanagement.dto.FileVersionResponse;
 import com.project.filemanagement.dto.RenameFileRequest;
 import com.project.filemanagement.dto.ShareFileRequest;
 import com.project.filemanagement.dto.ShareFileResponse;
@@ -231,6 +232,31 @@ public ResponseEntity<UpdateFileContentResponse> updateFileContent(
             new UpdateFileContentResponse(
                     "File updated successfully"
             )
+    );
+}
+
+// --- Versioning ----------------------------------------------------
+// All versions of a file (newest first). Access is owner / public / shared,
+// enforced by the same rule that guards preview & download.
+@GetMapping("/{fileId}/versions")
+public ResponseEntity<List<FileVersionResponse>> getFileVersions(
+        @PathVariable Long fileId,
+        Authentication authentication
+) {
+    return ResponseEntity.ok(
+            fileService.getFileVersions(fileId, authentication.getName())
+    );
+}
+
+// A specific version of a file (metadata).
+@GetMapping("/{fileId}/versions/{versionId}")
+public ResponseEntity<FileVersionResponse> getFileVersion(
+        @PathVariable Long fileId,
+        @PathVariable Long versionId,
+        Authentication authentication
+) {
+    return ResponseEntity.ok(
+            fileService.getFileVersion(fileId, versionId, authentication.getName())
     );
 }
 

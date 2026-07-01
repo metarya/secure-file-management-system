@@ -1,91 +1,55 @@
-import { Box, Button, Typography } from "@mui/material";
-import ChevronLeftRounded from "@mui/icons-material/ChevronLeftRounded";
-import ChevronRightRounded from "@mui/icons-material/ChevronRightRounded";
-import { tokens } from "../../theme/theme";
+import { TablePagination } from "@mui/material";
 
 /**
- * Reusable server-side pagination control.
+ * Server-side pagination control, rendered with Material UI's standard
+ * {@link TablePagination} component (via `component="div"` so it can live outside
+ * a <table>). This gives the default MUI layout — right-aligned:
  *
- * Works for any paginated view (DataTable-based admin pages AND the card-grid
- * user pages), so the "Showing X–Y of Z · Previous · Page N of M · Next" UI
- * lives in exactly one place.
+ *   Rows per page: [10 ▼]      1–10 of 31      ◀ ▶
  *
- * Props (all zero-based `page`, matching Spring Data):
- *   page          current zero-based page index
- *   size          page size
- *   totalElements total record count across all pages
- *   totalPages    total page count
- *   first / last  whether this is the first / last page
- *   onPageChange(nextPage)  called with the new zero-based page index
+ * MUI handles the range text ("1–10 of 31"), the icon-only nav arrows, their
+ * hover/disabled states, and all spacing/typography. Disabled-on-first/last is
+ * derived automatically from `count` / `page` / `rowsPerPage`.
  *
- * Renders nothing when there's a single page (or no data) — the controls only
- * appear once pagination is meaningful.
+ * Props (zero-based `page`, matching Spring Data):
+ *   page            current zero-based page index
+ *   size            current page size (rows per page)
+ *   totalElements   total record count across all pages
+ *   onPageChange(nextPage)         called with the new zero-based page index
+ *   onRowsPerPageChange(nextSize)  called with the new page size
+ *   rowsPerPageOptions             selectable sizes (default [10, 25, 50])
+ *
+ * Renders nothing when there are no records.
  */
 export default function Pagination({
   page = 0,
   size = 10,
   totalElements = 0,
-  totalPages = 0,
-  first = true,
-  last = true,
   onPageChange,
+  onRowsPerPageChange,
+  rowsPerPageOptions = [10, 25, 50],
 }) {
-  // Only hide when there's genuinely nothing to show. We deliberately keep the
-  // bar visible on a single-page result so the user always sees the record
-  // count and page indicator — Previous/Next simply render disabled (via the
-  // `first`/`last` flags) rather than the whole control vanishing.
   if (totalElements === 0) return null;
 
-  // Guard against a backend that reports 0 pages for a non-empty result.
-  const pageCount = Math.max(totalPages, 1);
-
-  // Human-friendly 1-based "Showing X–Y of Z".
-  const from = page * size + 1;
-  const to = Math.min((page + 1) * size, totalElements);
+  // After a rows-per-page change the server-echoed `page` can momentarily exceed
+  // the new last page (until the refetch lands). Clamp it so MUI never warns
+  // about an out-of-range page; the hook has already reset to page 0.
+  const lastPage = Math.max(0, Math.ceil(totalElements / size) - 1);
+  const safePage = Math.min(Math.max(page, 0), lastPage);
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 1.5,
-        mt: 2.5,
-        px: { xs: 0.5, sm: 1 },
-      }}
-    >
-      <Typography sx={{ color: tokens.textDim, fontSize: "0.82rem" }} className="tnum">
-        Showing {from}–{to} of {totalElements} record{totalElements === 1 ? "" : "s"}
-      </Typography>
-
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<ChevronLeftRounded />}
-          disabled={first}
-          onClick={() => onPageChange?.(page - 1)}
-          sx={{ textTransform: "none", borderColor: tokens.border, color: tokens.textDim }}
-        >
-          Previous
-        </Button>
-
-        <Typography sx={{ color: tokens.text, fontSize: "0.82rem", fontWeight: 600 }} className="tnum">
-          Page {page + 1} of {pageCount}
-        </Typography>
-
-        <Button
-          size="small"
-          variant="outlined"
-          endIcon={<ChevronRightRounded />}
-          disabled={last}
-          onClick={() => onPageChange?.(page + 1)}
-          sx={{ textTransform: "none", borderColor: tokens.border, color: tokens.textDim }}
-        >
-          Next
-        </Button>
-      </Box>
-    </Box>
+    <TablePagination
+      component="div"
+      count={totalElements}
+      page={safePage}
+      onPageChange={(_event, nextPage) => onPageChange?.(nextPage)}
+      rowsPerPage={size}
+      onRowsPerPageChange={(event) =>
+        onRowsPerPageChange?.(parseInt(event.target.value, 10))
+      }
+      rowsPerPageOptions={onRowsPerPageChange ? rowsPerPageOptions : []}
+      labelRowsPerPage="Rows per page:"
+      sx={{ mt: 1 }}
+    />
   );
 }

@@ -7,11 +7,13 @@ import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import DashboardPage from "../pages/user/DashboardPage";
 import SharedPage from "../pages/user/SharedPage";
 import RecycleBinPage from "../pages/user/RecycleBinPage";
+import SettingsStoragePage from "../pages/user/SettingsStoragePage";
 
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import UserManagementPage from "../pages/admin/UserManagementPage";
 import FileManagementPage from "../pages/admin/FileManagementPage";
-import ActivityPage from "../pages/admin/ActivityPage";
+import AdminStoragePage from "../pages/admin/AdminStoragePage";
+import SystemActivityLogPage from "../pages/admin/SystemActivityLogPage";
 import AuditLogPage from "../pages/admin/AuditLogPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 
@@ -31,6 +33,7 @@ export default function AppRoutes() {
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/shared" element={<ProtectedRoute><SharedPage /></ProtectedRoute>} />
         <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBinPage /></ProtectedRoute>} />
+        <Route path="/settings/storage" element={<ProtectedRoute><SettingsStoragePage /></ProtectedRoute>} />
         {/* Back-compat: the old /files route now lives at /dashboard */}
         <Route path="/files" element={<Navigate to="/dashboard" replace />} />
 
@@ -39,8 +42,11 @@ export default function AppRoutes() {
         <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
         <Route path="/admin/files" element={<AdminRoute><FileManagementPage /></AdminRoute>} />
-        <Route path="/admin/activity" element={<AdminRoute><ActivityPage /></AdminRoute>} />
+        {/* System Activity Log (replaces the old per-user Activity page) */}
+        <Route path="/admin/activity" element={<AdminRoute><SystemActivityLogPage /></AdminRoute>} />
+        {/* Legacy audit-log view kept for back-compat; no longer in the nav. */}
         <Route path="/admin/audit" element={<AdminRoute><AuditLogPage /></AdminRoute>} />
+        <Route path="/admin/storage" element={<AdminRoute><AdminStoragePage /></AdminRoute>} />
         <Route path="/admin/permissions" element={<AdminRoute><PermissionsPage /></AdminRoute>} />
 
         {/* Defaults — the app's front door is the login page.

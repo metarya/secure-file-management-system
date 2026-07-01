@@ -3,6 +3,7 @@ package com.project.filemanagement.controller;
 import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -16,6 +17,7 @@ import com.project.filemanagement.dto.UserPermissionsResponse;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.exception.ResourceNotFoundException;
 import com.project.filemanagement.repository.UserRepository;
+import com.project.filemanagement.service.ActivityLogService;
 import com.project.filemanagement.service.AuditLogService;
 import com.project.filemanagement.service.RbacService;
 
@@ -31,15 +33,18 @@ public class AdminPermissionController {
     private final UserRepository userRepository;
     private final RbacService rbacService;
     private final AuditLogService auditLogService;
+    private final ActivityLogService activityLogService;
 
     public AdminPermissionController(
             UserRepository userRepository,
             RbacService rbacService,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            ActivityLogService activityLogService
     ) {
         this.userRepository = userRepository;
         this.rbacService = rbacService;
         this.auditLogService = auditLogService;
+        this.activityLogService = activityLogService;
     }
 
     // The full catalog of permissions that exist in the system, so the UI can
@@ -76,12 +81,17 @@ public class AdminPermissionController {
     @PutMapping("/users/{id}/permissions")
     public String updateUserPermissions(
             @PathVariable Long id,
-            @RequestBody UpdateUserPermissionsRequest request
+            @RequestBody UpdateUserPermissionsRequest request,
+            Authentication authentication
     ) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         rbacService.setDirectPermissions(user, request.getPermissions());
+
+        String grantedCodes = request.getPermissions() == null
+                ? "[]"
+                : request.getPermissions().toString();
 
         auditLogService.logAction(
                 "PERMISSIONS_UPDATED",
@@ -89,9 +99,19 @@ public class AdminPermissionController {
                 "Updated direct permissions for "
                         + user.getEmail()
                         + " -> "
-                        + (request.getPermissions() == null
-                                ? "[]"
-                                : request.getPermissions().toString()));
+                        + grantedCodes);
+
+        activityLogService.logByEmail(
+                authentication == null ? null : authentication.getName(),
+                "PERMISSION_CHANGED",
+                ActivityLogService.RESOURCE_USER,
+                user.getId(),
+                user.getEmail(),
+                ActivityLogService.SUCCESS,
+                null,
+                null,
+                "Updated direct permissions for " + user.getEmail()
+                        + " -> " + grantedCodes);
 
         return "Permissions updated successfully";
     }

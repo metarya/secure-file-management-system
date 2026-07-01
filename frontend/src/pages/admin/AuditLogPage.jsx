@@ -44,7 +44,7 @@ export default function AuditLogPage() {
   const fetchLogs = useCallback((params) => getAuditLogs(params), []);
   const {
     rows: logs, meta, loading,
-    sort, search, handleSort, setSearch, goToPage,
+    sort, search, size, handleSort, setSearch, goToPage, setPageSize,
   } = usePaginatedQuery(fetchLogs, {
     initialSort: "createdAt",
     initialDirection: "desc",
@@ -96,7 +96,7 @@ export default function AuditLogPage() {
         serverMode
         empty={null}
       />
-      <Pagination {...meta} onPageChange={goToPage} />
+      <Pagination {...meta} size={size} onPageChange={goToPage} onRowsPerPageChange={setPageSize} />
     </AppShell>
   );
 }
