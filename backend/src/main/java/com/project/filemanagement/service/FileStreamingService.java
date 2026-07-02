@@ -1,10 +1,5 @@
 package com.project.filemanagement.service;
 
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,16 +7,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.project.filemanagement.entity.FileEntity;
-import com.project.filemanagement.service.compression.CompressorFactory;
-import com.project.filemanagement.service.compression.FileCompressor;
 
 /**
  * Streams audio/video with HTTP Range support so players can seek/scrub.
  *
- * Bytes live in MySQL (and may be gzip-compressed), so the full payload is
- * loaded and decompressed once, then the requested byte range is sliced out.
- * Returns 206 Partial Content for range requests and advertises Accept-Ranges
- * on full responses.
+ * Bytes are resolved through {@link FileContentService#resolveBytes} so that
+ * cloud-stored files (S3, SFTP, Google Drive, OneDrive) are fetched from the
+ * correct backend instead of reading the DB blob — which is null for cloud
+ * files. Returns 206 Partial Content for range requests and advertises
+ * Accept-Ranges on full responses.
  *
  * Object-level access is delegated to FileAccessService so the rule lives in
  * exactly one place.
@@ -30,21 +24,22 @@ import com.project.filemanagement.service.compression.FileCompressor;
 public class FileStreamingService {
 
     private final FileAccessService fileAccessService;
-    private final CompressorFactory compressorFactory;
+    private final FileContentService fileContentService;
 
     public FileStreamingService(
             FileAccessService fileAccessService,
-            CompressorFactory compressorFactory
+            FileContentService fileContentService
     ) {
         this.fileAccessService = fileAccessService;
-        this.compressorFactory = compressorFactory;
+        this.fileContentService = fileContentService;
     }
 
     public ResponseEntity<byte[]> streamFile(Long fileId, String userEmail, String rangeHeader) {
 
         FileEntity file = fileAccessService.authorize(fileId, userEmail);
 
-        byte[] data = loadStreamingBytes(file);
+        // Resolve bytes from the file's own storageProvider — never assume LOCAL.
+        byte[] data = fileContentService.resolveBytes(file);
 
         long fileLength = data.length;
         MediaType mediaType = FileContentService.resolveMediaType(file.getContentType(), file.getFileType());
@@ -120,73 +115,4 @@ public class FileStreamingService {
                 .header(HttpHeaders.CONTENT_RANGE, "bytes */" + fileLength)
                 .build();
     }
-
-
-    private byte[] loadStreamingBytes(FileEntity file) {
-
-    byte[] storedBytes = file.getFileData();
-
-    if (storedBytes == null) {
-        return new byte[0];
-    }
-
-    if (!Boolean.TRUE.equals(file.getRequiresDecompression())) {
-        return storedBytes;
-    }
-
-    File tempCompressedFile = null;
-    File decompressedFile = null;
-
-    try {
-
-        tempCompressedFile =
-                File.createTempFile(
-                        "sfms-stream-",
-                        "." + file.getFileType()
-                );
-
-        Files.write(
-                tempCompressedFile.toPath(),
-                storedBytes
-        );
-
-        FileCompressor compressor =
-                compressorFactory.getCompressor(
-                        file.getFileType()
-                );
-
-        decompressedFile =
-                compressor.decompress(tempCompressedFile);
-
-        return Files.readAllBytes(
-                decompressedFile.toPath()
-        );
-
-    } catch (IOException e) {
-
-        throw new RuntimeException(
-                "Unable to stream file",
-                e
-        );
-
-    } finally {
-
-        try {
-
-            if (tempCompressedFile != null) {
-                Files.deleteIfExists(
-                        tempCompressedFile.toPath()
-                );
-            }
-
-            if (decompressedFile != null) {
-                Files.deleteIfExists(
-                        decompressedFile.toPath()
-                );
-            }
-
-        } catch (IOException ignored) {
-        }
-    }
-}
 }

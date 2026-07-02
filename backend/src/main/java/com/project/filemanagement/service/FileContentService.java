@@ -126,6 +126,16 @@ public class FileContentService {
         return new String(resolveContentBytes(file), StandardCharsets.UTF_8);
     }
 
+    /**
+     * Returns the served bytes for a file entity, routing to the correct
+     * storage backend (cloud or local DB). Exposed for use by other services
+     * (e.g. streaming) that already hold a {@link FileEntity} and need the
+     * provider-aware bytes without re-authorizing.
+     */
+    public byte[] resolveBytes(FileEntity file) {
+        return resolveContentBytes(file);
+    }
+
 
 
 
