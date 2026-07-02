@@ -1,5 +1,5 @@
 -- =============================================================================
--- V7__add_active_provider.sql
+-- V8__add_active_provider.sql
 -- Add active_provider to user_storage_settings so users can switch the
 -- provider they are currently browsing/uploading to without changing their
 -- default_provider. NULL means "use default_provider".
