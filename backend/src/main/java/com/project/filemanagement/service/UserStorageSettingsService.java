@@ -60,14 +60,14 @@ public class UserStorageSettingsService {
         if (s == null) {
             return new StorageSettingsResponse(
                     StorageProviderType.LOCAL.name(),
-                    supportedProviders(),
+                    connectedProviders(null),
                     null, null, null, false, null, false, null, false,
                     null, null, null, null, false);
         }
 
         return new StorageSettingsResponse(
                 s.getDefaultProvider() == null ? StorageProviderType.LOCAL.name() : s.getDefaultProvider(),
-                supportedProviders(),
+                connectedProviders(s),
                 s.getLocalDirectory(),
                 s.getS3Bucket(),
                 s.getS3Region(),
@@ -105,7 +105,7 @@ public class UserStorageSettingsService {
         String activeProvider = (s != null && notBlank(s.getActiveProvider()))
                 ? s.getActiveProvider()
                 : defaultProvider;
-        return new ActiveProviderResponse(activeProvider, defaultProvider, supportedProviders());
+        return new ActiveProviderResponse(activeProvider, defaultProvider, connectedProviders(s));
     }
 
     /**
@@ -141,13 +141,30 @@ public class UserStorageSettingsService {
         return getActiveProvider(user);
     }
 
-    private static List<String> supportedProviders() {
-        return List.of(
-                StorageProviderType.LOCAL.name(),
-                StorageProviderType.S3.name(),
-                StorageProviderType.GOOGLE_DRIVE.name(),
-                StorageProviderType.ONEDRIVE.name(),
-                StorageProviderType.SFTP.name());
+    /**
+     * Returns only the providers the user has actually configured, so the UI
+     * never shows a provider the user cannot use. LOCAL is always included.
+     */
+    static List<String> connectedProviders(UserStorageSettings s) {
+        if (s == null) {
+            return List.of(StorageProviderType.LOCAL.name());
+        }
+        var providers = new java.util.ArrayList<String>();
+        providers.add(StorageProviderType.LOCAL.name());
+        if (notBlank(s.getS3Bucket()) && notBlank(s.getS3Region())
+                && notBlank(s.getS3AccessKeyEnc()) && notBlank(s.getS3SecretKeyEnc())) {
+            providers.add(StorageProviderType.S3.name());
+        }
+        if (notBlank(s.getGdriveClientId()) && notBlank(s.getGdriveRefreshTokenEnc())) {
+            providers.add(StorageProviderType.GOOGLE_DRIVE.name());
+        }
+        if (notBlank(s.getOnedriveClientId()) && notBlank(s.getOnedriveRefreshTokenEnc())) {
+            providers.add(StorageProviderType.ONEDRIVE.name());
+        }
+        if (notBlank(s.getSftpHost()) && notBlank(s.getSftpPasswordEnc())) {
+            providers.add(StorageProviderType.SFTP.name());
+        }
+        return java.util.Collections.unmodifiableList(providers);
     }
 
     // ----------------------------------------------------------------------

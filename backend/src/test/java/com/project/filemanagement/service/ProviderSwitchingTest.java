@@ -176,17 +176,30 @@ class ProviderSwitchingTest {
     // ------------------------------------------------------------------
 
     @Test
-    void getActiveProvider_availableProvidersContainsAllFive() {
+    void getActiveProvider_noSettings_availableProvidersContainsOnlyLocal() {
+        // With no settings saved the user has no cloud credentials, so only LOCAL is connected.
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.empty());
 
         ActiveProviderResponse res = storageService.getActiveProvider(user);
 
         List<String> providers = res.getAvailableProviders();
-        assertTrue(providers.contains("LOCAL"));
-        assertTrue(providers.contains("S3"));
-        assertTrue(providers.contains("GOOGLE_DRIVE"));
-        assertTrue(providers.contains("ONEDRIVE"));
-        assertTrue(providers.contains("SFTP"));
+        assertEquals(List.of("LOCAL"), providers);
+    }
+
+    @Test
+    void getActiveProvider_withAllProvidersConfigured_availableProvidersContainsAllFive() {
+        UserStorageSettings s = settingsWithDefault("LOCAL");
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
+        s.setGdriveClientId("gc"); s.setGdriveRefreshTokenEnc("gr");
+        s.setOnedriveClientId("oc"); s.setOnedriveRefreshTokenEnc("or");
+        s.setSftpHost("h"); s.setSftpPasswordEnc("p");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        ActiveProviderResponse res = storageService.getActiveProvider(user);
+
+        List<String> providers = res.getAvailableProviders();
+        assertEquals(5, providers.size());
+        assertTrue(providers.containsAll(List.of("LOCAL", "S3", "GOOGLE_DRIVE", "ONEDRIVE", "SFTP")));
     }
 
     // ------------------------------------------------------------------
