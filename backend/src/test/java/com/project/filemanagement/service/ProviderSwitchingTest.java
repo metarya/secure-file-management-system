@@ -77,6 +77,8 @@ class ProviderSwitchingTest {
     void getActiveProvider_withActiveProvider_returnsActive() {
         UserStorageSettings s = settingsWithDefault("LOCAL");
         s.setActiveProvider("S3");
+        // S3 credentials required for the guard in getActiveProvider() to pass.
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
 
         ActiveProviderResponse res = storageService.getActiveProvider(user);
@@ -89,6 +91,8 @@ class ProviderSwitchingTest {
     void getActiveProvider_activeProviderNull_fallsBackToDefault() {
         UserStorageSettings s = settingsWithDefault("S3");
         s.setActiveProvider(null);
+        // S3 credentials required so the fallback to defaultProvider ("S3") passes.
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
 
         ActiveProviderResponse res = storageService.getActiveProvider(user);
@@ -103,6 +107,9 @@ class ProviderSwitchingTest {
     @Test
     void setActiveProvider_savesNewActiveProvider() {
         UserStorageSettings s = settingsWithDefault("LOCAL");
+        // S3 credentials required so getActiveProvider() (called at the end of
+        // setActiveProvider) returns "S3" rather than falling back to LOCAL.
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
         when(settingsRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -146,6 +153,8 @@ class ProviderSwitchingTest {
     void resolveProviderType_activeProviderTakesPrecedenceOverDefault() {
         UserStorageSettings s = settingsWithDefault("LOCAL");
         s.setActiveProvider("S3");
+        // S3 credentials required for the safety guard to let S3 through.
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
 
         StorageProviderType resolved = storageService.resolveProviderType(user);
@@ -157,6 +166,8 @@ class ProviderSwitchingTest {
     void resolveProviderType_noActiveProvider_usesDefault() {
         UserStorageSettings s = settingsWithDefault("SFTP");
         s.setActiveProvider(null);
+        // SFTP credentials required for the safety guard to let SFTP through.
+        s.setSftpHost("sftp.example.com"); s.setSftpPasswordEnc("enc-pw");
         when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
 
         StorageProviderType resolved = storageService.resolveProviderType(user);
@@ -200,6 +211,85 @@ class ProviderSwitchingTest {
         List<String> providers = res.getAvailableProviders();
         assertEquals(5, providers.size());
         assertTrue(providers.containsAll(List.of("LOCAL", "S3", "GOOGLE_DRIVE", "ONEDRIVE", "SFTP")));
+    }
+
+    @Test
+    void getActiveProvider_withOnlyS3Configured_availableProvidersContainsLocalAndS3() {
+        UserStorageSettings s = settingsWithDefault("LOCAL");
+        s.setS3Bucket("b"); s.setS3Region("r"); s.setS3AccessKeyEnc("a"); s.setS3SecretKeyEnc("k");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        ActiveProviderResponse res = storageService.getActiveProvider(user);
+
+        List<String> providers = res.getAvailableProviders();
+        assertEquals(List.of("LOCAL", "S3"), providers);
+    }
+
+    @Test
+    void getActiveProvider_withOnlyGoogleDriveConfigured_availableProvidersContainsLocalAndGoogleDrive() {
+        UserStorageSettings s = settingsWithDefault("LOCAL");
+        s.setGdriveClientId("gc"); s.setGdriveRefreshTokenEnc("gr");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        ActiveProviderResponse res = storageService.getActiveProvider(user);
+
+        List<String> providers = res.getAvailableProviders();
+        assertEquals(List.of("LOCAL", "GOOGLE_DRIVE"), providers);
+    }
+
+    // ------------------------------------------------------------------
+    // Provider fallback — resolveProviderType safety guard
+    // ------------------------------------------------------------------
+
+    @Test
+    void resolveProviderType_fallsBackToLocal_whenProviderNotConnected() {
+        // Admin set defaultProvider = "S3" but user has no S3 credentials.
+        UserStorageSettings s = settingsWithDefault("S3");
+        // No S3 credentials set
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        StorageProviderType resolved = storageService.resolveProviderType(user);
+
+        assertEquals(StorageProviderType.LOCAL, resolved,
+                "resolveProviderType must fall back to LOCAL when the resolved provider has no credentials");
+    }
+
+    @Test
+    void getActiveProvider_fallsBackToLocal_whenActiveProviderNotConnected() {
+        // Admin set defaultProvider = "S3" but user has no S3 credentials.
+        UserStorageSettings s = settingsWithDefault("S3");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        ActiveProviderResponse res = storageService.getActiveProvider(user);
+
+        assertEquals("LOCAL", res.getActiveProvider(),
+                "getActiveProvider must return LOCAL when the resolved active provider is not connected");
+        // S3 must NOT appear in the available providers list.
+        assertFalse(res.getAvailableProviders().contains("S3"));
+    }
+
+    @Test
+    void adminChangeUserStorageProvider_throwsBadRequest_whenUserHasNoCredentials() {
+        // User has no S3 credentials.
+        UserStorageSettings s = settingsWithDefault("LOCAL");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+
+        assertThrows(
+                com.project.filemanagement.exception.BadRequestException.class,
+                () -> storageService.adminChangeUserStorageProvider(user, "S3", "admin@test.com"),
+                "adminChangeUserStorageProvider must reject switching to a provider with no credentials"
+        );
+    }
+
+    @Test
+    void adminChangeUserStorageProvider_succeedsForLocalAlways() {
+        UserStorageSettings s = settingsWithDefault("S3");
+        when(settingsRepo.findByUserId(1L)).thenReturn(Optional.of(s));
+        when(settingsRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // LOCAL is always valid (no credentials needed).
+        String result = storageService.adminChangeUserStorageProvider(user, "LOCAL", "admin@test.com");
+        assertEquals("LOCAL", result);
     }
 
     // ------------------------------------------------------------------

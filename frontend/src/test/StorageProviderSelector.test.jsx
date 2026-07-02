@@ -214,4 +214,83 @@ describe('StorageProviderSelector — only connected providers shown', () => {
     expect(screen.getByTestId('provider-option-SFTP')).toBeInTheDocument();
     expect(screen.queryByTestId('provider-option-S3')).not.toBeInTheDocument();
   });
+
+  it('shows only LOCAL and S3 when those two are connected', () => {
+    const connected = ['LOCAL', 'S3'];
+    render(
+      <StorageProviderSelector
+        activeProvider="LOCAL"
+        availableProviders={connected}
+        switching={false}
+        onSwitch={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('provider-selector-button'));
+    expect(screen.getByTestId('provider-option-LOCAL')).toBeInTheDocument();
+    expect(screen.getByTestId('provider-option-S3')).toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-GOOGLE_DRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-ONEDRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-SFTP')).not.toBeInTheDocument();
+  });
+
+  it('shows only LOCAL and Google Drive when those two are connected', () => {
+    const connected = ['LOCAL', 'GOOGLE_DRIVE'];
+    render(
+      <StorageProviderSelector
+        activeProvider="LOCAL"
+        availableProviders={connected}
+        switching={false}
+        onSwitch={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('provider-selector-button'));
+    expect(screen.getByTestId('provider-option-LOCAL')).toBeInTheDocument();
+    expect(screen.getByTestId('provider-option-GOOGLE_DRIVE')).toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-S3')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-ONEDRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-SFTP')).not.toBeInTheDocument();
+  });
+});
+
+describe('StorageProviderSelector — no unconnected providers rendered', () => {
+  it('renders no options for providers absent from availableProviders', () => {
+    // Backend returns only LOCAL — simulates a user with no cloud credentials.
+    render(
+      <StorageProviderSelector
+        activeProvider="LOCAL"
+        availableProviders={['LOCAL']}
+        switching={false}
+        onSwitch={vi.fn()}
+      />
+    );
+    // Button is disabled (single provider), menu cannot open — but even if it
+    // could, none of the cloud provider options should be in the DOM.
+    expect(screen.queryByTestId('provider-option-S3')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-GOOGLE_DRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-ONEDRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-SFTP')).not.toBeInTheDocument();
+  });
+
+  it('renders exactly the providers returned by the backend — no extras', () => {
+    // Simulate backend returning LOCAL + ONEDRIVE (user configured only those two).
+    const connected = ['LOCAL', 'ONEDRIVE'];
+    render(
+      <StorageProviderSelector
+        activeProvider="LOCAL"
+        availableProviders={connected}
+        switching={false}
+        onSwitch={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTestId('provider-selector-button'));
+
+    // Only the connected ones appear.
+    expect(screen.getByTestId('provider-option-LOCAL')).toBeInTheDocument();
+    expect(screen.getByTestId('provider-option-ONEDRIVE')).toBeInTheDocument();
+
+    // Unconnected providers must NOT appear in any form.
+    expect(screen.queryByTestId('provider-option-S3')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-GOOGLE_DRIVE')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('provider-option-SFTP')).not.toBeInTheDocument();
+  });
 });

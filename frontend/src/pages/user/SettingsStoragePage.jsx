@@ -61,7 +61,11 @@ export default function SettingsStoragePage() {
   }, [toast]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const providers = meta?.supportedProviders || ["LOCAL", "S3", "GOOGLE_DRIVE", "ONEDRIVE"];
+  // allProviders: every provider the system supports (backend-driven, never hardcoded).
+  // Used for the default-provider selector so the user can pick any provider to
+  // configure its credentials, even before credentials exist for that provider.
+  // supportedProviders (connected-only) is used only for the "Configured" badges.
+  const providers = meta?.allProviders ?? ["LOCAL", "S3", "GOOGLE_DRIVE", "ONEDRIVE", "SFTP"];
 
   async function handleTest() {
     setTesting(true);

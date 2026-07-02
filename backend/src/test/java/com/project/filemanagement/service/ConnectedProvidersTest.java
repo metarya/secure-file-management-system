@@ -168,4 +168,50 @@ class ConnectedProvidersTest {
         List<String> result = UserStorageSettingsService.connectedProviders(s);
         assertEquals("LOCAL", result.get(0));
     }
+
+    @Test
+    void onlyLocalAndS3_whenOnlyS3Configured() {
+        UserStorageSettings s = new UserStorageSettings();
+        s.setS3Bucket("my-bucket"); s.setS3Region("us-east-1");
+        s.setS3AccessKeyEnc("enc-access"); s.setS3SecretKeyEnc("enc-secret");
+
+        List<String> result = UserStorageSettingsService.connectedProviders(s);
+        assertEquals(List.of("LOCAL", "S3"), result);
+        assertFalse(result.contains("GOOGLE_DRIVE"));
+        assertFalse(result.contains("ONEDRIVE"));
+        assertFalse(result.contains("SFTP"));
+    }
+
+    @Test
+    void onlyLocalAndGoogleDrive_whenOnlyGoogleDriveConfigured() {
+        UserStorageSettings s = new UserStorageSettings();
+        s.setGdriveClientId("client-123");
+        s.setGdriveRefreshTokenEnc("enc-refresh");
+
+        List<String> result = UserStorageSettingsService.connectedProviders(s);
+        assertEquals(List.of("LOCAL", "GOOGLE_DRIVE"), result);
+        assertFalse(result.contains("S3"));
+        assertFalse(result.contains("ONEDRIVE"));
+        assertFalse(result.contains("SFTP"));
+    }
+
+    @Test
+    void noUnconnectedProvidersInResult_whenPartialS3Credentials() {
+        // Partial credentials (missing region) must NOT expose S3 as connected.
+        UserStorageSettings s = new UserStorageSettings();
+        s.setS3Bucket("my-bucket");
+        // s3Region intentionally missing
+        s.setS3AccessKeyEnc("enc-access"); s.setS3SecretKeyEnc("enc-secret");
+
+        List<String> result = UserStorageSettingsService.connectedProviders(s);
+        assertFalse(result.contains("S3"), "S3 must not appear when region is missing");
+        assertEquals(List.of("LOCAL"), result);
+    }
+
+    @Test
+    void allProviders_returnsAllFiveAlways() {
+        List<String> all = UserStorageSettingsService.allProviders();
+        assertEquals(5, all.size());
+        assertTrue(all.containsAll(List.of("LOCAL", "S3", "GOOGLE_DRIVE", "ONEDRIVE", "SFTP")));
+    }
 }

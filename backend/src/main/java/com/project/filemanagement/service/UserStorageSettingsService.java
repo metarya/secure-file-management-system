@@ -15,6 +15,7 @@ import com.project.filemanagement.dto.StorageSettingsResponse;
 import com.project.filemanagement.dto.UpdateStorageSettingsRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.entity.UserStorageSettings;
+import com.project.filemanagement.exception.BadRequestException;
 import com.project.filemanagement.repository.UserStorageSettingsRepository;
 import com.project.filemanagement.storage.StorageContext;
 import com.project.filemanagement.storage.StorageModels.ConnectionTestResult;
@@ -56,11 +57,13 @@ public class UserStorageSettingsService {
 
     public StorageSettingsResponse getSettings(User user) {
         UserStorageSettings s = repository.findByUserId(user.getId()).orElse(null);
+        List<String> all = allProviders();
 
         if (s == null) {
             return new StorageSettingsResponse(
                     StorageProviderType.LOCAL.name(),
                     connectedProviders(null),
+                    all,
                     null, null, null, false, null, false, null, false,
                     null, null, null, null, false);
         }
@@ -68,6 +71,7 @@ public class UserStorageSettingsService {
         return new StorageSettingsResponse(
                 s.getDefaultProvider() == null ? StorageProviderType.LOCAL.name() : s.getDefaultProvider(),
                 connectedProviders(s),
+                all,
                 s.getLocalDirectory(),
                 s.getS3Bucket(),
                 s.getS3Region(),
@@ -86,12 +90,21 @@ public class UserStorageSettingsService {
     /**
      * The provider a user's NEW uploads (and file listing) should use.
      * Uses activeProvider when set, falls back to defaultProvider.
+     * Always returns LOCAL if the resolved provider has no saved credentials,
+     * preventing uploads from failing with a missing-credentials error when
+     * an admin or stale DB state points at an unconfigured provider.
      */
     public StorageProviderType resolveProviderType(User user) {
         return repository.findByUserId(user.getId())
                 .map(s -> {
                     String active = s.getActiveProvider();
-                    return StorageProviderType.fromString(notBlank(active) ? active : s.getDefaultProvider());
+                    StorageProviderType type = StorageProviderType.fromString(
+                            notBlank(active) ? active : s.getDefaultProvider());
+                    // Safety: verify credentials exist for this provider.
+                    if (type != StorageProviderType.LOCAL && !connectedProviders(s).contains(type.name())) {
+                        return StorageProviderType.LOCAL;
+                    }
+                    return type;
                 })
                 .orElse(StorageProviderType.LOCAL);
     }
@@ -105,7 +118,18 @@ public class UserStorageSettingsService {
         String activeProvider = (s != null && notBlank(s.getActiveProvider()))
                 ? s.getActiveProvider()
                 : defaultProvider;
-        return new ActiveProviderResponse(activeProvider, defaultProvider, connectedProviders(s));
+
+        List<String> connected = connectedProviders(s);
+
+        // If the active/default provider isn't in the connected list (e.g., admin
+        // assigned a provider the user has no credentials for, or credentials were
+        // cleared after switching), fall back to LOCAL so the UI is never in a state
+        // where the "active" provider cannot actually handle operations.
+        if (!connected.contains(activeProvider)) {
+            activeProvider = StorageProviderType.LOCAL.name();
+        }
+
+        return new ActiveProviderResponse(activeProvider, defaultProvider, connected);
     }
 
     /**
@@ -379,6 +403,15 @@ public class UserStorageSettingsService {
                     return fresh;
                 });
 
+        // Validate the user has credentials for the requested provider.
+        // LOCAL is always available; cloud providers require saved credentials.
+        if (newProvider != StorageProviderType.LOCAL
+                && !connectedProviders(s).contains(newProvider.name())) {
+            throw new BadRequestException(
+                    "User " + targetUser.getEmail() + " has not configured credentials for "
+                            + newProvider.name() + ". Ask the user to set up their storage settings first.");
+        }
+
         String previousProvider = s.getDefaultProvider() == null
                 ? StorageProviderType.LOCAL.name()
                 : s.getDefaultProvider();
@@ -416,6 +449,19 @@ public class UserStorageSettingsService {
                         u.getId(), u.getFullName(), u.getEmail(),
                         byUser.getOrDefault(u.getId(), StorageProviderType.LOCAL.name())))
                 .toList();
+    }
+
+    /** Every provider the system supports — used by the settings page so users can
+     *  always see all provider configuration sections regardless of which ones they
+     *  have already configured (avoids the chicken-and-egg problem of needing to
+     *  select a provider before you can enter its credentials). */
+    static List<String> allProviders() {
+        return List.of(
+                StorageProviderType.LOCAL.name(),
+                StorageProviderType.S3.name(),
+                StorageProviderType.GOOGLE_DRIVE.name(),
+                StorageProviderType.ONEDRIVE.name(),
+                StorageProviderType.SFTP.name());
     }
 
     private static boolean notBlank(String v) {
