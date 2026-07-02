@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project.filemanagement.dto.ActiveProviderResponse;
 import com.project.filemanagement.dto.StorageConnectionTestResponse;
 import com.project.filemanagement.dto.StorageSettingsResponse;
+import com.project.filemanagement.dto.SwitchProviderRequest;
 import com.project.filemanagement.dto.UpdateStorageSettingsRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.security.AuthenticatedUserService;
@@ -58,5 +60,25 @@ public class StorageSettingsController {
     ) {
         User user = authenticatedUserService.requireUser(authentication);
         return storageSettingsService.testConnection(user, request);
+    }
+
+    /** Returns the user's currently active provider for browsing/uploading. */
+    @GetMapping("/active-provider")
+    public ActiveProviderResponse getActiveProvider(Authentication authentication) {
+        User user = authenticatedUserService.requireUser(authentication);
+        return storageSettingsService.getActiveProvider(user);
+    }
+
+    /**
+     * Switches the active browsing/upload provider without changing the
+     * user's configured default. Future migration feature can reuse this.
+     */
+    @PutMapping("/active-provider")
+    public ActiveProviderResponse switchActiveProvider(
+            @RequestBody SwitchProviderRequest request,
+            Authentication authentication
+    ) {
+        User user = authenticatedUserService.requireUser(authentication);
+        return storageSettingsService.setActiveProvider(user, request.getProvider());
     }
 }

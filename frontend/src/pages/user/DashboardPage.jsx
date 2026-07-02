@@ -19,6 +19,7 @@ import UploadDialog from "../../components/files/UploadDialog";
 import ShareDialog from "../../components/files/ShareDialog";
 import FilePreviewDialog from "../../components/files/FilePreviewDialog";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import StorageProviderSelector from "../../components/files/StorageProviderSelector";
 import { useToast } from "../../components/ui/Toast";
 import { TextField, InputAdornment } from "@mui/material";
 import { tokens } from "../../theme/theme";
@@ -35,6 +36,7 @@ import {
   previewFile,
   shareFile,
 } from "../../api/fileApi";
+import { getActiveProvider, switchActiveProvider } from "../../api/storageApi";
 
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
@@ -51,6 +53,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
+  // Provider state
+  const [activeProvider, setActiveProvider] = useState(null);
+  const [availableProviders, setAvailableProviders] = useState([]);
+  const [switching, setSwitching] = useState(false);
+
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -65,50 +72,80 @@ export default function DashboardPage() {
   const toastRef = useRef(toast);
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
-  // fetchFiles is stable (no deps that change on re-render) — called only once on mount
-  const fetchFiles = useCallback(async () => {
+  // activeProvider ref so fetchFiles closure can read the latest value
+  const activeProviderRef = useRef(activeProvider);
+  useEffect(() => { activeProviderRef.current = activeProvider; }, [activeProvider]);
+
+  const fetchFiles = useCallback(async (provider) => {
     setLoading(true);
     try {
-      const data = await getMyFiles();
+      const data = await getMyFiles(provider ?? activeProviderRef.current);
       setFiles(Array.isArray(data) ? data : []);
     } catch (e) {
       toastRef.current(e.message || "Couldn't load your files.", "error");
     } finally {
       setLoading(false);
     }
-  }, []); // empty deps — intentionally stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally stable — uses ref for current provider
 
-  // Mount-only fetch
-  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+  // Load active provider on mount, then fetch files
+  useEffect(() => {
+    getActiveProvider()
+      .then((res) => {
+        setActiveProvider(res.activeProvider);
+        setAvailableProviders(res.availableProviders ?? []);
+        return fetchFiles(res.activeProvider);
+      })
+      .catch(() => {
+        // Fall back to all files if provider fetch fails
+        fetchFiles(null);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounced search — only runs when query changes
   useEffect(() => {
     clearTimeout(debounceRef.current);
     if (!query.trim()) {
-      // Query cleared: reload full list (but only if we aren't already loading)
-      fetchFiles();
+      fetchFiles(activeProviderRef.current);
       return;
     }
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchMyFiles(query.trim());
+        const data = await searchMyFiles(query.trim(), activeProviderRef.current);
         setFiles(Array.isArray(data) ? data : []);
       } catch (e) {
         toastRef.current(e.message || "Search failed.", "error");
       }
     }, 320);
     return () => clearTimeout(debounceRef.current);
-  }, [query, fetchFiles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
-  // The dialog calls onUpload(file, description, onProgress). onProgress is the
-  // dialog's setProgress — forward it as the 4th arg so the bar can move.
+  async function handleSwitchProvider(provider) {
+    setSwitching(true);
+    try {
+      const res = await switchActiveProvider(provider);
+      setActiveProvider(res.activeProvider);
+      setAvailableProviders(res.availableProviders ?? []);
+      setQuery(""); // clear search on provider switch
+      await fetchFiles(res.activeProvider);
+      toast(`Switched to ${res.activeProvider}.`, "success");
+    } catch (e) {
+      toast(e.message || "Couldn't switch provider.", "error");
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   async function handleUpload(file, description, onProgress) {
     setUploading(true);
     try {
       await uploadFileWithProgress(file, description, onProgress);
       toast("File uploaded.", "success");
       setUploadOpen(false);
-      await fetchFiles();
+      await fetchFiles(activeProviderRef.current);
     } catch (e) {
       toast(e.message || "Upload failed.", "error");
     } finally {
@@ -157,7 +194,7 @@ export default function DashboardPage() {
       setPreviewTarget((p) => (p && p.fileId === fileId ? { ...p, fileName: newName } : p));
     } catch (e) {
       toast(e.message || "Couldn't rename the file.", "error");
-      throw e; // let the dialog keep the rename field open
+      throw e;
     }
   }
 
@@ -167,7 +204,7 @@ export default function DashboardPage() {
       toast("Changes saved.", "success");
     } catch (e) {
       toast(e.message || "Couldn't save your changes.", "error");
-      throw e; // let the editor stay open with the draft intact
+      throw e;
     }
   }
 
@@ -197,7 +234,7 @@ export default function DashboardPage() {
       );
     } catch (e) {
       toast(e.message || "Couldn't update the description.", "error");
-      throw e; // let the description popover stay open
+      throw e;
     }
   }
 
@@ -215,6 +252,15 @@ export default function DashboardPage() {
   ];
 
   const totalSize = useMemo(() => files.reduce((s, f) => s + (f.fileSize || 0), 0), [files]);
+  void totalSize; // referenced by parent layout if needed
+
+  const emptyMessage = activeProvider
+    ? `No files found in this storage provider.`
+    : (query ? "No files match your search" : "Your vault is empty");
+
+  const emptyDescription = activeProvider && !query
+    ? `Upload a file to add it to ${activeProvider}.`
+    : (query ? "Try a different search term." : "Upload your first file to get started.");
 
   return (
     <AppShell>
@@ -223,9 +269,19 @@ export default function DashboardPage() {
         title="My Files"
         subtitle={loading ? "Loading…" : `${files.length} file${files.length === 1 ? "" : "s"}`}
         actions={
-          <Button variant="contained" startIcon={<CloudUploadRounded />} onClick={() => setUploadOpen(true)}>
-            Upload file
-          </Button>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            {availableProviders.length > 0 && (
+              <StorageProviderSelector
+                activeProvider={activeProvider}
+                availableProviders={availableProviders}
+                switching={switching}
+                onSwitch={handleSwitchProvider}
+              />
+            )}
+            <Button variant="contained" startIcon={<CloudUploadRounded />} onClick={() => setUploadOpen(true)}>
+              Upload file
+            </Button>
+          </Box>
         }
       />
 
@@ -237,13 +293,13 @@ export default function DashboardPage() {
         />
       </Box>
 
-      {loading ? (
+      {(loading || switching) ? (
         <Box sx={{ display: "grid", placeItems: "center", py: 10 }}><CircularProgress /></Box>
       ) : files.length === 0 ? (
         <EmptyState
           icon={<FolderRounded sx={{ fontSize: 30 }} />}
-          title={query ? "No files match your search" : "Your vault is empty"}
-          description={query ? "Try a different search term." : "Upload your first file to get started."}
+          title={emptyMessage}
+          description={emptyDescription}
           action={!query && <Button variant="contained" startIcon={<CloudUploadRounded />} onClick={() => setUploadOpen(true)}>Upload file</Button>}
         />
       ) : (

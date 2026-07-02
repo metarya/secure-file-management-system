@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.project.filemanagement.dto.ActiveProviderResponse;
 import com.project.filemanagement.dto.AdminUserStorageResponse;
 import com.project.filemanagement.dto.StorageConnectionTestResponse;
 import com.project.filemanagement.dto.StorageSettingsResponse;
@@ -82,11 +83,62 @@ public class UserStorageSettingsService {
                 notBlank(s.getSftpHost()) && notBlank(s.getSftpPasswordEnc()));
     }
 
-    /** The provider a user's NEW uploads should use (default LOCAL). */
+    /**
+     * The provider a user's NEW uploads (and file listing) should use.
+     * Uses activeProvider when set, falls back to defaultProvider.
+     */
     public StorageProviderType resolveProviderType(User user) {
         return repository.findByUserId(user.getId())
-                .map(s -> StorageProviderType.fromString(s.getDefaultProvider()))
+                .map(s -> {
+                    String active = s.getActiveProvider();
+                    return StorageProviderType.fromString(notBlank(active) ? active : s.getDefaultProvider());
+                })
                 .orElse(StorageProviderType.LOCAL);
+    }
+
+    /** Returns the currently active provider name and metadata for the UI. */
+    public ActiveProviderResponse getActiveProvider(User user) {
+        UserStorageSettings s = repository.findByUserId(user.getId()).orElse(null);
+        String defaultProvider = s == null || s.getDefaultProvider() == null
+                ? StorageProviderType.LOCAL.name()
+                : s.getDefaultProvider();
+        String activeProvider = (s != null && notBlank(s.getActiveProvider()))
+                ? s.getActiveProvider()
+                : defaultProvider;
+        return new ActiveProviderResponse(activeProvider, defaultProvider, supportedProviders());
+    }
+
+    /**
+     * Sets the user's active viewing/upload provider without changing their
+     * configured default. Passing null or blank resets to the default.
+     */
+    public ActiveProviderResponse setActiveProvider(User user, String providerRaw) {
+        StorageProviderType type = StorageProviderType.fromString(providerRaw);
+
+        UserStorageSettings s = repository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    UserStorageSettings fresh = new UserStorageSettings();
+                    fresh.setUserId(user.getId());
+                    return fresh;
+                });
+
+        String previous = notBlank(s.getActiveProvider()) ? s.getActiveProvider() : s.getDefaultProvider();
+        s.setActiveProvider(type.name());
+        s.setUpdatedAt(LocalDateTime.now());
+        repository.save(s);
+
+        activityLogService.log(
+                user,
+                ActivityLogService.ACTION_STORAGE_PROVIDER_CHANGED,
+                ActivityLogService.RESOURCE_STORAGE,
+                null,
+                providerLabel(previous) + " → " + providerLabel(type.name()),
+                ActivityLogService.SUCCESS,
+                null, null,
+                "Active provider switched from " + previous + " to " + type.name()
+        );
+
+        return getActiveProvider(user);
     }
 
     private static List<String> supportedProviders() {

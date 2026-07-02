@@ -91,6 +91,14 @@ public class UserStorageSettings {
     @Column(name = "sftp_remote_dir", length = 500)
     private String sftpRemoteDir;
 
+    /**
+     * The provider the user is currently browsing/uploading to. NULL means
+     * "use defaultProvider". Separate from defaultProvider so switching view
+     * does not change the user's configured default.
+     */
+    @Column(name = "active_provider", length = 32)
+    private String activeProvider;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

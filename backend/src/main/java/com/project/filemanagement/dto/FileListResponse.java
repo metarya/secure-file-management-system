@@ -19,4 +19,5 @@ public class FileListResponse {
     private final Boolean compressed;
     private final String visibility;
     private final LocalDateTime uploadedAt;
+    private final String storageProvider;
 }
