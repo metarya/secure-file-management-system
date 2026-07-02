@@ -17,18 +17,6 @@ describe('StorageProviderSelector', () => {
     expect(screen.getByTestId('provider-selector-button')).toHaveTextContent('Amazon S3');
   });
 
-  it('shows active provider chip', () => {
-    render(
-      <StorageProviderSelector
-        activeProvider="LOCAL"
-        availableProviders={ALL_PROVIDERS}
-        switching={false}
-        onSwitch={vi.fn()}
-      />
-    );
-    expect(screen.getByTestId('active-provider-chip')).toBeInTheDocument();
-  });
-
   it('opens provider menu when button is clicked', () => {
     render(
       <StorageProviderSelector

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Box, Button, Menu, MenuItem, Chip, CircularProgress,
+  Box, Button, Menu, MenuItem, CircularProgress,
   ListItemIcon, ListItemText, Tooltip,
 } from "@mui/material";
 import StorageRounded from "@mui/icons-material/StorageRounded";
@@ -14,14 +14,6 @@ const PROVIDER_LABELS = {
   GOOGLE_DRIVE: "Google Drive",
   ONEDRIVE: "Microsoft OneDrive",
   SFTP: "SFTP",
-};
-
-const PROVIDER_COLORS = {
-  LOCAL: "default",
-  S3: "warning",
-  GOOGLE_DRIVE: "success",
-  ONEDRIVE: "info",
-  SFTP: "secondary",
 };
 
 function ProviderIcon({ provider, sx }) {
@@ -43,7 +35,6 @@ export default function StorageProviderSelector({
   const [anchor, setAnchor] = useState(null);
 
   const label = PROVIDER_LABELS[activeProvider] ?? activeProvider ?? "Storage";
-  const color = PROVIDER_COLORS[activeProvider] ?? "default";
 
   function handleSelect(provider) {
     setAnchor(null);
@@ -102,14 +93,6 @@ export default function StorageProviderSelector({
         ))}
       </Menu>
 
-      <Chip
-        label={label}
-        color={color}
-        size="small"
-        icon={<ProviderIcon provider={activeProvider} sx={{ fontSize: 14 }} />}
-        sx={{ display: { xs: "none", sm: "flex" } }}
-        data-testid="active-provider-chip"
-      />
     </Box>
   );
 }
