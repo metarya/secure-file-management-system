@@ -1,13 +1,13 @@
 package com.project.filemanagement.storage.cloud;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
 import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory;
 import org.apache.sshd.server.SshServer;
-import org.apache.sshd.server.auth.password.PasswordAuthenticator;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.sftp.server.SftpSubsystemFactory;
 import org.junit.jupiter.api.AfterAll;
@@ -16,6 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.jcraft.jsch.HostKey;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 import com.project.filemanagement.storage.StorageContext;
 import com.project.filemanagement.storage.StorageModels.ConnectionTestResult;
 import com.project.filemanagement.storage.StorageModels.ObjectMetadata;
@@ -39,6 +42,8 @@ class SftpStorageProviderTest {
     private SshServer sshServer;
     private int port;
     private Path rootDir;
+    private Path knownHostsFile;
+    private Path bogusKnownHostsFile;
 
     private final SftpStorageProvider provider = new SftpStorageProvider();
 
@@ -55,6 +60,41 @@ class SftpStorageProviderTest {
         sshServer.setFileSystemFactory(new VirtualFileSystemFactory(rootDir));
         sshServer.start();
         port = sshServer.getPort();
+
+        // Bootstrap: connect once with trust-on-first-use to capture the server's
+        // actual host key, then write it to a temp known_hosts file used by all tests.
+        knownHostsFile = tempDir.resolve("known_hosts");
+        captureServerHostKey(knownHostsFile);
+
+        // A bogus known_hosts file with a fake key — used to verify rejection.
+        bogusKnownHostsFile = tempDir.resolve("known_hosts_bogus");
+        Files.writeString(bogusKnownHostsFile,
+            // Minimal but syntactically valid RSA entry for a key that will never match.
+            "[localhost]:" + port + " ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDfake" +
+            "KeyThatWillNeverMatchTheServerAAAAAAAAAAAAAAAAAAAAAAAA\n",
+            StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Makes a single TOFU connection (StrictHostKeyChecking=no) to capture the
+     * server's real host key, then writes it in known_hosts format so subsequent
+     * connections can verify it with StrictHostKeyChecking=yes.
+     */
+    private void captureServerHostKey(Path target) throws IOException {
+        try {
+            JSch jsch = new JSch();
+            Session bootstrap = jsch.getSession(USER, "localhost", port);
+            bootstrap.setPassword(PASS);
+            bootstrap.setConfig("StrictHostKeyChecking", "no");
+            bootstrap.connect(5_000);
+            HostKey hk = bootstrap.getHostKey();
+            // known_hosts format: [host]:port key-type base64-key
+            String entry = "[localhost]:" + port + " " + hk.getType() + " " + hk.getKey() + "\n";
+            Files.writeString(target, entry, StandardCharsets.UTF_8);
+            bootstrap.disconnect();
+        } catch (Exception e) {
+            throw new IOException("Failed to capture server host key for test setup", e);
+        }
     }
 
     @AfterAll
@@ -74,7 +114,8 @@ class SftpStorageProviderTest {
                 "port", String.valueOf(port),
                 "username", USER,
                 "password", PASS,
-                "remoteDir", remoteDir
+                "remoteDir", remoteDir,
+                "knownHostsPath", knownHostsFile.toString()
         ));
     }
 
@@ -84,7 +125,8 @@ class SftpStorageProviderTest {
                 "port", String.valueOf(port),
                 "username", USER,
                 "password", "wrongpassword",
-                "remoteDir", "/uploads"
+                "remoteDir", "/uploads",
+                "knownHostsPath", knownHostsFile.toString()
         ));
     }
 
@@ -233,7 +275,8 @@ class SftpStorageProviderTest {
                 "port", "22",
                 "username", USER,
                 "password", PASS,
-                "remoteDir", "/uploads"
+                "remoteDir", "/uploads",
+                "knownHostsPath", knownHostsFile.toString()
         ));
         ConnectionTestResult result = provider.testConnection(ctx);
         assertFalse(result.success());
@@ -288,7 +331,8 @@ class SftpStorageProviderTest {
     @Test
     void upload_missingHost_throwsStorageException() {
         StorageContext ctx = new StorageContext("u@x.com", StorageProviderType.SFTP, Map.of(
-                "port", "22", "username", USER, "password", PASS, "remoteDir", "/up"
+                "port", "22", "username", USER, "password", PASS, "remoteDir", "/up",
+                "knownHostsPath", knownHostsFile.toString()
         ));
         assertThrows(StorageException.class, () -> provider.upload(ctx, "f.txt", new byte[0], null));
     }
@@ -297,7 +341,8 @@ class SftpStorageProviderTest {
     void upload_invalidPort_throwsStorageException() {
         StorageContext ctx = new StorageContext("u@x.com", StorageProviderType.SFTP, Map.of(
                 "host", "localhost", "port", "notaport",
-                "username", USER, "password", PASS, "remoteDir", "/up"
+                "username", USER, "password", PASS, "remoteDir", "/up",
+                "knownHostsPath", knownHostsFile.toString()
         ));
         assertThrows(StorageException.class, () -> provider.upload(ctx, "f.txt", new byte[0], null));
     }
@@ -305,8 +350,48 @@ class SftpStorageProviderTest {
     @Test
     void upload_missingUsername_throwsStorageException() {
         StorageContext ctx = new StorageContext("u@x.com", StorageProviderType.SFTP, Map.of(
-                "host", "localhost", "port", "22", "password", PASS, "remoteDir", "/up"
+                "host", "localhost", "port", "22", "password", PASS, "remoteDir", "/up",
+                "knownHostsPath", knownHostsFile.toString()
         ));
         assertThrows(StorageException.class, () -> provider.upload(ctx, "f.txt", new byte[0], null));
+    }
+
+    // ------------------------------------------------------------------
+    // 12. Host key verification
+    // ------------------------------------------------------------------
+
+    @Test
+    void testConnection_missingKnownHostsPath_failsWithDescriptiveMessage() {
+        StorageContext ctx = new StorageContext("u@x.com", StorageProviderType.SFTP, Map.of(
+                "host", "localhost",
+                "port", String.valueOf(port),
+                "username", USER,
+                "password", PASS,
+                "remoteDir", "/uploads"
+                // no knownHostsPath
+        ));
+        // Provider must refuse the connection and return a clear error.
+        ConnectionTestResult result = provider.testConnection(ctx);
+        assertFalse(result.success(), "connection without known_hosts must not succeed");
+        assertTrue(result.message().contains("known_hosts"),
+                "error should mention known_hosts, got: " + result.message());
+    }
+
+    @Test
+    void testConnection_unknownHostKey_returnsHostKeyError() {
+        // Use the bogus known_hosts file — server key will not match.
+        StorageContext ctx = new StorageContext("u@x.com", StorageProviderType.SFTP, Map.of(
+                "host", "localhost",
+                "port", String.valueOf(port),
+                "username", USER,
+                "password", PASS,
+                "remoteDir", "/uploads",
+                "knownHostsPath", bogusKnownHostsFile.toString()
+        ));
+        ConnectionTestResult result = provider.testConnection(ctx);
+        assertFalse(result.success(), "connection should fail when host key is not trusted");
+        // Error should be descriptive (not a generic NPE).
+        assertNotNull(result.message());
+        assertFalse(result.message().isBlank());
     }
 }

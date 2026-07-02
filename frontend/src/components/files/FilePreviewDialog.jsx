@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +63,7 @@ export default function FilePreviewDialog({
   const [editing, setEditing] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const previewRef = useRef(null);
 
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -448,7 +449,21 @@ export default function FilePreviewDialog({
               />
             ) : (
               <Box
+                ref={previewRef}
                 className="fv-rich"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  // Scope Ctrl+A / Cmd+A to this element only so that
+                  // "select all" never reaches the dialog header or footer.
+                  if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+                    e.preventDefault();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(previewRef.current);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                  }
+                }}
                 sx={{
                   color: tokens.text,
                   fontSize: "0.95rem",
@@ -457,6 +472,9 @@ export default function FilePreviewDialog({
                   maxHeight: 460,
                   overflowY: "auto",
                   p: 0.5,
+                  outline: "none",
+                  userSelect: "text",
+                  cursor: "text",
                 }}
                 dangerouslySetInnerHTML={{
                   __html: renderedHtml,

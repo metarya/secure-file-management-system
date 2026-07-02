@@ -174,6 +174,7 @@ secure-file-management-system/
 | Maven | 3.9+ |
 | Node.js | 18+ |
 | MySQL | 8.0+ |
+| Redis | 6.0+ (required for authentication rate limiting) |
 | FFmpeg | Any recent release (required for video/audio features) |
 
 ### Clone
@@ -182,6 +183,81 @@ secure-file-management-system/
 git clone https://github.com/metarya07/secure-file-management-system.git
 cd secure-file-management-system
 ```
+
+### Redis Setup
+
+Redis is required for IP-based authentication rate limiting. If Redis is unavailable, the application starts normally and logs a warning — rate limiting is gracefully disabled.
+
+## Screenshots
+
+> Screenshots will be added in a future update.
+
+| Screen | Path |
+|---|---|
+| Login | `docs/images/login.png` |
+| Dashboard | `docs/images/dashboard.png` |
+| File Manager | `docs/images/file-manager.png` |
+| File Preview | `docs/images/file-preview.png` |
+| Admin Panel | `docs/images/admin-panel.png` |
+| Storage Settings | `docs/images/storage-settings.png` |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Java JDK | 21+ |
+| Maven | 3.9+ |
+| Node.js | 18+ |
+| MySQL | 8.0+ |
+| FFmpeg | Any recent release (required for video/audio features) |
+
+### Clone
+
+```bash
+git clone https://github.com/metarya07/secure-file-management-system.git
+cd secure-file-management-system
+```
+**Docker (recommended for local development):**
+
+```bash
+docker run -d --name sfms-redis -p 6379:6379 redis:7-alpine
+```
+
+**Or with Docker Compose:**
+
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+```
+
+Configure connection in `application.properties` (or via environment):
+
+```properties
+spring.data.redis.host=localhost   # default
+spring.data.redis.port=6379        # default
+spring.data.redis.timeout=2000
+# spring.data.redis.password=yourpassword   # if auth is enabled
+```
+
+**Rate-limiting behaviour (defaults):**
+
+| Endpoint | Window | Max requests | Response on breach |
+|---|---|---|---|
+| `POST /api/auth/login` | 60 s | 5 per IP | 429 Too Many Requests |
+| `POST /api/auth/forgot-password` | 900 s | 3 per email | 429 Too Many Requests |
+| `POST /api/auth/reset-password` (OTP) | 300 s | 5 per IP | 429 Too Many Requests |
+
+In addition, **per-account locking** is enforced in the database: after 5 consecutive wrong-password attempts the account is locked for 15 minutes. Unlike IP-based limits, this lock persists across IP changes and survives a Redis restart.
+
+---
 
 ### Database Setup
 
@@ -247,6 +323,9 @@ The app starts on `http://localhost:5173`.
 
 ---
 
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Description | Example |
@@ -261,6 +340,9 @@ The app starts on `http://localhost:5173`.
 | `APP_STORAGE_ENCRYPTION_KEY` | Yes | AES key for credential encryption | *(secret, ≥ 16 chars)* |
 | `APP_STORAGE_ENCRYPTION_SALT` | No | Encryption salt | `5c0744940b5c369b` |
 | `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed origins | `http://localhost:5173` |
+| `REDIS_HOST` | No | Redis host (default: `localhost`) | `redis` |
+| `REDIS_PORT` | No | Redis port (default: `6379`) | `6379` |
+| `REDIS_PASSWORD` | No | Redis password (leave unset if auth disabled) | *(secret)* |
 
 ---
 
@@ -304,6 +386,11 @@ The `StorageProvider` interface in `storage/StorageProvider.java` defines the co
 | JWT Authentication | Stateless tokens validated on every request via `JwtAuthFilter` |
 | Account Locking | Admins can disable user accounts; `UserStatus.DISABLED` blocks login |
 | Password Reset | Six-digit OTP emailed to user; expires after use |
+| Brute-Force Protection (IP) | Redis-backed `LoginRateLimitFilter` blocks IPs after 5 attempts/60 s (429) |
+| Brute-Force Protection (account) | DB-level counter locks individual accounts after 5 wrong passwords for 15 min |
+| Password Reset | Six-digit OTP emailed to user; expires after use |
+| OTP Rate Limiting | `OtpRateLimitFilter` limits reset-password attempts per IP via Redis |
+| Forgot-Password Rate Limiting | `ForgotPasswordRateLimitFilter` limits forgot-password requests per email via Redis |
 | Secure Password Hashing | BCrypt via `spring-security-crypto` |
 | Session Expiry Redirect | Frontend intercepts 401 responses and redirects to the login page |
 | Credential Encryption | Storage provider credentials encrypted with AES-256 at rest (`CredentialEncryptionService`) |
@@ -331,6 +418,20 @@ To run a single test class:
 
 ```bash
 mvn test -Dtest=SftpStorageProviderTest
+Tests are written with **JUnit 5** and **Mockito**. The integration tests use an H2 in-memory database and mock `StringRedisTemplate`, so no external MySQL or Redis instance is required to run the test suite.
+
+| Test | Type | Covers |
+|---|---|---|
+| `AccountLockTest` | Unit | Per-account failed-attempt counter, lock lifecycle (increment, expire, reset) |
+| `AccountLockIntegrationTest` | Integration (H2) | Full `AuthService` wiring: DB writes verified after lock and successful login |
+| `CredentialEncryptionServiceTest` | Unit | AES encrypt/decrypt round-trips |
+| `StorageActivityLoggingTest` | Unit | Activity log entries generated for storage operations |
+| `SftpStorageProviderTest` | Integration | SFTP provider connection and file transfer (embedded Apache SSHD) |
+
+To run a single test class:
+
+```bash
+mvn test -Dtest=AccountLockIntegrationTest
 ```
 
 ---
