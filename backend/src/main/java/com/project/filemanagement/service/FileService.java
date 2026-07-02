@@ -359,6 +359,10 @@ return new FileUploadResponse(
     // ----------------------------------------------------------------------
 
     public List<FileListResponse> getMyFiles(Long ownerId) {
+        return getMyFiles(ownerId, null);
+    }
+
+    public List<FileListResponse> getMyFiles(Long ownerId, String provider) {
 
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
@@ -367,14 +371,24 @@ return new FileUploadResponse(
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
+        boolean hasProvider = provider != null && !provider.isBlank();
+        String normalizedProvider = hasProvider
+                ? StorageProviderType.fromString(provider).name()
+                : null;
+
         return fileRepository.findByOwner(owner)
                 .stream()
                 .filter(file -> !Boolean.TRUE.equals(file.getDeleted()))
+                .filter(file -> !hasProvider || normalizedProvider.equals(file.getStorageProvider()))
                 .map(this::mapToFileListResponse)
                 .toList();
     }
 
     public List<FileListResponse> searchMyFiles(Long ownerId, String name) {
+        return searchMyFiles(ownerId, name, null);
+    }
+
+    public List<FileListResponse> searchMyFiles(Long ownerId, String name, String provider) {
 
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
@@ -387,9 +401,15 @@ return new FileUploadResponse(
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
+        boolean hasProvider = provider != null && !provider.isBlank();
+        String normalizedProvider = hasProvider
+                ? StorageProviderType.fromString(provider).name()
+                : null;
+
         return fileRepository.findByOwnerAndFileNameContainingIgnoreCase(owner, name)
                 .stream()
                 .filter(file -> !Boolean.TRUE.equals(file.getDeleted()))
+                .filter(file -> !hasProvider || normalizedProvider.equals(file.getStorageProvider()))
                 .map(this::mapToFileListResponse)
                 .toList();
     }
@@ -401,10 +421,15 @@ return new FileUploadResponse(
     /**
      * One page of the owner's live files. When {@code search} is non-blank the
      * page is filtered by file name; otherwise it's the full (non-deleted) set.
-     * The deleted filter is applied in the query so the page metadata counts
-     * match exactly what the user sees.
+     * When {@code provider} is non-blank only files from that storage provider
+     * are returned. The deleted filter is applied in the query so the page
+     * metadata counts match exactly what the user sees.
      */
     public PageResponse<FileListResponse> getMyFilesPage(Long ownerId, String search, Pageable pageable) {
+        return getMyFilesPage(ownerId, search, null, pageable);
+    }
+
+    public PageResponse<FileListResponse> getMyFilesPage(Long ownerId, String search, String provider, Pageable pageable) {
 
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
@@ -414,17 +439,31 @@ return new FileUploadResponse(
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
         boolean hasSearch = search != null && !search.isBlank();
+        boolean hasProvider = provider != null && !provider.isBlank();
+        String normalizedProvider = hasProvider
+                ? StorageProviderType.fromString(provider).name()
+                : null;
 
-        var page = hasSearch
-                ? fileRepository.findByOwnerAndDeletedFalseAndFileNameContainingIgnoreCase(
-                        owner, search.trim(), pageable)
-                : fileRepository.findByOwnerAndDeletedFalse(owner, pageable);
+        var page = hasProvider
+                ? (hasSearch
+                        ? fileRepository.findByOwnerAndDeletedFalseAndFileNameContainingIgnoreCaseAndStorageProvider(
+                                owner, search.trim(), normalizedProvider, pageable)
+                        : fileRepository.findByOwnerAndDeletedFalseAndStorageProvider(
+                                owner, normalizedProvider, pageable))
+                : (hasSearch
+                        ? fileRepository.findByOwnerAndDeletedFalseAndFileNameContainingIgnoreCase(
+                                owner, search.trim(), pageable)
+                        : fileRepository.findByOwnerAndDeletedFalse(owner, pageable));
 
         return PageResponse.of(page, this::mapToFileListResponse);
     }
 
     /** One page of the owner's soft-deleted files (the recycle bin view). */
     public PageResponse<FileListResponse> getDeletedFilesPage(Long ownerId, Pageable pageable) {
+        return getDeletedFilesPage(ownerId, null, pageable);
+    }
+
+    public PageResponse<FileListResponse> getDeletedFilesPage(Long ownerId, String provider, Pageable pageable) {
 
         if (ownerId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner ID is required");
@@ -433,9 +472,16 @@ return new FileUploadResponse(
         User owner = userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner user not found"));
 
-        return PageResponse.of(
-                fileRepository.findByOwnerAndDeletedTrue(owner, pageable),
-                this::mapToFileListResponse);
+        boolean hasProvider = provider != null && !provider.isBlank();
+        String normalizedProvider = hasProvider
+                ? StorageProviderType.fromString(provider).name()
+                : null;
+
+        var page = hasProvider
+                ? fileRepository.findByOwnerAndDeletedTrueAndStorageProvider(owner, normalizedProvider, pageable)
+                : fileRepository.findByOwnerAndDeletedTrue(owner, pageable);
+
+        return PageResponse.of(page, this::mapToFileListResponse);
     }
 
     private FileListResponse mapToFileListResponse(FileEntity file) {
@@ -450,7 +496,8 @@ return new FileUploadResponse(
                 file.getCompressedFileSize(),
                 file.getCompressed(),
                 file.getVisibility(),
-                file.getUploadedAt()
+                file.getUploadedAt(),
+                file.getStorageProvider()
         );
     }
 

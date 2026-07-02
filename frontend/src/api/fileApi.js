@@ -6,9 +6,15 @@ import { htmlToText } from "../utils/htmlToText";
 
 // --- listing / search ---------------------------------------------------
 // The backend derives the owner from the JWT; no ownerId is sent.
-export const getMyFiles = () => api.get(`/files/my-files`);
-export const searchMyFiles = (name) =>
-  api.get(`/files/search?name=${encodeURIComponent(name)}`);
+// Pass provider to filter the file list to a specific storage provider.
+export const getMyFiles = (provider) =>
+  api.get(provider ? `/files/my-files?provider=${encodeURIComponent(provider)}` : `/files/my-files`);
+export const searchMyFiles = (name, provider) =>
+  api.get(
+    provider
+      ? `/files/search?name=${encodeURIComponent(name)}&provider=${encodeURIComponent(provider)}`
+      : `/files/search?name=${encodeURIComponent(name)}`
+  );
 export const getSharedWithMe = () => api.get(`/files/shared-with-me`);
 
 // --- upload -------------------------------------------------------------

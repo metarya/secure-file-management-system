@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.filemanagement.dto.AdminFilePreviewResponse;
+import com.project.filemanagement.dto.ChangeUserStorageProviderRequest;
 import com.project.filemanagement.dto.AdminFileResponse;
 import com.project.filemanagement.dto.AdminFileStatsResponse;
 import com.project.filemanagement.dto.AdminResetPasswordResponse;
@@ -549,6 +551,36 @@ public String deleteUser(
         Authentication authentication
 ) {
     return userService.deleteUser(userId, authentication.getName());
+}
+
+@PreAuthorize("hasAuthority('USER:ROLE_ASSIGN')")
+@PutMapping("/users/{id}/storage-provider")
+public AdminUserStorageResponse changeUserStorageProvider(
+        @PathVariable Long id,
+        @RequestBody ChangeUserStorageProviderRequest request,
+        Authentication authentication
+) {
+    User targetUser = userRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    String adminEmail = authentication == null ? "ADMIN" : authentication.getName();
+
+    String newProvider = userStorageSettingsService
+            .adminChangeUserStorageProvider(targetUser, request.getStorageProvider(), adminEmail);
+
+    auditLogService.logAction(
+            "STORAGE_PROVIDER_CHANGED",
+            adminEmail,
+            "Changed storage provider for user " + targetUser.getEmail()
+                    + " to " + newProvider
+    );
+
+    return new AdminUserStorageResponse(
+            targetUser.getId(),
+            targetUser.getFullName(),
+            targetUser.getEmail(),
+            newProvider
+    );
 }
 
 private String getPrimaryRole(User user) {

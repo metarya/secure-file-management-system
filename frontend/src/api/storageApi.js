@@ -17,3 +17,13 @@ export const testStorageConnection = (settings) =>
 
 // Admin: which provider each user uses (read-only; no credentials).
 export const getAdminUserStorage = () => api.get(`/admin/user-storage`);
+
+// Admin: change the storage provider assigned to any user.
+export const adminChangeUserStorageProvider = (userId, storageProvider) =>
+  api.put(`/admin/users/${userId}/storage-provider`, { storageProvider });
+
+// Active provider: the provider the current user is browsing/uploading to.
+// Separate from the default provider — switching this does not change settings.
+export const getActiveProvider = () => api.get(`/storage/active-provider`);
+export const switchActiveProvider = (provider) =>
+  api.put(`/storage/active-provider`, { provider });

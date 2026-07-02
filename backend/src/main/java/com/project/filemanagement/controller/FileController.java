@@ -58,19 +58,22 @@ public class FileController {
     }
 
     @GetMapping("/my-files")
-    public ResponseEntity<List<FileListResponse>> getMyFiles(Authentication authentication) {
+    public ResponseEntity<List<FileListResponse>> getMyFiles(
+            @RequestParam(required = false) String provider,
+            Authentication authentication) {
         Long ownerId = authenticatedUserService.requireUserId(authentication);
-        return ResponseEntity.ok(fileService.getMyFiles(ownerId));
+        return ResponseEntity.ok(fileService.getMyFiles(ownerId, provider));
     }
 
     @GetMapping("/search")
     public ResponseEntity<List<FileListResponse>> searchMyFiles(
             @RequestParam String name,
+            @RequestParam(required = false) String provider,
             Authentication authentication) {
 
         Long ownerId = authenticatedUserService.requireUserId(authentication);
 
-        return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name));
+        return ResponseEntity.ok(fileService.searchMyFiles(ownerId, name, provider));
     }
     @GetMapping("/preview/{fileId}")
     public ResponseEntity<byte[]> previewFile(

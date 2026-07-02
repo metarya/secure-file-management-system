@@ -9,12 +9,14 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.project.filemanagement.dto.ActiveProviderResponse;
 import com.project.filemanagement.dto.AdminUserStorageResponse;
 import com.project.filemanagement.dto.StorageConnectionTestResponse;
 import com.project.filemanagement.dto.StorageSettingsResponse;
 import com.project.filemanagement.dto.UpdateStorageSettingsRequest;
 import com.project.filemanagement.entity.User;
 import com.project.filemanagement.entity.UserStorageSettings;
+import com.project.filemanagement.exception.BadRequestException;
 import com.project.filemanagement.repository.UserStorageSettingsRepository;
 import com.project.filemanagement.storage.StorageContext;
 import com.project.filemanagement.storage.StorageModels.ConnectionTestResult;
@@ -60,18 +62,21 @@ public class UserStorageSettingsService {
 
     public StorageSettingsResponse getSettings(User user) {
         UserStorageSettings s = repository.findByUserId(user.getId()).orElse(null);
+        List<String> all = allProviders();
 
         if (s == null) {
             return new StorageSettingsResponse(
                     StorageProviderType.LOCAL.name(),
-                    supportedProviders(),
+                    connectedProviders(null),
+                    all,
                     null, null, null, false, null, false, null, false,
                     null, null, null, null, false);
         }
 
         return new StorageSettingsResponse(
                 s.getDefaultProvider() == null ? StorageProviderType.LOCAL.name() : s.getDefaultProvider(),
-                supportedProviders(),
+                connectedProviders(s),
+                all,
                 s.getLocalDirectory(),
                 s.getS3Bucket(),
                 s.getS3Region(),
@@ -87,20 +92,108 @@ public class UserStorageSettingsService {
                 notBlank(s.getSftpHost()) && notBlank(s.getSftpPasswordEnc()));
     }
 
-    /** The provider a user's NEW uploads should use (default LOCAL). */
+    /**
+     * The provider a user's NEW uploads (and file listing) should use.
+     * Uses activeProvider when set, falls back to defaultProvider.
+     * Always returns LOCAL if the resolved provider has no saved credentials,
+     * preventing uploads from failing with a missing-credentials error when
+     * an admin or stale DB state points at an unconfigured provider.
+     */
     public StorageProviderType resolveProviderType(User user) {
         return repository.findByUserId(user.getId())
-                .map(s -> StorageProviderType.fromString(s.getDefaultProvider()))
+                .map(s -> {
+                    String active = s.getActiveProvider();
+                    StorageProviderType type = StorageProviderType.fromString(
+                            notBlank(active) ? active : s.getDefaultProvider());
+                    // Safety: verify credentials exist for this provider.
+                    if (type != StorageProviderType.LOCAL && !connectedProviders(s).contains(type.name())) {
+                        return StorageProviderType.LOCAL;
+                    }
+                    return type;
+                })
                 .orElse(StorageProviderType.LOCAL);
     }
 
-    private static List<String> supportedProviders() {
-        return List.of(
-                StorageProviderType.LOCAL.name(),
-                StorageProviderType.S3.name(),
-                StorageProviderType.GOOGLE_DRIVE.name(),
-                StorageProviderType.ONEDRIVE.name(),
-                StorageProviderType.SFTP.name());
+    /** Returns the currently active provider name and metadata for the UI. */
+    public ActiveProviderResponse getActiveProvider(User user) {
+        UserStorageSettings s = repository.findByUserId(user.getId()).orElse(null);
+        String defaultProvider = s == null || s.getDefaultProvider() == null
+                ? StorageProviderType.LOCAL.name()
+                : s.getDefaultProvider();
+        String activeProvider = (s != null && notBlank(s.getActiveProvider()))
+                ? s.getActiveProvider()
+                : defaultProvider;
+
+        List<String> connected = connectedProviders(s);
+
+        // If the active/default provider isn't in the connected list (e.g., admin
+        // assigned a provider the user has no credentials for, or credentials were
+        // cleared after switching), fall back to LOCAL so the UI is never in a state
+        // where the "active" provider cannot actually handle operations.
+        if (!connected.contains(activeProvider)) {
+            activeProvider = StorageProviderType.LOCAL.name();
+        }
+
+        return new ActiveProviderResponse(activeProvider, defaultProvider, connected);
+    }
+
+    /**
+     * Sets the user's active viewing/upload provider without changing their
+     * configured default. Passing null or blank resets to the default.
+     */
+    public ActiveProviderResponse setActiveProvider(User user, String providerRaw) {
+        StorageProviderType type = StorageProviderType.fromString(providerRaw);
+
+        UserStorageSettings s = repository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    UserStorageSettings fresh = new UserStorageSettings();
+                    fresh.setUserId(user.getId());
+                    return fresh;
+                });
+
+        String previous = notBlank(s.getActiveProvider()) ? s.getActiveProvider() : s.getDefaultProvider();
+        s.setActiveProvider(type.name());
+        s.setUpdatedAt(LocalDateTime.now());
+        repository.save(s);
+
+        activityLogService.log(
+                user,
+                ActivityLogService.ACTION_STORAGE_PROVIDER_CHANGED,
+                ActivityLogService.RESOURCE_STORAGE,
+                null,
+                providerLabel(previous) + " → " + providerLabel(type.name()),
+                ActivityLogService.SUCCESS,
+                null, null,
+                "Active provider switched from " + previous + " to " + type.name()
+        );
+
+        return getActiveProvider(user);
+    }
+
+    /**
+     * Returns only the providers the user has actually configured, so the UI
+     * never shows a provider the user cannot use. LOCAL is always included.
+     */
+    static List<String> connectedProviders(UserStorageSettings s) {
+        if (s == null) {
+            return List.of(StorageProviderType.LOCAL.name());
+        }
+        var providers = new java.util.ArrayList<String>();
+        providers.add(StorageProviderType.LOCAL.name());
+        if (notBlank(s.getS3Bucket()) && notBlank(s.getS3Region())
+                && notBlank(s.getS3AccessKeyEnc()) && notBlank(s.getS3SecretKeyEnc())) {
+            providers.add(StorageProviderType.S3.name());
+        }
+        if (notBlank(s.getGdriveClientId()) && notBlank(s.getGdriveRefreshTokenEnc())) {
+            providers.add(StorageProviderType.GOOGLE_DRIVE.name());
+        }
+        if (notBlank(s.getOnedriveClientId()) && notBlank(s.getOnedriveRefreshTokenEnc())) {
+            providers.add(StorageProviderType.ONEDRIVE.name());
+        }
+        if (notBlank(s.getSftpHost()) && notBlank(s.getSftpPasswordEnc())) {
+            providers.add(StorageProviderType.SFTP.name());
+        }
+        return java.util.Collections.unmodifiableList(providers);
     }
 
     // ----------------------------------------------------------------------
@@ -301,8 +394,59 @@ public class UserStorageSettingsService {
     }
 
     // ----------------------------------------------------------------------
-    // Admin (read-only)
+    // Admin (read/write)
     // ----------------------------------------------------------------------
+
+    /**
+     * Changes a user's default storage provider on behalf of an administrator.
+     * Only the provider pointer is changed; no files are migrated.
+     *
+     * @param adminEmail the authenticated admin's email (used for audit logging)
+     * @return the updated provider name (enum string)
+     */
+    public String adminChangeUserStorageProvider(User targetUser, String newProviderRaw, String adminEmail) {
+        StorageProviderType newProvider = StorageProviderType.fromString(newProviderRaw);
+
+        UserStorageSettings s = repository.findByUserId(targetUser.getId())
+                .orElseGet(() -> {
+                    UserStorageSettings fresh = new UserStorageSettings();
+                    fresh.setUserId(targetUser.getId());
+                    return fresh;
+                });
+
+        // Validate the user has credentials for the requested provider.
+        // LOCAL is always available; cloud providers require saved credentials.
+        if (newProvider != StorageProviderType.LOCAL
+                && !connectedProviders(s).contains(newProvider.name())) {
+            throw new BadRequestException(
+                    "User " + targetUser.getEmail() + " has not configured credentials for "
+                            + newProvider.name() + ". Ask the user to set up their storage settings first.");
+        }
+
+        String previousProvider = s.getDefaultProvider() == null
+                ? StorageProviderType.LOCAL.name()
+                : s.getDefaultProvider();
+
+        s.setDefaultProvider(newProvider.name());
+        s.setUpdatedAt(LocalDateTime.now());
+        repository.save(s);
+
+        activityLogService.logByEmail(
+                adminEmail,
+                ActivityLogService.ACTION_STORAGE_PROVIDER_CHANGED,
+                ActivityLogService.RESOURCE_STORAGE,
+                targetUser.getId(),
+                targetUser.getEmail(),
+                ActivityLogService.SUCCESS,
+                previousProvider,
+                newProvider.name(),
+                "Admin " + adminEmail + " changed storage provider for user "
+                        + targetUser.getEmail() + " from " + providerLabel(previousProvider)
+                        + " to " + providerLabel(newProvider.name())
+        );
+
+        return newProvider.name();
+    }
 
     /** Maps each user to their default provider for the admin overview. */
     public List<AdminUserStorageResponse> adminListUserStorage(List<User> users) {
@@ -316,6 +460,19 @@ public class UserStorageSettingsService {
                         u.getId(), u.getFullName(), u.getEmail(),
                         byUser.getOrDefault(u.getId(), StorageProviderType.LOCAL.name())))
                 .toList();
+    }
+
+    /** Every provider the system supports — used by the settings page so users can
+     *  always see all provider configuration sections regardless of which ones they
+     *  have already configured (avoids the chicken-and-egg problem of needing to
+     *  select a provider before you can enter its credentials). */
+    static List<String> allProviders() {
+        return List.of(
+                StorageProviderType.LOCAL.name(),
+                StorageProviderType.S3.name(),
+                StorageProviderType.GOOGLE_DRIVE.name(),
+                StorageProviderType.ONEDRIVE.name(),
+                StorageProviderType.SFTP.name());
     }
 
     private static boolean notBlank(String v) {

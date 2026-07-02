@@ -188,6 +188,39 @@ cd secure-file-management-system
 
 Redis is required for IP-based authentication rate limiting. If Redis is unavailable, the application starts normally and logs a warning — rate limiting is gracefully disabled.
 
+## Screenshots
+
+> Screenshots will be added in a future update.
+
+| Screen | Path |
+|---|---|
+| Login | `docs/images/login.png` |
+| Dashboard | `docs/images/dashboard.png` |
+| File Manager | `docs/images/file-manager.png` |
+| File Preview | `docs/images/file-preview.png` |
+| Admin Panel | `docs/images/admin-panel.png` |
+| Storage Settings | `docs/images/storage-settings.png` |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Java JDK | 21+ |
+| Maven | 3.9+ |
+| Node.js | 18+ |
+| MySQL | 8.0+ |
+| FFmpeg | Any recent release (required for video/audio features) |
+
+### Clone
+
+```bash
+git clone https://github.com/metarya07/secure-file-management-system.git
+cd secure-file-management-system
+```
 **Docker (recommended for local development):**
 
 ```bash
@@ -290,6 +323,9 @@ The app starts on `http://localhost:5173`.
 
 ---
 
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Description | Example |
@@ -349,6 +385,7 @@ The `StorageProvider` interface in `storage/StorageProvider.java` defines the co
 |---|---|
 | JWT Authentication | Stateless tokens validated on every request via `JwtAuthFilter` |
 | Account Locking | Admins can disable user accounts; `UserStatus.DISABLED` blocks login |
+| Password Reset | Six-digit OTP emailed to user; expires after use |
 | Brute-Force Protection (IP) | Redis-backed `LoginRateLimitFilter` blocks IPs after 5 attempts/60 s (429) |
 | Brute-Force Protection (account) | DB-level counter locks individual accounts after 5 wrong passwords for 15 min |
 | Password Reset | Six-digit OTP emailed to user; expires after use |
@@ -370,6 +407,17 @@ cd backend
 mvn test
 ```
 
+Tests are written with **JUnit 5** and **Mockito**. Notable test classes:
+
+| Test | Covers |
+|---|---|
+| `StorageActivityLoggingTest` | Activity log entries generated for storage operations |
+| `SftpStorageProviderTest` | SFTP provider connection and file transfer logic |
+
+To run a single test class:
+
+```bash
+mvn test -Dtest=SftpStorageProviderTest
 Tests are written with **JUnit 5** and **Mockito**. The integration tests use an H2 in-memory database and mock `StringRedisTemplate`, so no external MySQL or Redis instance is required to run the test suite.
 
 | Test | Type | Covers |

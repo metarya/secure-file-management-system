@@ -53,4 +53,15 @@ public interface FileRepository extends JpaRepository<FileEntity, Long> {
             String ownerEmail,
             Pageable pageable
     );
+
+    // --- Provider-filtered variants (for storage-provider switching) --------
+
+    Page<FileEntity> findByOwnerAndDeletedFalseAndStorageProvider(
+            User owner, String storageProvider, Pageable pageable);
+
+    Page<FileEntity> findByOwnerAndDeletedFalseAndFileNameContainingIgnoreCaseAndStorageProvider(
+            User owner, String fileName, String storageProvider, Pageable pageable);
+
+    Page<FileEntity> findByOwnerAndDeletedTrueAndStorageProvider(
+            User owner, String storageProvider, Pageable pageable);
 }

@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.project.filemanagement.storage.StorageModels.StorageException;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
@@ -73,6 +75,21 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         return buildResponse(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    // Storage backend failures (cloud provider unreachable, wrong credentials,
+    // network timeout) -> 502 Bad Gateway with the provider's own message so the
+    // client can surface a meaningful error instead of "Unexpected server error".
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<Map<String, Object>> handleStorageException(
+            StorageException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_GATEWAY,
+                exception.getMessage(),
+                request
+        );
     }
 
     // Anything not handled above is an unexpected server error. The internal
