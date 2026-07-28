@@ -2,7 +2,7 @@
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen?logo=springboot)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
-![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
+![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
